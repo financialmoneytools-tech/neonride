@@ -55,7 +55,7 @@ export const config = {
     cube: {
       size: 1.5,
       position: { x: 0, y: 1.2, z: 0 },
-      spinSpeed: { x: 0.6, y: 0.9 }, // rad/s
+      spinSpeed: { x: 1.5, y: 2.0 }, // rad/s
       color: 0x00e5ff,
       emissive: 0x00e5ff,
       emissiveIntensity: 0.6,
