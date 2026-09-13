@@ -53,6 +53,7 @@ const FRAGMENT_SHADER = `
   uniform float uArcSoftness;
   uniform float uArcDrift;
   uniform float uWarmArcScale;
+  uniform float uWarmFloor;
 
   varying vec2 vUv;
 
@@ -135,9 +136,11 @@ const FRAGMENT_SHADER = `
     vec3 curtainColor = mix(uColorLow, uColorHigh, clamp(vUv.y / top, 0.0, 1.0));
 
     // Warm under layer, modulated by the clusters so it is never a flat ring
+    // The warm glow follows the rays rather than running flat along the
+    // horizon. A continuous under layer is what read as a grey haze band.
     float warmAlpha = smoothstep(uWarmHeight, 0.0, vUv.y)
       * bottomFade * uWarmIntensity * warmArc
-      * (0.2 + 0.8 * clusters) * (0.5 + 0.5 * slow);
+      * (uWarmFloor + (1.0 - uWarmFloor) * rays);
 
     // Sum the two contributions, then un-premultiply: additive blending
     // multiplies by alpha again, which reproduces exactly this sum.
@@ -191,6 +194,7 @@ export class Aurora {
         uArcSoftness: { value: c.arcSoftness },
         uArcDrift: { value: c.arcDrift },
         uWarmArcScale: { value: c.warmArcScale },
+        uWarmFloor: { value: c.warmFloor },
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,

@@ -84,7 +84,7 @@ export const config = {
 
       twinkleAmount: 0.3, // 0 = steady, 1 = full blink
       twinkleSpeed: 1.6,
-      bandBrightness: 1.3, // band stars are boosted so the structure reads
+      trailBrightness: 1.3, // trail stars are boosted so the structure reads
 
       // Sizes follow size = sizeMin + (sizeMax - sizeMin) * pow(random, exponent).
       // A high exponent keeps most stars small and leaves a few big bright ones.
@@ -121,36 +121,28 @@ export const config = {
         },
       ],
 
-      // Curved bands the clustered stars follow. Each band is generated around
-      // the equator and then rotated into place, so the bands cross each other.
-      bandAttempts: 8, // rejection sampling budget per star
-      maxLatitude: 0.75, // hard clamp so band stars stay inside a band
-      bands: [
-        {
-          share: 0.72,
-          rotation: { x: 0.34, y: 0.0, z: -0.12 },
-          thickness: 0.03, // radians, gaussian spread around the band line
-          thicknessVariation: 0.8, // noise driven widening and pinching
-          curveAmount: 0.14, // radians, how far the band line snakes
-          curveScale: 1.4, // noise frequency of the snaking
-          densityScale: 3.2, // noise frequency of the clumps and gaps
-          densityContrast: 2.4, // higher = harder gaps between clumps
-          filaments: 4, // parallel strands inside the band
-          filamentSpread: 0.09,
-        },
-        {
-          share: 0.28,
-          rotation: { x: -0.55, y: 1.1, z: 0.3 },
-          thickness: 0.045,
-          thicknessVariation: 0.6,
-          curveAmount: 0.2,
-          curveScale: 2.0,
-          densityScale: 4.5,
-          densityContrast: 2.6,
-          filaments: 3,
-          filamentSpread: 0.13,
-        },
-      ],
+      // Long exposure star trails: concentric curves wound around one common
+      // axis. A star belongs to a line, not to a cluster.
+      // Every polarAngle stays away from 90 degrees on purpose: a curve at
+      // exactly 90 degrees is a great circle, which contains the antipode of
+      // every point on it and therefore mirrors itself about the horizon.
+      trails: {
+        pole: { azimuth: 2.45, elevation: 0.62 }, // the axis the arcs wind around
+        curves: 12,
+        polarMin: 0.3, // radians from the pole: innermost arc
+        polarMax: 2.5, // outermost arc; arcs wrap past the pole's equator so
+        // the whole sky carries structure, leaving only a small empty cap
+        polarJitter: 0.045, // per curve offset so the spacing is not machine even
+        tiltJitter: 0.05, // per curve rotation so they are only roughly parallel
+        jitter: 0.011, // perpendicular scatter of a star off its line
+        wobbleAmount: 0.032, // noise bend of the curve
+        wobbleScale: 2.2,
+        densityScale: 2.6, // noise frequency of the bright knots along a curve
+        densityContrast: 1.6,
+        densityFloor: 0.45, // high floor: knots brighten the arc, never break it
+        weightFalloff: 0.9, // outer curves get progressively fewer stars
+        attempts: 6, // rejection sampling budget per star
+      },
     },
 
     nebula: {
@@ -207,10 +199,11 @@ export const config = {
 
       // The curtain covers one arc instead of wrapping the whole horizon
       arcCenter: -1.6, // world azimuth in radians, the default camera faces it
-      arcHalfWidth: 1.05, // about 120 degrees in total
+      arcHalfWidth: 0.7, // about 80 degrees; the horizontal fov is 107.5
       arcSoftness: 0.6, // fraction of the half width used for the fade
       arcDrift: 0.006, // rad/s of slow lateral drift
-      warmArcScale: 1.3, // the warm glow spreads a little wider than the rays
+      warmArcScale: 1.25, // the warm glow spreads a little wider than the rays
+      warmFloor: 0.15, // how much warm glow survives between the rays
     },
   },
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createStarTexture } from '../../utils/textures.js';
-import { StarBands } from './StarBands.js';
+import { StarTrails } from './StarTrails.js';
 
 /**
  * Starfield - three layers of Points with their own size range and parallax
@@ -12,7 +12,7 @@ import { StarBands } from './StarBands.js';
  * additive blending clamps at 1: scaling the color would wash the gold and
  * ice blue tints back out to white.
  *
- * The galactic structure itself lives in StarBands.js.
+ * The galactic structure itself lives in StarTrails.js.
  */
 
 const TAU = Math.PI * 2;
@@ -75,7 +75,7 @@ export class Starfield {
     this.group = new THREE.Group();
     this.group.name = 'Starfield';
 
-    this.bands = new StarBands(rng, noise2D);
+    this.trails = new StarTrails(rng, noise2D);
     this.texture = createStarTexture(config.sky.stars.texture, config.sky.stars.textureSize);
 
     // THREE.Color already converts to the linear working space, which is what
@@ -100,12 +100,12 @@ export class Starfield {
     const brightness = new Float32Array(count);
 
     const direction = new THREE.Vector3();
-    const bandCount = Math.round(count * layerConfig.galacticFraction);
+    const trailCount = Math.round(count * layerConfig.galacticFraction);
     const sizeSpan = layerConfig.sizeMax - layerConfig.sizeMin;
 
     for (let i = 0; i < count; i++) {
-      const isBandStar = i < bandCount;
-      if (isBandStar) this.bands.sample(direction);
+      const isTrailStar = i < trailCount;
+      if (isTrailStar) this.trails.sample(direction);
       else this._sampleUniformDirection(direction);
 
       const i3 = i * 3;
@@ -122,9 +122,9 @@ export class Starfield {
       const sizeT = Math.pow(this.rng.next(), layerConfig.sizeExponent);
       sizes[i] = layerConfig.sizeMin + sizeSpan * sizeT;
 
-      // Bigger stars also burn brighter, and band stars get a boost
+      // Bigger stars also burn brighter, and trail stars get a boost
       let value = layerConfig.brightness * (0.55 + 0.45 * sizeT);
-      if (isBandStar) value *= stars.bandBrightness;
+      if (isTrailStar) value *= stars.trailBrightness;
       brightness[i] = value;
 
       phases[i] = this.rng.next() * TAU;
