@@ -17,7 +17,13 @@ export class Loop {
     this.running = false;
 
     this._listeners = [];
-    this._clock = new THREE.Clock(false);
+
+    // THREE.Clock is deprecated since r183; Timer is the supported replacement.
+    // connect() lets it use the Page Visibility API, so a hidden tab reports a
+    // zero delta instead of one huge catch up frame.
+    this._timer = new THREE.Timer();
+    this._timer.connect(document);
+
     this._tick = this._tick.bind(this);
 
     // FPS sampling window
@@ -52,19 +58,21 @@ export class Loop {
   start() {
     if (this.running) return;
     this.running = true;
-    this._clock.start();
+    this._timer.reset();
     this.renderer.setAnimationLoop(this._tick);
   }
 
   stop() {
     if (!this.running) return;
     this.running = false;
-    this._clock.stop();
     this.renderer.setAnimationLoop(null);
   }
 
-  _tick() {
-    const raw = this._clock.getDelta();
+  /** @param {number} timestamp provided by setAnimationLoop */
+  _tick(timestamp) {
+    this._timer.update(timestamp);
+
+    const raw = this._timer.getDelta();
     const dt = Math.min(raw, config.loop.maxDelta);
 
     const state = this.state;
@@ -102,6 +110,7 @@ export class Loop {
 
   dispose() {
     this.stop();
+    this._timer.dispose();
     this._listeners.length = 0;
     this.onRender = null;
     this.renderer = null;

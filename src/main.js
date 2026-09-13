@@ -3,7 +3,7 @@ import { Engine } from './core/Engine.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
-import { DebugScene } from './world/DebugScene.js';
+import { Sky } from './world/Sky.js';
 
 /**
  * main.js - bootstrap only.
@@ -15,7 +15,7 @@ const container = document.getElementById('app');
 
 const engine = new Engine(container);
 const input = new Input(container);
-const debugScene = new DebugScene(engine.scene);
+const sky = new Sky(engine.scene, engine.camera);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 const loop = new Loop(engine.renderer, {
@@ -25,8 +25,25 @@ const loop = new Loop(engine.renderer, {
 // Input values are exposed to every module through the shared state
 loop.state.input = input.values;
 
+// TEMPORARY: free look so the sky can be inspected in every direction.
+// Phase 4 hands the camera to the rider and this block goes away.
+engine.camera.rotation.order = 'YXZ';
+const look = { yaw: 0, pitch: 0 };
+
+function updateDebugLook(dt) {
+  const speed = config.debug.lookAroundSpeed;
+  const limit = config.debug.lookPitchLimit;
+
+  look.yaw -= input.values.steer * speed * dt;
+  look.pitch += (input.values.throttle - input.values.brake) * speed * dt;
+  look.pitch = Math.max(-limit, Math.min(limit, look.pitch));
+
+  engine.camera.rotation.set(look.pitch, look.yaw, 0);
+}
+
 loop.add((dt) => input.update(dt));
-loop.add((dt) => debugScene.update(dt));
+loop.add((dt) => updateDebugLook(dt));
+loop.add((dt) => sky.update(dt));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
 
 loop.start();
@@ -34,7 +51,7 @@ loop.start();
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
-  debugScene.dispose();
+  sky.dispose();
   input.dispose();
   if (stats) stats.dispose();
   engine.dispose();
