@@ -1,12 +1,18 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { createStarTexture } from '../../utils/textures.js';
+import { StarBands } from './StarBands.js';
 
 /**
- * Starfield - three layers of Points with different size and parallax speed.
- * A configurable share of the stars is not distributed uniformly: those are
- * pulled into a noise driven curved band so the sky reads as a galactic plane
- * with flowing star trails rather than white noise on a sphere.
+ * Starfield - three layers of Points with their own size range and parallax
+ * speed. Star sizes follow a power law, so the overwhelming majority are tiny
+ * and a handful are large and bright, which is what gives the field depth.
+ *
+ * Per star brightness rides on the alpha rather than on the color, because
+ * additive blending clamps at 1: scaling the color would wash the gold and
+ * ice blue tints back out to white.
+ *
+ * The galactic structure itself lives in StarBands.js.
  */
 
 const TAU = Math.PI * 2;
@@ -15,6 +21,7 @@ const VERTEX_SHADER = `
   attribute vec3 aColor;
   attribute float aSize;
   attribute float aPhase;
+  attribute float aBrightness;
 
   uniform float uPixelRatio;
   uniform float uTime;
@@ -22,13 +29,13 @@ const VERTEX_SHADER = `
   uniform float uTwinkleSpeed;
 
   varying vec3 vColor;
-  varying float vTwinkle;
+  varying float vIntensity;
 
   void main() {
     vColor = aColor;
 
     float wave = 0.5 + 0.5 * sin(uTime * uTwinkleSpeed + aPhase);
-    vTwinkle = 1.0 - uTwinkleAmount + uTwinkleAmount * wave;
+    vIntensity = aBrightness * (1.0 - uTwinkleAmount + uTwinkleAmount * wave);
 
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
@@ -43,13 +50,13 @@ const FRAGMENT_SHADER = `
   uniform float uOpacity;
 
   varying vec3 vColor;
-  varying float vTwinkle;
+  varying float vIntensity;
 
   void main() {
     vec4 texel = texture2D(uMap, gl_PointCoord);
     if (texel.a < 0.01) discard;
 
-    gl_FragColor = vec4(vColor, texel.a * uOpacity * vTwinkle);
+    gl_FragColor = vec4(vColor, texel.a * uOpacity * vIntensity);
 
     // The sky is authored in display space; see SkyDome for the reasoning.
     #include <colorspace_fragment>
@@ -63,16 +70,16 @@ export class Starfield {
    */
   constructor(rng, noise2D) {
     this.rng = rng;
-    this.noise2D = noise2D;
     this.time = 0;
 
     this.group = new THREE.Group();
     this.group.name = 'Starfield';
 
-    this.texture = createStarTexture({ size: config.sky.stars.textureSize });
+    this.bands = new StarBands(rng, noise2D);
+    this.texture = createStarTexture(config.sky.stars.texture, config.sky.stars.textureSize);
 
-    // Palette colors are built once; THREE.Color already converts to the
-    // linear working space, which is what a vertex color attribute expects.
+    // THREE.Color already converts to the linear working space, which is what
+    // a vertex color attribute expects.
     this.palette = config.sky.stars.palette.map((entry) => ({
       weight: entry.weight,
       color: new THREE.Color(entry.color),
@@ -90,12 +97,15 @@ export class Starfield {
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
     const phases = new Float32Array(count);
+    const brightness = new Float32Array(count);
 
     const direction = new THREE.Vector3();
     const bandCount = Math.round(count * layerConfig.galacticFraction);
+    const sizeSpan = layerConfig.sizeMax - layerConfig.sizeMin;
 
     for (let i = 0; i < count; i++) {
-      if (i < bandCount) this._sampleBandDirection(direction);
+      const isBandStar = i < bandCount;
+      if (isBandStar) this.bands.sample(direction);
       else this._sampleUniformDirection(direction);
 
       const i3 = i * 3;
@@ -108,8 +118,15 @@ export class Starfield {
       colors[i3 + 1] = entry.color.g;
       colors[i3 + 2] = entry.color.b;
 
-      const jitter = 1 + (this.rng.next() - 0.5) * layerConfig.sizeJitter;
-      sizes[i] = Math.max(0.5, layerConfig.size * jitter);
+      // Power law: most stars land near sizeMin, a few reach sizeMax
+      const sizeT = Math.pow(this.rng.next(), layerConfig.sizeExponent);
+      sizes[i] = layerConfig.sizeMin + sizeSpan * sizeT;
+
+      // Bigger stars also burn brighter, and band stars get a boost
+      let value = layerConfig.brightness * (0.55 + 0.45 * sizeT);
+      if (isBandStar) value *= stars.bandBrightness;
+      brightness[i] = value;
+
       phases[i] = this.rng.next() * TAU;
     }
 
@@ -118,6 +135,7 @@ export class Starfield {
     geometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
     geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+    geometry.setAttribute('aBrightness', new THREE.BufferAttribute(brightness, 1));
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -160,41 +178,6 @@ export class Starfield {
     const phi = this.rng.next() * TAU;
     const r = Math.sqrt(Math.max(0, 1 - y * y));
     return target.set(r * Math.cos(phi), y, r * Math.sin(phi));
-  }
-
-  /**
-   * Direction inside the galactic band. Rejection sampling against a noise
-   * density leaves gaps and clumps along the band, and a second noise channel
-   * bends the band line itself so it never looks like a straight ring.
-   * @param {THREE.Vector3} target
-   */
-  _sampleBandDirection(target) {
-    const band = config.sky.stars.band;
-
-    let longitude = 0;
-    let latitude = 0;
-
-    for (let attempt = 0; attempt < band.attempts; attempt++) {
-      longitude = this.rng.next() * TAU;
-
-      // Sampling the noise on a circle keeps it seamless across longitude 0
-      const cx = Math.cos(longitude);
-      const cz = Math.sin(longitude);
-
-      const density = 0.5 + 0.5 * this.noise2D(cx * band.densityScale, cz * band.densityScale);
-      const accept = band.densityFloor + (1 - band.densityFloor) * density;
-      const isLastAttempt = attempt === band.attempts - 1;
-      if (this.rng.next() > accept && !isLastAttempt) continue;
-
-      const drift = this.noise2D(cx * band.curveScale + 17.3, cz * band.curveScale - 9.1);
-      latitude = drift * band.curveAmount + this.rng.gaussian() * band.thickness;
-      break;
-    }
-
-    latitude = Math.max(-band.maxLatitude, Math.min(band.maxLatitude, latitude));
-
-    const cosLat = Math.cos(latitude);
-    return target.set(cosLat * Math.cos(longitude), Math.sin(latitude), cosLat * Math.sin(longitude));
   }
 
   /** @param {number} dt */

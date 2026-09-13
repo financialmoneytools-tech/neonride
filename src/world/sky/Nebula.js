@@ -35,6 +35,9 @@ export class Nebula {
           scale: settings.noiseScale,
           offsetX: 31.7 * i + 4.2,
           offsetY: -18.3 * i + 9.6,
+          falloffPower: settings.falloffPower,
+          contrastLow: settings.contrastLow,
+          contrastHigh: settings.contrastHigh,
         }),
       );
     }

@@ -4,6 +4,7 @@ import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { Sky } from './world/Sky.js';
+import { FreeLook } from './debug/FreeLook.js'; // PHASE 4: delete with src/debug/
 
 /**
  * main.js - bootstrap only.
@@ -25,32 +26,18 @@ const loop = new Loop(engine.renderer, {
 // Input values are exposed to every module through the shared state
 loop.state.input = input.values;
 
-// TEMPORARY: free look so the sky can be inspected in every direction.
-// Phase 4 hands the camera to the rider and this block goes away.
-engine.camera.rotation.order = 'YXZ';
-const look = { yaw: 0, pitch: 0 };
-
-function updateDebugLook(dt) {
-  const speed = config.debug.lookAroundSpeed;
-  const limit = config.debug.lookPitchLimit;
-
-  look.yaw -= input.values.steer * speed * dt;
-  look.pitch += (input.values.throttle - input.values.brake) * speed * dt;
-  look.pitch = Math.max(-limit, Math.min(limit, look.pitch));
-
-  engine.camera.rotation.set(look.pitch, look.yaw, 0);
-}
-
 loop.add((dt) => input.update(dt));
-loop.add((dt) => updateDebugLook(dt));
 loop.add((dt) => sky.update(dt));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
+
+const freeLook = FreeLook.install(loop, engine.camera, input); // PHASE 4: delete
 
 loop.start();
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
+  if (freeLook) freeLook.dispose();
   sky.dispose();
   input.dispose();
   if (stats) stats.dispose();
