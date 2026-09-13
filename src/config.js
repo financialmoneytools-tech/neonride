@@ -1,61 +1,61 @@
 /**
- * NEON RIDE — merkezi ayar dosyasi.
- * Kural: projedeki TUM sayisal ayarlar burada toplanir.
- * Hicbir modul kendi icinde "sihirli sayi" tutmaz.
+ * NEON RIDE - central configuration.
+ * Rule: every numeric setting in the project lives here.
+ * No module keeps its own magic numbers.
  */
 export const config = {
-  // --- Render katmani ---
+  // --- Render layer ---
   renderer: {
     antialias: true,
-    maxPixelRatio: 2, // ustu performans katili
+    maxPixelRatio: 2, // anything above this kills performance
     powerPreference: 'high-performance',
-    clearColor: 0x05030f, // gokyuzu tabani ile uyumlu koyu lacivert-siyah
+    clearColor: 0x05030f, // deep navy-black, matches the sky base color
     toneMappingExposure: 1.0,
   },
 
-  // --- Kamera ---
+  // --- Camera ---
   camera: {
     fov: 75,
     near: 0.1,
     far: 2000,
-    position: { x: 0, y: 2.2, z: 6 }, // gecici: Faz 4'te surucu konumu devralacak
+    position: { x: 0, y: 2.2, z: 6 }, // temporary: phase 4 hands this to the rider
     lookAt: { x: 0, y: 1.0, z: 0 },
   },
 
-  // --- Ana dongu ---
+  // --- Main loop ---
   loop: {
-    maxDelta: 0.05, // sekme arkaplana alininca dt patlamasin
+    maxDelta: 0.05, // keeps dt sane when the tab goes to the background
   },
 
-  // --- Olcum overlay'i ---
+  // --- Measurement overlay ---
   stats: {
-    enabled: true, // false yapinca overlay hic olusturulmaz
-    updateInterval: 0.5, // saniye — sayaclarin tazelenme araligi
+    enabled: true, // when false the overlay is never created
+    updateInterval: 0.5, // seconds between counter refreshes
   },
 
-  // --- Girdi ---
+  // --- Input ---
   input: {
-    // Yumusatma zaman sabitleri (saniye). Kucuk = daha keskin tepki.
+    // Smoothing time constants in seconds. Smaller = snappier response.
     steerSmoothing: 0.12,
     throttleSmoothing: 0.18,
     brakeSmoothing: 0.08,
     gamepadDeadzone: 0.15,
     gamepadTriggerThreshold: 0.05,
-    touchSteerSplit: 0.5, // ekranin hangi oraninda sol/sag yarim ayrilir
+    touchSteerSplit: 0.5, // screen fraction that separates the left/right half
   },
 
-  // --- Gecici hata ayiklama sahnesi (Faz 2'de kaldirilacak) ---
+  // --- Temporary debug scene (removed in phase 2) ---
   debug: {
     grid: {
       size: 200,
       divisions: 100,
       colorCenter: 0xff2fd0, // magenta
-      colorGrid: 0x0a3a4a, // sonuk cyan
+      colorGrid: 0x0a3a4a, // dim cyan
     },
     cube: {
       size: 1.5,
       position: { x: 0, y: 1.2, z: 0 },
-      spinSpeed: { x: 0.6, y: 0.9 }, // rad/sn
+      spinSpeed: { x: 0.6, y: 0.9 }, // rad/s
       color: 0x00e5ff,
       emissive: 0x00e5ff,
       emissiveIntensity: 0.6,

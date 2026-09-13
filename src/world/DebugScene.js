@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 
 /**
- * DebugScene — GECICI referans sahnesi: zemin grid'i + donen kup.
- * Faz 2'de (gokyuzu) tamamen kaldirilacak.
- * Amaci render dongusunun, delta-time'in ve olcum overlay'inin
- * dogru calistigini gozle dogrulayabilmek.
+ * DebugScene - TEMPORARY reference scene: ground grid plus a spinning cube.
+ * It is removed entirely in phase 2 (sky).
+ * Its only purpose is to confirm by eye that the render loop, delta time
+ * and the measurement overlay all behave correctly.
  */
 export class DebugScene {
   /** @param {THREE.Scene} scene */
@@ -34,7 +34,7 @@ export class DebugScene {
     this.cube.position.set(c.position.x, c.position.y, c.position.z);
     this.group.add(this.cube);
 
-    // Kupun yuzlerinin okunabilmesi icin iki basit isik
+    // Two simple lights so the cube faces stay readable
     this.hemiLight = new THREE.HemisphereLight(0x4466ff, 0x120a33, 1.2);
     this.keyLight = new THREE.PointLight(0xff2fd0, 40, 60, 2);
     this.keyLight.position.set(4, 6, 4);

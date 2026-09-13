@@ -1,16 +1,16 @@
 import { config } from '../config.js';
 
 /**
- * StatsOverlay — sol ust kosede FPS / draw call / ucgen sayaci.
- * Tamamen HTML; sahneye hicbir sey eklemez, render maliyeti yoktur.
- * config.stats.enabled false ise hic olusturulmaz (bkz. main.js).
+ * StatsOverlay - FPS / draw call / triangle counter in the top left corner.
+ * Pure HTML: it adds nothing to the scene and costs nothing to render.
+ * When config.stats.enabled is false it is never created (see main.js).
  */
 export class StatsOverlay {
   /** @param {HTMLElement} parent */
   constructor(parent = document.body) {
     this.el = document.createElement('div');
     this.el.className = 'stats-overlay';
-    this.el.textContent = 'olcum basliyor...';
+    this.el.textContent = 'measuring...';
     parent.appendChild(this.el);
 
     this._acc = 0;
@@ -18,10 +18,10 @@ export class StatsOverlay {
 
   /**
    * @param {number} dt
-   * @param {object} state Loop'un paylasilan durum nesnesi
+   * @param {object} state shared state object owned by Loop
    */
   update(dt, state) {
-    // Metni her karede yazmak gereksiz DOM trafigi yaratir; araliklarla tazele.
+    // Rewriting the text every frame is pointless DOM traffic; refresh in steps.
     this._acc += dt;
     if (this._acc < config.stats.updateInterval) return;
     this._acc = 0;

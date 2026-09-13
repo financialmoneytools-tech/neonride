@@ -6,9 +6,9 @@ import { StatsOverlay } from './ui/StatsOverlay.js';
 import { DebugScene } from './world/DebugScene.js';
 
 /**
- * main.js — yalnizca bootstrap.
- * Modulleri kurar, tek animasyon dongusune baglar, HMR temizligini yapar.
- * Buraya oyun mantigi yazilmaz.
+ * main.js - bootstrap only.
+ * Builds the modules, wires them into the single animation loop and
+ * handles HMR cleanup. No game logic belongs here.
  */
 
 const container = document.getElementById('app');
@@ -22,7 +22,7 @@ const loop = new Loop(engine.renderer, {
   onRender: () => engine.render(),
 });
 
-// Girdi degerleri paylasilan state uzerinden tum modullere acilir
+// Input values are exposed to every module through the shared state
 loop.state.input = input.values;
 
 loop.add((dt) => input.update(dt));
@@ -31,7 +31,7 @@ if (stats) loop.add((dt, state) => stats.update(dt, state));
 
 loop.start();
 
-/** Tum kaynaklari sirasiyla birakir (once dongu durur). */
+/** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
   debugScene.dispose();
@@ -40,8 +40,8 @@ function disposeAll() {
   engine.dispose();
 }
 
-// Vite HMR guvenligi: modul yeniden yuklenmeden once eski sahne tamamen silinir,
-// aksi halde sahneler ust uste birikir ve FPS coker.
+// Vite HMR safety: the old scene is fully torn down before the module reloads,
+// otherwise scenes stack up and the frame rate collapses.
 if (import.meta.hot) {
   import.meta.hot.dispose(disposeAll);
   import.meta.hot.accept();

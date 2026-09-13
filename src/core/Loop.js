@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 
 /**
- * Loop — projedeki TEK animasyon dongusu.
- * Hicbir modul kendi requestAnimationFrame'ini acmaz; buraya
- * update(dt, state) imzali bir dinleyici kaydeder.
+ * Loop - the single animation loop of the project.
+ * No module opens its own requestAnimationFrame; each one registers an
+ * update(dt, state) listener here instead.
  */
 export class Loop {
   /**
-   * @param {THREE.WebGLRenderer} renderer setAnimationLoop sahibi
+   * @param {THREE.WebGLRenderer} renderer owner of setAnimationLoop
    * @param {{ onRender?: (dt:number, state:object) => void, state?: object }} options
    */
   constructor(renderer, { onRender = null, state = {} } = {}) {
@@ -20,11 +20,11 @@ export class Loop {
     this._clock = new THREE.Clock(false);
     this._tick = this._tick.bind(this);
 
-    // FPS penceresi
+    // FPS sampling window
     this._frames = 0;
     this._elapsedSinceSample = 0;
 
-    /** Tum modullerin paylastigi canli durum nesnesi. */
+    /** Live state object shared by every module. */
     this.state = Object.assign(state, {
       dt: 0,
       elapsed: 0,
@@ -72,7 +72,7 @@ export class Loop {
     state.elapsed += dt;
     state.frame++;
 
-    // Dinleyici listesi update icinde degisebilir -> kopya uzerinde gez
+    // A listener may mutate the list during update, so iterate over a copy
     const listeners = this._listeners.slice();
     for (let i = 0; i < listeners.length; i++) listeners[i](dt, state);
 
@@ -81,7 +81,7 @@ export class Loop {
     this._measure(raw);
   }
 
-  /** Kare sayaci + renderer.info okumasi (render'dan SONRA gecerlidir). */
+  /** Frame counter plus renderer.info readout (only valid AFTER render). */
   _measure(raw) {
     const info = this.renderer.info;
     this.state.drawCalls = info.render.calls;

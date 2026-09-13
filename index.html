@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#000000" />
     <title>NEON RIDE</title>
     <style>
-      /* Tam ekran tuval: kaydirma yok, kenar boslugu yok, zemin siyah */
+      /* Full screen canvas: no scrolling, no margins, black background */
       :root {
         color-scheme: dark;
       }
@@ -26,7 +26,7 @@
       }
 
       body {
-        /* Dokunmatikte kaydirma/zoom jestlerini kapat */
+        /* Disable scroll and zoom gestures on touch devices */
         touch-action: none;
         -webkit-user-select: none;
         user-select: none;
@@ -46,7 +46,7 @@
         height: 100%;
       }
 
-      /* Sol ust kose olcum overlay'i (StatsOverlay.js tarafindan doldurulur) */
+      /* Top left measurement overlay (filled in by StatsOverlay.js) */
       .stats-overlay {
         position: fixed;
         top: 10px;

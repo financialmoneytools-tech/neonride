@@ -65,4 +65,7 @@ src/
 - Her faz ayrı commit: `feat(phase-N): ...`
 - Bir faz bitmeden sonrakine geçme. Faz sonunda `npm run dev` ile çalıştığını ve kabul kriterlerinin geçtiğini doğrula.
 - Dosya değişikliği verirken tam dosya içeriği ver, parça diff verme.
-- Kod yorumları Türkçe, değişken/fonksiyon isimleri İngilizce.
+- Tüm kod tamamen İngilizce: yorumlar, değişken/fonksiyon isimleri,
+  commit mesajları, console log'ları ve JSDoc. Kaynak dosyalarda ASCII dışı
+  karakter kullanma. Kullanıcıya gösterilen arayüz metinleri (HUD, başlangıç
+  ekranı) bu kuralın dışında, onlar Türkçe kalacak.

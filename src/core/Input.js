@@ -1,27 +1,27 @@
 import { config } from '../config.js';
 
 /**
- * Input — klavye + dokunmatik + gamepad girdilerini tek bir
- * normalize edilmis cikti nesnesine indirger:
+ * Input - reduces keyboard, touch and gamepad input to a single
+ * normalized output object:
  *   { steer: -1..1, throttle: 0..1, brake: 0..1 }
  *
- * Ham girdiler once "hedef" degerlere yazilir, sonra update(dt) icinde
- * ustel yumusatma ile mevcut degerlere yaklastirilir.
+ * Raw input is written to "target" values first, then eased toward the
+ * current values with exponential smoothing inside update(dt).
  *
- * Dokunmatik semasi:
- *   - Sol yarim ekrana dokunma  -> sola don
- *   - Sag yarim ekrana dokunma  -> saga don
- *   - Herhangi bir dokunma      -> gaz acik
- *   - Iki yarima ayni anda dokunma -> fren (gaz kapali, direksiyon notr)
+ * Touch scheme:
+ *   - Touch on the left half   -> steer left
+ *   - Touch on the right half  -> steer right
+ *   - Any touch                -> throttle on
+ *   - Touch on both halves     -> brake (throttle off, steering neutral)
  */
 export class Input {
-  /** @param {HTMLElement|Window} target Olay dinleyicilerinin baglanacagi hedef */
+  /** @param {HTMLElement|Window} target Element the listeners are attached to */
   constructor(target = window) {
     this.target = target;
 
-    /** Disariya verilen yumusatilmis degerler. */
+    /** Smoothed values exposed to the rest of the project. */
     this.values = { steer: 0, throttle: 0, brake: 0 };
-    /** Yumusatma oncesi ham hedefler. */
+    /** Raw targets before smoothing. */
     this.raw = { steer: 0, throttle: 0, brake: 0 };
 
     this._keys = new Set();
@@ -50,7 +50,7 @@ export class Input {
     this.target.addEventListener('touchcancel', this._onTouch, touchOpts);
   }
 
-  // --- Klavye ---
+  // --- Keyboard ---
 
   _onKeyDown(e) {
     if (Input.SCROLL_KEYS.has(e.code)) e.preventDefault();
@@ -62,7 +62,7 @@ export class Input {
     this._keys.delete(e.code);
   }
 
-  /** Sekme degisince tuslar basili kalmasin. */
+  /** Keys must not stay stuck when the tab loses focus. */
   _onBlur() {
     this._keys.clear();
     this._touchSteer = 0;
@@ -70,7 +70,7 @@ export class Input {
     this._touchBrake = 0;
   }
 
-  // --- Dokunmatik ---
+  // --- Touch ---
 
   _onTouch(e) {
     e.preventDefault();
@@ -86,7 +86,7 @@ export class Input {
     }
 
     if (left && right) {
-      // Iki yarim birden -> fren
+      // Both halves at once -> brake
       this._touchSteer = 0;
       this._touchThrottle = 0;
       this._touchBrake = 1;
@@ -121,17 +121,17 @@ export class Input {
     const dead = config.input.gamepadDeadzone;
     const trig = config.input.gamepadTriggerThreshold;
 
-    // Sol cubuk yatay ekseni, olu bolge disinda yeniden olceklenir
+    // Left stick horizontal axis, rescaled outside the deadzone
     let steer = pad.axes.length > 0 ? pad.axes[0] : 0;
     steer = Math.abs(steer) < dead ? 0 : (steer - Math.sign(steer) * dead) / (1 - dead);
 
-    // D-pad (standart eslemede 14 sol / 15 sag) cubugun yerine gecebilir
+    // D-pad (14 left / 15 right in the standard mapping) can stand in for the stick
     if (steer === 0) {
       if (Input.isPressed(pad.buttons[14])) steer = -1;
       else if (Input.isPressed(pad.buttons[15])) steer = 1;
     }
 
-    // RT (7) gaz, LT (6) fren; A (0) da gaz olarak kabul edilir
+    // RT (7) is throttle, LT (6) is brake; A (0) also counts as throttle
     let throttle = Input.buttonValue(pad.buttons[7]);
     if (throttle < trig && Input.isPressed(pad.buttons[0])) throttle = 1;
     const brake = Input.buttonValue(pad.buttons[6]);
@@ -143,28 +143,28 @@ export class Input {
     };
   }
 
-  // --- Dongu ---
+  // --- Loop ---
 
   /**
-   * Loop tarafindan her karede cagrilir.
-   * @param {number} dt saniye cinsinden delta
+   * Called by Loop on every frame.
+   * @param {number} dt delta time in seconds
    */
   update(dt) {
     const keys = this._keys;
 
-    // Klavye
+    // Keyboard
     let steer = 0;
     if (keys.has('KeyA') || keys.has('ArrowLeft')) steer -= 1;
     if (keys.has('KeyD') || keys.has('ArrowRight')) steer += 1;
     let throttle = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
     let brake = keys.has('KeyS') || keys.has('ArrowDown') || keys.has('Space') ? 1 : 0;
 
-    // Dokunmatik (klavye notrken devreye girer)
+    // Touch (takes over while the keyboard is neutral)
     if (steer === 0) steer = this._touchSteer;
     throttle = Math.max(throttle, this._touchThrottle);
     brake = Math.max(brake, this._touchBrake);
 
-    // Gamepad (klavye/dokunmatikten daha guclu bir sinyal varsa onu kullan)
+    // Gamepad (wins when it carries a stronger signal than keyboard/touch)
     const pad = this._readGamepad();
     if (pad) {
       if (Math.abs(pad.steer) > Math.abs(steer)) steer = pad.steer;
@@ -202,9 +202,9 @@ export class Input {
     this._keys.clear();
   }
 
-  // --- Yardimcilar ---
+  // --- Helpers ---
 
-  /** Frame hizindan bagimsiz ustel yaklasma. tau = zaman sabiti (sn). */
+  /** Frame-rate independent exponential approach. tau = time constant (s). */
   static damp(current, target, tau, dt) {
     if (tau <= 0) return target;
     return current + (target - current) * (1 - Math.exp(-dt / tau));
@@ -224,5 +224,5 @@ export class Input {
   }
 }
 
-/** Sayfayi kaydiran tuslar: varsayilan davranislari engellenir. */
+/** Keys that scroll the page: their default behavior is suppressed. */
 Input.SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);

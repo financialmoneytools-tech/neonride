@@ -2,18 +2,18 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 
 /**
- * Engine — scene / camera / renderer kurulumu, resize ve temizlik.
- * Kendi animasyon dongusunu ACMAZ; sadece render() sunar (bkz. Loop.js).
+ * Engine - scene / camera / renderer setup, resize handling and teardown.
+ * It never opens its own animation loop; it only exposes render() (see Loop.js).
  */
 export class Engine {
   /**
-   * @param {HTMLElement} container Tuvalin ekleneceği kapsayici
+   * @param {HTMLElement} container Element the canvas is appended to
    */
   constructor(container = document.body) {
     this.container = container;
 
-    // Tuvali burada uretiyoruz: HMR'de eski tuval DOM'dan silinip yenisi
-    // acildigi icin "kaybolmus WebGL context" sorunu yasanmaz.
+    // The canvas is created here so that on HMR the old one is removed from the
+    // DOM and a fresh one is opened, avoiding a lost WebGL context.
     this.canvas = document.createElement('canvas');
     this.container.appendChild(this.canvas);
 
@@ -48,7 +48,7 @@ export class Engine {
     this.resize();
   }
 
-  /** Pencere boyutuna gore kamera ve renderer'i tazeler. */
+  /** Refreshes camera and renderer to match the window size. */
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -58,13 +58,13 @@ export class Engine {
     this.renderer.setSize(w, h, false);
   }
 
-  /** Tek kare cizer. Cagirani Loop'tur. */
+  /** Draws a single frame. Called by Loop. */
   render() {
     this.renderer.render(this.scene, this.camera);
   }
 
   /**
-   * Sahnedeki tum geometri/materyal/doku kaynaklarini birakir.
+   * Releases every geometry / material / texture under the given root.
    * @param {THREE.Object3D} root
    */
   static disposeObject(root) {
@@ -83,7 +83,7 @@ export class Engine {
     });
   }
 
-  /** HMR ve sayfa kapanisinda cagrilir: hicbir kaynak arkada kalmaz. */
+  /** Called on HMR and page teardown so no resource is left behind. */
   dispose() {
     window.removeEventListener('resize', this._onResize);
     Engine.disposeObject(this.scene);
