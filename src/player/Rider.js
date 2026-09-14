@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { Input } from '../core/Input.js';
 import { GeometryBuilder } from '../utils/geometry.js';
-import { createNeonMaterial, createRiderMaterial } from './rider/RiderMaterial.js';
+import { createRiderMaterial } from './rider/RiderMaterial.js';
 import { buildHandlebar } from './rider/Handlebar.js';
 import { buildBikeFront } from './rider/BikeFront.js';
-import { buildHands } from './rider/Hands.js';
+import { createHands } from './rider/Hands.js';
 import { Instruments } from './rider/Instruments.js';
 
 /**
@@ -24,6 +24,11 @@ import { Instruments } from './rider/Instruments.js';
  * Everything visible hangs off `steering`, which is exactly right: on a bike
  * the bars, grips, hands, mirrors, forks, headlight and instruments all turn
  * together. That is also why the hands can never come off the grips.
+ *
+ * The hands are the one part this file does not build. They come from
+ * createHands, aligned to a named grip anchor, and Rider only ever adds their
+ * group, ticks them and disposes them - so the primitive hands can be swapped
+ * for a rigged model without anything here changing. See rider/Hands.js.
  */
 export class Rider {
   /** @param {THREE.PerspectiveCamera} camera */
@@ -50,15 +55,11 @@ export class Rider {
     const builders = {
       frame: new GeometryBuilder(),
       grip: new GeometryBuilder(),
-      glove: new GeometryBuilder(),
       mirror: new GeometryBuilder(),
-      neonLeft: new GeometryBuilder(),
-      neonRight: new GeometryBuilder(),
     };
 
     buildHandlebar(builders);
     buildBikeFront(builders);
-    buildHands(builders);
 
     this.instruments = new Instruments();
     this.instruments.addFrameTo(builders.frame);
@@ -68,10 +69,7 @@ export class Rider {
     this.materials = {
       frame: createRiderMaterial(presets.frame, 'RiderFrame'),
       grip: createRiderMaterial(presets.grip, 'RiderGrip'),
-      glove: createRiderMaterial(presets.glove, 'RiderGlove'),
       mirror: createRiderMaterial(presets.mirror, 'RiderMirror'),
-      neonLeft: createNeonMaterial(presets.neonLeft, 'RiderNeonLeft'),
-      neonRight: createNeonMaterial(presets.neonRight, 'RiderNeonRight'),
     };
 
     this.meshes = [];
@@ -87,6 +85,10 @@ export class Rider {
       this.parts.add(mesh);
       this.meshes.push(mesh);
     }
+
+    // The hands align themselves to the anchor; this file never places them.
+    this.hands = createHands(cfg.anchors.rightGrip);
+    this.parts.add(this.hands.group);
 
     this._steer = 0;
     this._axis = new THREE.Vector3(0, Math.cos(cfg.steering.rake), Math.sin(cfg.steering.rake));
@@ -124,6 +126,7 @@ export class Rider {
       origin.z * scale,
     );
 
+    this.hands.update(dt, state);
     this.instruments.update(dt, state);
   }
 
@@ -133,6 +136,7 @@ export class Rider {
 
     for (const key of Object.keys(this.materials)) this.materials[key].dispose();
 
+    this.hands.dispose();
     this.instruments.dispose();
 
     this.camera.remove(this.group);
