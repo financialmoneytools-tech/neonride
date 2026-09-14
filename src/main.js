@@ -10,6 +10,7 @@ import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
 import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
+import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Rider } from './player/Rider.js';
 import { Postprocess } from './fx/Postprocess.js';
@@ -40,6 +41,7 @@ const roadside = new Roadside(engine.scene, road);
 const mountains = new Mountains(engine.scene);
 const bike = new BikePhysics(engine.camera, road.path, framing);
 const rider = new Rider(engine.camera, framing);
+const traffic = new Traffic(engine.scene, road, bike);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 // The composer owns the frame from here on; engine.render() is only the
@@ -65,6 +67,7 @@ loop.add((dt) => input.update(dt));
 loop.add((dt, state) => bike.update(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
+loop.add((dt, state) => traffic.update(dt, state));
 loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
 loop.add((dt, state) => post.update(dt, state));
@@ -102,7 +105,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, engine, framing, hotkeys, loop, input, sky, road, roadside, mountains, bike, rider, post };
+  window.NEON = { config, engine, framing, hotkeys, loop, input, sky, road, roadside, mountains, traffic, bike, rider, post };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -112,6 +115,7 @@ function disposeAll() {
   post.dispose();
   rider.dispose();
   bike.dispose();
+  traffic.dispose();
   mountains.dispose();
   roadside.dispose();
   road.dispose();

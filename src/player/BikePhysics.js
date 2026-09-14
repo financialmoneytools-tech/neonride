@@ -171,6 +171,17 @@ export class BikePhysics {
     return _drift;
   }
 
+  /**
+   * Knocks the speed down on contact. Traffic calls this rather than writing to
+   * the shared state, because a collision is an event and the state is a
+   * snapshot - routing it through the state would either lose hits or apply one
+   * twice depending on listener order.
+   * @param {number} factor speed is multiplied by this
+   */
+  applyImpact(factor) {
+    this.speed *= factor;
+  }
+
   /** Throttle against brake and drag. Drag is what actually caps the speed. */
   _updateSpeed(dt, input, bike) {
     const throttle = Math.max(input.throttle, bike.throttleFloor);

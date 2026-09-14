@@ -30,6 +30,9 @@ export const GradeShader = {
     uStreakStrength: { value: 0 },
     uStreakLength: { value: 0.12 },
     uStreakStart: { value: 0.34 },
+    uFlashColor: { value: new THREE.Color(0xffffff) },
+    uFlashAmount: { value: 0 },
+    uFlashEdge: { value: 0 },
     uAberration: { value: 0.0015 },
     uAberrationPower: { value: 2.6 },
     uVignetteStrength: { value: 0.34 },
@@ -51,6 +54,9 @@ export const GradeShader = {
     uniform float uStreakStrength;
     uniform float uStreakLength;
     uniform float uStreakStart;
+    uniform vec3 uFlashColor;
+    uniform float uFlashAmount;
+    uniform float uFlashEdge;
     uniform float uAberration;
     uniform float uAberrationPower;
     uniform float uVignetteStrength;
@@ -99,6 +105,14 @@ export const GradeShader = {
           color = mix(color, max(color, smear), reach);
         }
       }
+
+      // Traffic events, added BEFORE the curve so even a full strength flash
+      // rolls off rather than clipping the frame to a flat white rectangle.
+      // uFlashEdge pushes the response out to the periphery: a near miss
+      // happens several times a minute, and anything that frequent tinting the
+      // whole image reads as a grade fault rather than as an event.
+      float flashWeight = mix(1.0, smoothstep(0.2, 1.0, radius), uFlashEdge);
+      color += uFlashColor * uFlashAmount * flashWeight;
 
       // The buffer is linear and unclamped, so anything the bloom piled above
       // 1.0 is still here for ACES to roll off rather than clip.

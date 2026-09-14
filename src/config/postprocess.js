@@ -72,6 +72,15 @@ export const postprocess = {
     power: 2.6,
   },
 
+  // Screen response to a traffic event. Traffic publishes two decaying levels
+  // on the loop state and this turns them into light: a hit flashes hot, a near
+  // miss gives a much softer cool pulse plus a touch more aberration. Added
+  // before the tone curve, so even a full strength flash rolls off instead of
+  // clipping to white.
+  flash: {
+    enabled: true,
+  },
+
   // Radial speed streaks. Rather than drawing lines, this smears the frame
   // outward from the centre and keeps whichever is brighter, so the road's own
   // neon is what streaks - which means the effect is always the right colour

@@ -1,3 +1,5 @@
+import { traffic } from './traffic.js';
+
 /**
  * NEON RIDE - world settings.
  * Part of the single configuration surface; import from ../config.js, never
@@ -6,6 +8,9 @@
 
 // --- World: road, roadside, mountains and the travelling camera ---
 export const world = {
+  // Vehicles to overtake; see config/traffic.js.
+  traffic,
+
   seed: 20260914, // one seed drives the road path and the mountain ridges
 
   // Distance fog. The color must match what the sky dome paints at the

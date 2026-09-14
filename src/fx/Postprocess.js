@@ -91,6 +91,24 @@ export class Postprocess {
     uniforms.uVignetteStrength.value = cfg.vignette.strength;
     uniforms.uVignetteStart.value = cfg.vignette.start;
 
+    // Traffic events. The hit wins when both are live, which is right: if you
+    // touched something, that is the thing worth showing.
+    const traffic = config.world.traffic;
+    const impact = cfg.flash.enabled ? state.impact || 0 : 0;
+    const nearMiss = cfg.flash.enabled ? state.nearMiss || 0 : 0;
+
+    const impactLevel = impact * traffic.collision.flashStrength;
+    const nearLevel = nearMiss * traffic.nearMiss.flashStrength;
+    const hitWins = impactLevel >= nearLevel;
+    uniforms.uFlashColor.value.set(
+      hitWins ? traffic.collision.flashColor : traffic.nearMiss.flashColor,
+    );
+    uniforms.uFlashAmount.value = Math.max(impactLevel, nearLevel);
+    uniforms.uFlashEdge.value = hitWins
+      ? traffic.collision.flashEdge
+      : traffic.nearMiss.flashEdge;
+    uniforms.uAberration.value += nearMiss * traffic.nearMiss.aberrationBoost;
+
     const streaks = cfg.streaks;
     uniforms.uStreakStrength.value = streaks.strength * Math.pow(speed, streaks.exponent);
     uniforms.uStreakLength.value = streaks.length;
