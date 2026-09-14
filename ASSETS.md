@@ -47,14 +47,21 @@ Measured, because none of it is what the shop page implies:
 - Scale: the bind pose gives three readings against real anatomy - upper arm
   0.103, forearm 0.112, hand 0.106 - so **0.11** is where they converge.
 
-#### The catch
+#### The catch, and what is done about it
 
 The rest pose is a splayed, flat, open hand with the arms spread. At life size
-the wrists sit **1.03 m apart** while our handlebar is **0.67 m**, and shoulder
-to wrist comes out at **0.65 m** where a riding position has about **0.43 m**.
-Those cannot be reconciled by scaling: matching the bar gives child sized hands.
+the wrists sit **1.03 m apart** while our handlebar is **0.67 m**. That cannot
+be reconciled by scaling - matching the bar gives child sized hands - and no
+placement makes straight fingers grip.
 
-So the arms are cut at mid forearm and only a hand and a stub are kept, which is
-all a first person view shows anyway. The hand still does not close around the
-grip - straight fingers cannot - and that needs the skeleton posed. See the
-backlog item in CLAUDE.md.
+So the skeleton is posed at load and the result baked: see
+`src/player/rider/hands/poseArm.js`. The clavicle is aimed, two bone IK puts the
+wrist on the bar, the hand is rolled so the fingers lie across it rather than
+along it, and the fingers are curled about the grip axis until their tips sit
+just outside the tube. Measured after: the hollow of the closed hand sits **3 mm**
+from the grip, and every fingertip lands within **1.32 to 1.37** grip radii of
+the axis against a target of 1.35.
+
+The whole arm is kept, not a stub. Posed, the shoulder ends up behind the camera
+near plane, so the arm runs off the bottom of the frame and reads as attached to
+a rider - which is the thing the primitive hands could never do.

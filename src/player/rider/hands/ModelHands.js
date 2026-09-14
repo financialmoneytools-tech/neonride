@@ -2,34 +2,42 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { config } from '../../../config.js';
 import { createRiderMaterial } from '../RiderMaterial.js';
-import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
+import { collectArmBones } from './armBones.js';
+import { bakeSkin } from './bakeSkin.js';
+import { poseArm } from './poseArm.js';
 import { trimSkinnedGeometry } from './trimSkin.js';
 
 /**
- * ModelHands - hands loaded from a GLB instead of built from primitives.
+ * ModelHands - arms and hands loaded from a GLB instead of built from
+ * primitives. Satisfies the same contract as PrimitiveHands, so Rider cannot
+ * tell them apart. See ASSETS.md for the model's source and licence.
  *
- * Satisfies the same contract as PrimitiveHands, so Rider cannot tell them
- * apart. See ASSETS.md for the model's source and licence.
+ * The load does four things, in this order, and all of them once:
  *
- * Three things are deliberate.
+ *   pose   the rest pose is an A pose with a flat open hand. It is put into a
+ *          riding grip by rotating the joints it was rigged with - see
+ *          poseArm.js. Nothing else can fix it; placement never could.
+ *   bake   the posed skin is frozen into static geometry. The arm never moves
+ *          again, so paying for skinning every frame would buy nothing.
+ *   trim   one arm's bones are kept and the rest thrown away. The pack holds
+ *          both arms in a single mesh, so without this you get four.
+ *   dress  the pack's material and texture are discarded and the geometry gets
+ *          the project's own glove shader, so the arms are lit by the same key
+ *          and neon rim as the rest of the cockpit.
  *
- * The pack's own material and texture are thrown away. Only the geometry is
- * taken, and it is given the project's glove material, so the hands are lit by
- * the same fake key and neon rim as the rest of the cockpit rather than by a
- * hand painted texture from somewhere else.
- *
- * Only the bones named in hand.model.keepBones survive. An arm pack ships whole
- * arms, both of them, in one mesh; a cockpit needs one hand and a stub of
- * forearm, mirrored. Cutting the rest away is not an optimisation, it is what
- * makes the pack usable at all - see the note on rest poses in config/hand.js.
+ * The right arm is mirrored for the left, which is correct because the pack is
+ * modelled symmetrically and means only one arm's geometry is kept.
  *
  * Loading is asynchronous and createHands is not, so the group comes back empty
- * and is filled when the load resolves. Nothing upstream waits, and the rest of
- * the cockpit draws from the first frame. If the file is missing the caller is
- * told, so a clone with no asset downloaded still runs rather than throwing.
+ * and is filled when the load resolves. Nothing upstream waits. If the file is
+ * missing the caller is told, so a clone with no asset still runs.
  */
 
-const _matrix = new THREE.Matrix4();
+const _correction = new THREE.Matrix4();
+const _inverse = new THREE.Matrix4();
+const _mirror = new THREE.Matrix4().makeScale(-1, 1, 1);
+const _from = new THREE.Vector3();
+const _to = new THREE.Vector3();
 
 let loader = null;
 
@@ -55,7 +63,7 @@ export function createModelHands(anchor, onFailure) {
   gloveMirrored.side = THREE.DoubleSide;
 
   let disposed = false;
-  let trimmed = null;
+  let geometry = null;
 
   if (!loader) loader = new GLTFLoader();
 
@@ -68,43 +76,39 @@ export function createModelHands(anchor, onFailure) {
       if (disposed) return;
 
       const source = pickSource(gltf.scene, model.rightNode);
-      if (!source) {
-        if (onFailure) onFailure('no mesh found in ' + model.url);
+      if (!source || !source.skeleton) {
+        if (onFailure) onFailure('no skinned mesh found in ' + model.url);
         return;
       }
 
-      const bones = source.skeleton ? source.skeleton.bones : [];
-      trimmed = trimSkinnedGeometry(source.geometry, bones, model.keepBones);
+      buildCorrection(cfg, model, _correction);
+      poseArm(collectArmBones(source.skeleton), plan(cfg, model), source.skeleton.bones[0]);
+
+      const baked = bakeSkin(source);
+      geometry = trimSkinnedGeometry(baked, source.skeleton.bones, model.keepBones);
+      if (geometry !== baked) baked.dispose();
+
+      if (geometry.attributes.position.count === 0) {
+        if (onFailure) onFailure('keepBones matched no geometry in ' + model.url);
+        return;
+      }
+
+      // Bake the node's own transform in first, so a pack that parents its mesh
+      // under a rotated armature still lands where the anchors say, then the
+      // correction that puts the model's units and origin into ours.
       source.updateWorldMatrix(true, false);
-      // Bake the node's own transform in, so a pack that parents its mesh under
-      // a rotated armature still lands where the anchor says.
-      trimmed.applyMatrix4(source.matrixWorld);
+      geometry.applyMatrix4(source.matrixWorld);
+      geometry.applyMatrix4(_correction);
+
       // We keep a copy of the geometry and nothing else, so the loaded scene
       // goes now rather than lingering behind the GLTFLoader's result. Its
       // texture in particular is one we never render and never want uploaded.
       releaseScene(gltf.scene);
 
-      if (trimmed.attributes.position.count === 0) {
-        if (onFailure) onFailure('keepBones matched no geometry in ' + model.url);
-        return;
-      }
-
-      // The correction sits between the anchor and the geometry: the anchor
-      // says where a hand goes, this says how this particular pack has to be
-      // turned and scaled to get there.
-      _matrix.compose(
-        new THREE.Vector3().fromArray(model.offset),
-        new THREE.Quaternion().setFromEuler(
-          new THREE.Euler(model.rotation[0], model.rotation[1], model.rotation[2], 'XYZ'),
-        ),
-        new THREE.Vector3(model.scale, model.scale, model.scale),
-      );
-
-      for (const side of [SIDE_RIGHT, SIDE_LEFT]) {
-        const root = gripAnchorFrame(anchor, side, new THREE.Matrix4());
-        root.multiply(_matrix);
-        addSide(trimmed, root, side === SIDE_LEFT ? gloveMirrored : glove, group, meshes);
-      }
+      // The arm is posed to reach the grip, so it is already where it belongs:
+      // the only transform left is the mirror that makes the other side.
+      addSide(geometry, new THREE.Matrix4(), glove, group, meshes);
+      addSide(geometry, _mirror.clone(), gloveMirrored, group, meshes);
     },
     undefined,
     () => {
@@ -116,14 +120,14 @@ export function createModelHands(anchor, onFailure) {
     group,
     meshes,
 
-    /** Nothing to animate yet: the geometry is taken posed, not skinned. */
+    /** Nothing to animate: the pose is baked, by design. */
     update() {},
 
     dispose() {
       disposed = true;
       // Both sides share one geometry, so it is freed here rather than per mesh.
-      if (trimmed) trimmed.dispose();
-      trimmed = null;
+      if (geometry) geometry.dispose();
+      geometry = null;
       meshes.length = 0;
       glove.dispose();
       gloveMirrored.dispose();
@@ -133,8 +137,62 @@ export function createModelHands(anchor, onFailure) {
 }
 
 /**
+ * Model space to rig space: scale to our units, then put the model's origin -
+ * which is the clavicle root - on the shoulder anchor.
+ */
+function buildCorrection(cfg, model, target) {
+  const shoulder = cfg.anchors.rightShoulder;
+  return target.compose(
+    new THREE.Vector3(
+      shoulder[0] + model.offset[0],
+      shoulder[1] + model.offset[1],
+      shoulder[2] + model.offset[2],
+    ),
+    new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(model.rotation[0], model.rotation[1], model.rotation[2], 'XYZ'),
+    ),
+    new THREE.Vector3(model.scale, model.scale, model.scale),
+  );
+}
+
+/**
+ * The pose targets, converted from rig space into the model's own space.
+ *
+ * Posing happens before the correction is applied, because a skeleton's bind
+ * matrices are written in the model's space and moving the whole scene first
+ * would have the correction counted twice.
+ */
+function plan(cfg, model) {
+  _inverse.copy(_correction).invert();
+
+  const grip = cfg.anchors.rightGrip;
+  _from.fromArray(grip.from);
+  _to.fromArray(grip.to);
+
+  const target = _from.clone().lerp(_to, grip.along).applyMatrix4(_inverse);
+  // Directions, so the translation does not apply and the uniform scale leaves
+  // a normalised direction unchanged - the same vector in both spaces.
+  const axis = _to.clone().sub(_from).normalize();
+
+  return {
+    target,
+    axis,
+    up: new THREE.Vector3(0, 1, 0),
+    pole: new THREE.Vector3().fromArray(model.elbowPole).normalize(),
+    profile: model.curlProfile,
+    thumbProfile: model.thumbCurlProfile,
+    // A length in the model's own units, which is where the search happens.
+    wrap: (grip.radius * model.wrapClearance) / model.scale,
+    thumbWrap: model.thumbWrap,
+    maxCurl: model.maxCurl,
+    wristRoll: model.wristRoll,
+    passes: model.passes,
+  };
+}
+
+/**
  * Finds the geometry to use. A named node wins; otherwise the first mesh in the
- * file is taken, which is what a single arm pack gives you.
+ * file is taken, which is what a single mesh pack gives you.
  * @returns {THREE.Object3D|null}
  */
 function pickSource(scene, nodeName) {
@@ -174,21 +232,20 @@ function releaseScene(scene) {
 }
 
 /**
- * Places one shared geometry under one anchor frame, wearing our material.
+ * Places one shared geometry under one transform, wearing our material.
  *
- * The left side is the right one mirrored. That is correct for this pack
- * because it is modelled symmetrically, and it means only one arm's worth of
- * geometry is kept. A mirrored frame has a negative determinant, which reverses
- * winding - front faces get culled instead of back ones and the hand renders
- * inside out - so that side gets a two sided material. At this triangle count
- * it costs nothing.
+ * A mirrored matrix has a negative determinant, which reverses winding - front
+ * faces get culled instead of back ones and the arm renders inside out - so
+ * that side gets a two sided material. At this triangle count it costs nothing,
+ * and the shader flips normals on back faces so it lights the same as the
+ * other arm.
  */
-function addSide(geometry, root, material, group, meshes) {
+function addSide(geometry, matrix, material, group, meshes) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'Rider_glove';
   mesh.frustumCulled = false;
   mesh.matrixAutoUpdate = false;
-  mesh.matrix.copy(root);
+  mesh.matrix.copy(matrix);
 
   group.add(mesh);
   meshes.push(mesh);

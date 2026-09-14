@@ -44,10 +44,25 @@ const rightGrip = {
   scale: 1,
 };
 
+// Where the rider's shoulder is, in the same frame as the grip. This is the
+// clavicle root - the base of the neck - not the ball joint, because that is
+// what the loaded arm model hangs from.
+//
+// It is not a free choice. Add `origin` below and it comes out 22 cm under the
+// eye and a little behind it, which is where a shoulder is. Behind the eye
+// means behind the near plane, so the arm leaves the bottom of the frame
+// instead of stopping in mid air - which is the whole reason the loaded arms
+// read as attached to a body when the primitives never could.
+//
+// It also has to be within reach: the pack's arm is 0.68 m from here to the
+// wrist and the grip is 0.61 m away, so the elbow ends up properly bent rather
+// than locked straight.
+const rightShoulder = [0.18, -0.018, 0.65];
+
 export const rider = {
   // The anchor frame is +X outward along the grip, +Y up away from it, +Z back
   // at the rider. Anything aligned here inherits the grip's own angle.
-  anchors: { rightGrip },
+  anchors: { rightGrip, rightShoulder },
 
   origin: { x: 0, y: -0.202, z: -0.6 },
 

@@ -36,40 +36,71 @@ export const hand = {
   model: {
     url: 'models/wrad-arms.glb',
 
-    // Correction applied on top of the grip anchor frame, derived from the
-    // pack's own skeleton rather than tried by eye.
+    // Scale, from the pack's own skeleton rather than tried by eye: the bind
+    // pose gives three independent readings against real anatomy - upper arm
+    // 0.103, forearm 0.112, hand 0.106 - so 0.11 is where they converge.
     //
-    // Scale: the bind pose bones give three independent readings against real
-    // anatomy - upper arm 0.103, forearm 0.112, hand 0.106 - so 0.11 is where
-    // they converge. Do NOT derive it from the distance between the wrists
-    // instead: the rest pose spreads them 1.03 m apart against our 0.67 m bar,
-    // and scaling to close that gap gives child sized hands.
-    //
-    // Rotation: none needed. The pack is +X right, +Y up, -Z forward, which is
-    // exactly the grip anchor frame, so the two already agree.
-    //
-    // Offset: minus scale times the palm centre in mesh space, the midpoint of
-    // wrist.r and finger_middle1.r at (5.045, -3.155, -2.611). That puts the
-    // palm on the grip axis rather than the wrist, which is where the tube
-    // actually passes through a closed hand.
+    // Do NOT derive it from the distance between the wrists instead. The rest
+    // pose spreads them 1.03 m apart against our 0.67 m bar, and scaling to
+    // close that gap gives child sized hands.
     scale: 0.11,
-    offset: [-0.5549, 0.347, 0.2872],
+
+    // No rotation needed: the pack is +X right, +Y up, -Z forward, which is
+    // already the frame the anchors are written in. This exists for the next
+    // pack, not this one.
     rotation: [0, 0, 0],
 
-    // Bones whose geometry survives: a name matching any prefix AND ending in
-    // the suffix. Everything else is cut away before the mesh is used. The
-    // suffix is what picks a side - Blender names bones '.r' and '.l', and a
-    // prefix alone cannot separate them because 'finger_' starts both hands.
+    // Residual nudge on top of the shoulder anchor, for fine tuning without
+    // moving the anchor itself.
+    offset: [0, 0, 0],
+
+    // Which way the elbow breaks, in rig space: down, out and a little back,
+    // the way a rider's elbow sits. Only the part perpendicular to the arm
+    // matters, so it does not need to be exact or normalised.
+    elbowPole: [0.45, -0.8, 0.4],
+
+    // How the fingers close. These describe the SHAPE of the curl, not how
+    // far it goes: the shares below are scaled together until the fingertip
+    // sits `wrapClearance` grip radii from the axis, which is searched at load.
+    // Angles that put a particular pack's fingers on a particular tube are not
+    // something anyone can know by looking, so they are not asked for here.
     //
-    // This is not trimming for performance. The pack is one mesh holding BOTH
-    // arms, and its rest pose is an A pose: shoulder to wrist comes out at
-    // 0.65 m where a riding position has 0.43 m, so the elbows would have to
-    // bend for the arms to reach our grips at all. Nothing above mid forearm
-    // can be placed correctly without posing the skeleton, and in a first
-    // person view nothing above mid forearm is on screen anyway. So we keep a
-    // hand and a stub, and mirror the right side for the left.
+    // The middle knuckle bends most, as a real finger does.
+    curlProfile: [0.8, 1.0, 0.85],
+    thumbCurlProfile: [0.7, 0.6, 0.5],
+
+    // Where the fingertip should end up, in grip radii from the grip axis.
+    // 1.0 would bury the tip in the tube; this leaves it just outside.
+    wrapClearance: 1.35,
+
+    // The thumb lies along the bar rather than wrapping under it, so it stops
+    // further out than the fingers do.
+    thumbWrap: 1.55,
+
+    // Ceiling on the search, so a finger that cannot reach the tube stops at a
+    // hand shape rather than folding through itself.
+    maxCurl: 2.2,
+
+    // Extra roll of the hand about the forearm, on top of the solved one. The
+    // solver gets the fingers across the bar; this is for taste.
+    wristRoll: 0,
+
+    // How many times the whole pose is re-solved. The IK aims the wrist, but a
+    // bar sits in the hollow the closed fingers make, a hand's thickness
+    // further on, so each pass shifts the wrist goal by however far that
+    // hollow missed last time. 1 puts the fist above the bar; 3 is convergence.
+    passes: 3,
+
+    // Bones whose geometry survives: a name matching any prefix AND ending in
+    // the suffix. The suffix is what picks a side - Blender names bones '.r'
+    // and '.l', and a prefix alone cannot separate them because 'finger_'
+    // starts both hands. One arm is kept and mirrored for the other side.
+    //
+    // The whole arm is kept now, not just a stub: once it is posed, the
+    // shoulder sits behind the camera near plane, so the arm runs off the
+    // bottom of the frame and reads as attached to a body.
     keepBones: {
-      prefixes: ['wrist', 'finger_', 'socket', 'forearm.Twist1'],
+      prefixes: ['shoulder', 'bicep', 'forearm', 'wrist', 'finger_', 'socket'],
       suffix: '.r',
     },
 
@@ -81,9 +112,6 @@ export const hand = {
     // steep angles, so the same rim term covers nearly the whole surface and
     // the hands come out solid violet. Measured, not guessed - setting
     // rimStrength to 0 turns them black, which is the whole of the effect.
-    //
-    // So this pack gets a tighter, weaker rim and a stronger key, because on
-    // flat facets the key is what makes the form read at all.
     material: {
       rimStrength: 0.14,
       rimPower: 5.0,
