@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assertPoint, assertSolid } from './assertGeometry.js';
 
 /**
  * GeometryBuilder - merges many small transformed primitives into one buffer.
@@ -120,6 +121,7 @@ export class GeometryBuilder {
     if (colors) geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     geometry.computeBoundingSphere();
+    assertSolid(geometry, name);
     return geometry;
   }
 }
@@ -145,6 +147,12 @@ const _euler = new THREE.Euler();
  * @param {number} [endRadius] tapers toward the end when given
  */
 export function addTube(builder, from, to, radius, radialSegments, endRadius = radius) {
+  // Named here rather than left to produce NaN. A Vector3 has no [0], so
+  // fromArray reads undefined and every coordinate downstream becomes NaN -
+  // which renders as nothing and measures as everything.
+  assertPoint(from, 'addTube from');
+  assertPoint(to, 'addTube to');
+
   _from.fromArray(from);
   _to.fromArray(to);
   _direction.copy(_to).sub(_from);

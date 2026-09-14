@@ -49,6 +49,7 @@ function buildPanels(cfg, paint, neon) {
     const sign = s === 0 ? 1 : -1;
     panel(paint, cfg.wing, sign);
     panel(paint, cfg.shoulder, sign);
+    panel(paint, cfg.flank, sign);
 
     // A lit line along the top edge of each wing. A dark panel against a dark
     // road has no silhouette at night; this is what gives it one.

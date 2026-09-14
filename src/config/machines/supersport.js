@@ -32,8 +32,15 @@ export const supersport = {
   // of the frame - the y radius is the value that decides which one you get.
   // Nose down, so it recedes away from the rider the way a real one does.
   tank: {
-    radii: [0.155, 0.036, 0.27], // ellipsoid half extents
-    offset: [0, -0.185, 0.05],
+    // The rear of it must stay IN FRONT of the near plane. With the cockpit
+    // this close to the eye a longer tank reaches past the camera, and the near
+    // plane then cuts it open: at 16:9 fifty of its vertices were behind the
+    // eye and the bottom of the frame showed the inside of the tank. What is
+    // behind the rider is never seen anyway, so it is shortened rather than the
+    // near plane being lowered, which would cost depth precision everywhere
+    // else to fix something nobody can see.
+    radii: [0.170, 0.082, 0.245], // ellipsoid half extents
+    offset: [0, -0.170, -0.025],
     rotation: [0.2, 0, 0],
     segments: [28, 14],
     // Filler cap, the one piece of detail that says fuel tank rather than panel
@@ -147,31 +154,50 @@ export const supersport = {
   fairing: {
     // Swept panel either side. Authored for the right, mirrored for the left.
     // A squashed ellipsoid: see Fairing.js for why not a cone.
+    // Tall enough to reach the grips. A wing whose top sits well below the bar
+    // leaves a band of road between bodywork and glove, and in the reference
+    // shots there is none: the wings sweep out and forward until they meet the
+    // hands, and they are as much of the silhouette as the screen is.
+    //
+    // The grip centre is at y 0.029, so a half height of 0.115 about y -0.075
+    // takes the top edge to +0.04 - just past the hand - and the bottom to
+    // -0.19, which is below the tank.
     wing: {
-      radii: [0.185, 0.048, 0.225],
-      offset: [0.238, -0.142, -0.055],
-      rotation: [0.16, -0.30, -0.42],
-      segments: [22, 12],
+      radii: [0.150, 0.115, 0.250],
+      offset: [0.288, -0.074, -0.045],
+      rotation: [0.14, -0.26, -0.30],
+      segments: [24, 14],
+    },
+
+    // The lower flank, under the wing and outboard of the tank. This is what
+    // takes the road out of the bottom corners.
+    // Kept clear of the near plane the way the tank is: at this camera the
+    // rearmost bodywork is only centimetres from the eye.
+    flank: {
+      radii: [0.128, 0.120, 0.200],
+      offset: [0.250, -0.200, -0.010],
+      rotation: [0.10, -0.16, -0.20],
+      segments: [20, 12],
     },
     // Inner shoulder, filling the gap between the wing and the nose.
     shoulder: {
-      radii: [0.105, 0.062, 0.165],
-      offset: [0.105, -0.092, -0.145],
-      rotation: [0.24, -0.18, -0.22],
+      radii: [0.112, 0.085, 0.180],
+      offset: [0.120, -0.086, -0.130],
+      rotation: [0.22, -0.16, -0.20],
       segments: [20, 12],
     },
     // The nose, between the wings and under the screen.
     nose: {
-      radii: [0.118, 0.062, 0.215],
-      offset: [0, -0.118, -0.185],
+      radii: [0.130, 0.082, 0.220],
+      offset: [0, -0.112, -0.180],
       rotation: [0.28, 0, 0],
       segments: [26, 14],
     },
     // A bright edge along the top of each wing, the same trick the tank seam
     // uses: a dark panel against a dark road needs a line on it to be seen.
     trim: {
-      from: [0.075, -0.082, 0.085],
-      to: [0.382, -0.135, -0.205],
+      from: [0.115, 0.010, 0.105],
+      to: [0.395, -0.055, -0.195],
       radius: 0.006,
       radialSegments: 8,
     },

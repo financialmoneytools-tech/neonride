@@ -39,9 +39,16 @@ export const framing = {
       // Negative is down.
       pitch: -0.24,
 
-      // Pushed back so the bars fit the narrow frame. See the note above about
-      // why this is a distance and not a scale.
-      riderOrigin: { x: 0, y: -0.63, z: -1.31 },
+      // Close in, the way the reference shots frame it: bodywork fills the
+      // bottom of the picture and the arms are simply outside it.
+      //
+      // Measured on the rendered frame - cockpit drawn, cockpit hidden, the two
+      // differenced in one frozen frame - this covers 90 per cent of the lower
+      // third and 65 per cent of the lower half. Both numbers move with BOTH
+      // knobs: pulling the rig in without raising it sends the tank off the
+      // bottom faster than the bodywork grows, which is why coverage fell the
+      // first time this was tried at a fixed height.
+      riderOrigin: { x: 0, y: -0.33, z: -0.70 },
     },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
@@ -52,7 +59,10 @@ export const framing = {
       fov: 75,
       fovMax: 104,
       pitch: 0,
-      riderOrigin: { x: 0, y: -0.202, z: -0.6 },
+      // As above: 90 per cent of the lower third, 70 per cent of the lower
+      // half. Further in still fills more, and at 45 per cent of the whole
+      // frame the bodywork starts eating the road ahead, which is the shot.
+      riderOrigin: { x: 0, y: -0.170, z: -0.34 },
     },
   ],
 };
