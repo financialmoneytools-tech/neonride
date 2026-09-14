@@ -49,7 +49,13 @@ const FRAGMENT_SHADER = `
   #include <dithering_pars_fragment>
 
   void main() {
+    // A mirrored part is drawn through a matrix with a negative determinant,
+    // which turns its triangles inside out: we end up looking at back faces
+    // whose normals point away from us, and every shading term inverts. Three
+    // does this flip inside its own materials; ours has to do it too, or the
+    // left hand lights as the negative of the right one.
     vec3 normal = normalize(vNormalView);
+    if (!gl_FrontFacing) normal = -normal;
     vec3 view = normalize(vViewDir);
 
     // Wrapped diffuse: the half lambert keeps the shadow side readable instead

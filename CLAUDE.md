@@ -101,10 +101,15 @@ src/
   Requires: rear-view awareness, chase AI, emissive flashing lights, possibly
   a rear-view mirror render.
 
-- **Rigged GLTF hands and rider arms**, replacing the primitives. Needs an
-  exception to the no-external-assets rule. The swap seam already exists:
-  `createHands(anchor)` in `src/player/rider/Hands.js`, selected by
-  `config.player.rider.hand.source`, aligned to `config.player.rider.anchors`.
+- **Pose the loaded hands through their skeleton.** The WRAD ARMS pack is in
+  and aligned, but its geometry is taken in the rest pose, which is a flat open
+  hand: it sits on the grip without closing around it. Straight fingers cannot
+  be made to grip by any placement, only by rotating the three joints per
+  finger. The bones are there (`finger_*1/2/3`, plus `wrist_ik` and
+  `arm_target` for the arm itself). Cheapest route is to pose the skeleton at
+  load and bake the skinned result once on the CPU - 872 vertices - so nothing
+  extra happens per frame. Until then `config.player.rider.hand.source` stays
+  on `'primitive'`, and B switches between the two.
 
 - **Third-person camera mode** showing the whole bike and rider. Needs a full
   bike model - frame, seat, exhaust, rear wheel - and a rider body. Much bigger

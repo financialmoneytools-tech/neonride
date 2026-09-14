@@ -36,17 +36,64 @@ export const hand = {
   model: {
     url: 'models/wrad-arms.glb',
 
-    // Correction applied on top of the grip anchor frame. A pack has no idea
-    // what scale or orientation we work in, so these exist to reconcile it.
-    // Placeholders until the file is in the repo and can be looked at; there is
-    // no honest way to guess them.
-    scale: 1,
-    offset: [0, 0, 0],
+    // Correction applied on top of the grip anchor frame, derived from the
+    // pack's own skeleton rather than tried by eye.
+    //
+    // Scale: the bind pose bones give three independent readings against real
+    // anatomy - upper arm 0.103, forearm 0.112, hand 0.106 - so 0.11 is where
+    // they converge. Do NOT derive it from the distance between the wrists
+    // instead: the rest pose spreads them 1.03 m apart against our 0.67 m bar,
+    // and scaling to close that gap gives child sized hands.
+    //
+    // Rotation: none needed. The pack is +X right, +Y up, -Z forward, which is
+    // exactly the grip anchor frame, so the two already agree.
+    //
+    // Offset: minus scale times the palm centre in mesh space, the midpoint of
+    // wrist.r and finger_middle1.r at (5.045, -3.155, -2.611). That puts the
+    // palm on the grip axis rather than the wrist, which is where the tube
+    // actually passes through a closed hand.
+    scale: 0.11,
+    offset: [-0.5549, 0.347, 0.2872],
     rotation: [0, 0, 0],
 
-    // Which node inside the GLB is the right hand. Empty means take every mesh
-    // in the file as one hand and mirror it for the other side, which is what a
-    // single arm model needs.
+    // Bones whose geometry survives: a name matching any prefix AND ending in
+    // the suffix. Everything else is cut away before the mesh is used. The
+    // suffix is what picks a side - Blender names bones '.r' and '.l', and a
+    // prefix alone cannot separate them because 'finger_' starts both hands.
+    //
+    // This is not trimming for performance. The pack is one mesh holding BOTH
+    // arms, and its rest pose is an A pose: shoulder to wrist comes out at
+    // 0.65 m where a riding position has 0.43 m, so the elbows would have to
+    // bend for the arms to reach our grips at all. Nothing above mid forearm
+    // can be placed correctly without posing the skeleton, and in a first
+    // person view nothing above mid forearm is on screen anyway. So we keep a
+    // hand and a stub, and mirror the right side for the left.
+    keepBones: {
+      prefixes: ['wrist', 'finger_', 'socket', 'forearm.Twist1'],
+      suffix: '.r',
+    },
+
+    // Material overrides, merged over materials.glove in ./rider.js.
+    //
+    // The glove preset is tuned for the primitive hands, which are smooth and
+    // highly tessellated, so most of what you see faces the camera and the rim
+    // stays a thin edge. A low poly hand is the opposite: large flat facets at
+    // steep angles, so the same rim term covers nearly the whole surface and
+    // the hands come out solid violet. Measured, not guessed - setting
+    // rimStrength to 0 turns them black, which is the whole of the effect.
+    //
+    // So this pack gets a tighter, weaker rim and a stronger key, because on
+    // flat facets the key is what makes the form read at all.
+    material: {
+      rimStrength: 0.14,
+      rimPower: 5.0,
+      keyStrength: 1.35,
+      color: 0x3a4156,
+      ambient: 0x2a3050,
+    },
+
+    // Which node inside the GLB to take. Empty means the first mesh in the
+    // file, which is what a single mesh pack gives you.
     rightNode: '',
   },
 

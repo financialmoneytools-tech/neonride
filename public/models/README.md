@@ -11,8 +11,8 @@ CLAUDE.md.
 ## Expected files
 
 - `wrad-arms.glb` - first person hands and forearms. CC0, from
-  https://wriks.itch.io/wrad-arms. Not committed yet; until it is present the
-  rider falls back to the primitive hands and logs a warning.
+  https://wriks.itch.io/wrad-arms. Committed, because CC0 allows it and a clone
+  should not need a manual download step to look right.
 
-  To install: download `WRAD_ARMS.zip` from the page above, take the `.glb` from
-  inside it, and save it here as `wrad-arms.glb`.
+  If it is ever missing, the rider falls back to the primitive hands and logs a
+  warning rather than failing to boot.
