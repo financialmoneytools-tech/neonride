@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { Device } from './core/Device.js';
 import { Engine } from './core/Engine.js';
 import { Framing } from './core/Framing.js';
-import { Hotkeys } from './core/Hotkeys.js';
+import { Hotkeys, KeySequence } from './core/Hotkeys.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
@@ -14,6 +14,7 @@ import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
 import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
+import { Autopilot } from './player/Autopilot.js';
 import { Rider } from './player/Rider.js';
 import { Postprocess } from './fx/Postprocess.js';
 
@@ -50,6 +51,11 @@ const mountains = new Mountains(engine.scene);
 const bike = new BikePhysics(engine.camera, road.path, framing);
 const rider = new Rider(engine.camera, framing);
 const traffic = new Traffic(engine.scene, road, bike);
+
+// Drives for recording. It produces steer, throttle and brake and nothing else,
+// so the bike, the lean, the bob and the camera cannot tell it from a player -
+// which is both why it looks like a rider and why it cannot drift out of sync.
+const autopilot = new Autopilot(road.path, traffic, bike);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 // The composer owns the frame from here on; engine.render() is only the
@@ -82,6 +88,17 @@ const loop = new Loop(engine.renderer, {
 loop.state.input = input.values;
 
 loop.add((dt) => input.update(dt));
+// Runs before the bike, which consumes the values in the same frame. Swapping
+// the reference rather than merging means the human input is never half applied
+// while the autopilot is driving.
+loop.add((dt, state) => {
+  if (!config.autopilot.enabled) {
+    state.input = input.values;
+    return;
+  }
+  autopilot.update(dt, state);
+  state.input = autopilot.values;
+});
 // Shares the one clock rather than keeping its own timer, so a resize settles
 // in game time like everything else.
 loop.add((dt) => viewport.update(dt));
@@ -142,6 +159,36 @@ const hotkeys = new Hotkeys(
   config.input.hotkeys,
 );
 
+/**
+ * Turns self driving on or off. Hidden on purpose: nothing on screen says it
+ * exists, and the only ways in are the typed sequence below and this function.
+ * @param {boolean} [on]
+ */
+function setAutopilot(on) {
+  const cfg = config.autopilot;
+  cfg.enabled = on === undefined ? !cfg.enabled : !!on;
+
+  // Recording is the whole reason it exists, so it brings capture mode with it:
+  // overlay off, pixel ratio pinned. Turning it off leaves capture alone, since
+  // by then the choice may be deliberate.
+  if (cfg.enabled && cfg.withCapture && !config.capture.enabled) {
+    config.capture.enabled = true;
+    applyCapture();
+  }
+  return cfg.enabled;
+}
+
+const reveal = new KeySequence(
+  config.autopilot.reveal.sequence,
+  config.autopilot.reveal.window,
+  () => setAutopilot(),
+);
+
+// The other way in, for driving a recording from a script. Deliberately not
+// behind the DEV guard - a build made for recording needs it - and deliberately
+// not announced anywhere the player can see.
+window.neonRide = { god: setAutopilot };
+
 applyCapture();
 loop.start();
 
@@ -150,16 +197,18 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, post };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, post };
 }
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
   hotkeys.dispose();
+  reveal.dispose();
   viewport.dispose();
   post.dispose();
   rider.dispose();
+  autopilot.dispose();
   bike.dispose();
   traffic.dispose();
   mountains.dispose();

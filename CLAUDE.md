@@ -86,6 +86,16 @@ src/
   gorurse telefon kabul eder. Preset'in degistirdigi seylerin cogu insaat
   aninda okundugu icin `Device` her seyden ONCE calisir.
 
+## Kayit modu (gizli)
+- Kendi kendine suren mod pazarlama videosu icin var. UI yok, ipucu yok.
+  Aciliyor: G-O-D tus dizisi, ya da konsoldan `neonRide.god(true)`.
+- Acilinca capture modunu da acar: overlay kapali, pixel ratio sabit.
+- Oyuncu ile AYNI girdi uzerinden surer (steer/throttle/brake). Bisikleti,
+  kamerayi, fizigi hic elleme - "kamera ray uzerinde" gibi gorunmemesinin ve
+  hicbir seyle senkronunun kaymamasinin sebebi bu.
+- Olculen (10 dakika, 60 Hz): 0 carpisma, azami hizin %98'i, dakikada ~1 near
+  miss. Ayar noktalari ve olculen bedelleri `config/autopilot.js` icinde yazili.
+
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k
 - Orta seviye telefonda 30 FPS'in altina dusmemek (preset: low)

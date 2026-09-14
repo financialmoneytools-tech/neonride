@@ -9,6 +9,7 @@
  */
 import { renderer, camera, loop, stats, input } from './config/core.js';
 import { quality, touch, viewport } from './config/device.js';
+import { autopilot } from './config/autopilot.js';
 import { sky } from './config/sky.js';
 import { world } from './config/world.js';
 import { capture } from './config/capture.js';
@@ -26,6 +27,7 @@ export const config = {
   touch,
   viewport,
   capture,
+  autopilot,
   framing,
   sky,
   world,
