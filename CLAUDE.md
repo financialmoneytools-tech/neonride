@@ -2,6 +2,23 @@
 
 Birinci şahıs (FPS-POV) neon-galaktik motosiklet sürüş oyunu. Web tabanlı, Three.js + HTML5 Canvas.
 
+## Product goal
+
+Neon Ride is both a playable game and a footage generator. Two equal goals:
+
+1. **Fun to play** - real speed sensation, traffic to weave through, obstacles.
+2. **Beautiful to record** - the output will be posted as short-form video on
+   YouTube and Instagram for marketing.
+
+This means:
+
+- Speed sensation is a core feature, not polish.
+- The game must run and compose correctly in 9:16 vertical, not only 16:9.
+- There must be a clean capture mode: HUD off, debug off, stable 60 fps,
+  optional cinematic camera.
+- Visual quality outranks feature count. A shot that looks spectacular is
+  worth more than a mechanic nobody sees.
+
 ## Stack
 - Vite (vanilla JS, framework yok)
 - three (npm paketi, CDN değil)
@@ -69,3 +86,11 @@ src/
   commit mesajları, console log'ları ve JSDoc. Kaynak dosyalarda ASCII dışı
   karakter kullanma. Kullanıcıya gösterilen arayüz metinleri (HUD, başlangıç
   ekranı) bu kuralın dışında, onlar Türkçe kalacak.
+
+## Backlog - not scheduled yet
+
+- **Police / chaser pursuit**: AI vehicles that follow the player from behind with
+  red-blue flashing lights. Strong visual for short-form video - the reflections
+  on the road and the light wash on the rider would carry a clip on their own.
+  Requires: rear-view awareness, chase AI, emissive flashing lights, possibly
+  a rear-view mirror render.
