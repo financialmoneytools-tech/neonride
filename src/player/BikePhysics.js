@@ -182,6 +182,26 @@ export class BikePhysics {
     this.speed *= factor;
   }
 
+  /**
+   * Shoves the bike sideways. Traffic uses this to push the player clear of
+   * whatever was hit; without it the player can match a vehicle's speed while
+   * inside it and never get out.
+   * @param {number} amount world units, positive to the rider's right
+   */
+  knockAside(amount) {
+    const bike = config.player.bike;
+    this._lateralTarget = THREE.MathUtils.clamp(
+      this._lateralTarget + amount,
+      -bike.lateralLimit,
+      bike.lateralLimit,
+    );
+    this.lateral = THREE.MathUtils.clamp(
+      this.lateral + amount * 0.5,
+      -bike.lateralLimit,
+      bike.lateralLimit,
+    );
+  }
+
   /** Throttle against brake and drag. Drag is what actually caps the speed. */
   _updateSpeed(dt, input, bike) {
     const throttle = Math.max(input.throttle, bike.throttleFloor);
