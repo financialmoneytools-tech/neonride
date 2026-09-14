@@ -7,9 +7,14 @@ import * as THREE from 'three';
  * shells. Left as separate meshes that would be several dozen draw calls for a
  * few hundred triangles; merged per material it is one draw call each.
  *
- * Only position, normal and uv are carried, which is everything the primitives
- * in this project produce. Sources are disposed as they are added: they exist
- * only to be copied, and they are never uploaded to the GPU.
+ * Carries position, normal, uv and colour. Colour matters more than it looks:
+ * a material with vertexColors on and no colour attribute reads (0, 0, 0) from
+ * WebGL and multiplies the whole mesh to black, so silently dropping it during
+ * a merge makes parts vanish rather than merely lose a tint. Parts that set no
+ * colour are filled with white, so mixing the two is safe.
+ *
+ * Sources are disposed as they are added: they exist only to be copied, and
+ * they are never uploaded to the GPU.
  */
 export class GeometryBuilder {
   constructor() {
@@ -67,6 +72,14 @@ export class GeometryBuilder {
     const positions = new Float32Array(this._vertexCount * 3);
     const normals = new Float32Array(this._vertexCount * 3);
     const uvs = new Float32Array(this._vertexCount * 2);
+
+    // Only emit a colour attribute when at least one part carried one, so an
+    // ordinary merge does not grow a buffer it has no use for.
+    let hasColor = false;
+    for (let p = 0; p < this._parts.length; p++) {
+      if (this._parts[p].attributes.color) { hasColor = true; break; }
+    }
+    const colors = hasColor ? new Float32Array(this._vertexCount * 3) : null;
     const indices =
       this._vertexCount > 65535 ? new Uint32Array(this._indexCount) : new Uint16Array(this._indexCount);
 
@@ -84,6 +97,12 @@ export class GeometryBuilder {
       if (normal) normals.set(normal.array, vertexAt * 3);
       if (uv) uvs.set(uv.array, vertexAt * 2);
 
+      if (colors) {
+        const color = part.attributes.color;
+        if (color) colors.set(color.array, vertexAt * 3);
+        else colors.fill(1, vertexAt * 3, (vertexAt + position.count) * 3);
+      }
+
       for (let i = 0; i < index.count; i++) indices[indexAt + i] = index.array[i] + vertexAt;
 
       vertexAt += position.count;
@@ -98,6 +117,7 @@ export class GeometryBuilder {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    if (colors) geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     geometry.computeBoundingSphere();
     return geometry;
@@ -189,4 +209,29 @@ export function latheFromProfile(profile, segments) {
     points.push(new THREE.Vector2(profile[i][0], profile[i][1]));
   }
   return new THREE.LatheGeometry(points, segments);
+}
+
+/**
+ * Writes a flat vertex colour over a whole geometry. Used to bake a fixed hue
+ * or a brightness into one part before it is merged with others: GeometryBuilder
+ * carries the colour attribute through, so a merged mesh can hold several.
+ * @param {THREE.BufferGeometry} geometry
+ * @param {number|THREE.Color} value a hex colour, or a number used as grey
+ */
+export function paintVertices(geometry, value) {
+  const count = geometry.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+
+  if (typeof value === 'number' && value <= 1) {
+    colors.fill(value);
+  } else {
+    const color = new THREE.Color(value);
+    for (let i = 0; i < count; i++) {
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    }
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }

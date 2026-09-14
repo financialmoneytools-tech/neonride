@@ -2,28 +2,24 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { createRng } from '../utils/rng.js';
 import { VehicleMesh } from './traffic/VehicleMesh.js';
+import { testVehicle } from './traffic/TrafficEvents.js';
 
 /**
  * Traffic - vehicles running the player's way at varied speeds, pooled per type
- * and recycled exactly like the road chunks.
+ * and recycled like the road chunks. Nothing is created after the constructor.
  *
- * One pool per type rather than one shared pool: an InstancedMesh has a fixed
- * geometry, so a shared pool would mean swapping geometry at runtime, which is
- * the one thing instancing cannot do. Per type pools keep every vehicle a pure
- * matrix write. A type's `count` is therefore also its spawn weight.
+ * One pool per type, not one shared pool: an InstancedMesh has fixed geometry,
+ * so sharing would mean swapping geometry at runtime, the one thing instancing
+ * cannot do. A type's `count` is therefore also its spawn weight.
  *
- * Nothing is created or destroyed after the constructor, so the loop allocates
- * nothing whatever happens on the road.
- *
- * Two events are published on the shared loop state, both decaying over time:
- *   state.impact   a collision, when collision.mode is 'arcade'
- *   state.nearMiss a close pass, which is the moment actually worth recording
+ * Publishes two decaying levels on the loop state: state.impact for a collision
+ * and state.nearMiss for a close pass, which Postprocess turns into light.
  *
  * A collision LATCHES on the vehicle hit and releases only once the player has
  * fully separated. A timer is what let a hit repeat forever: a player can match
- * a vehicle's speed while occupying the same space, and every expiry fired
- * again, so the flash never cleared - and the vehicle looked absent, because
- * from inside it every face points away.
+ * a vehicle's speed while inside it, and every expiry fired again, so the flash
+ * never cleared - and the vehicle looked absent, because from inside it every
+ * face points away.
  */
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -83,6 +79,7 @@ export class Traffic {
           weavePhase: 0,
           wasBehind: true,
           hit: false,
+          active: true,
         });
       }
 
@@ -122,12 +119,32 @@ export class Traffic {
     const playerLateral = state.lateral || 0;
     const maxSpeed = config.player.bike.maxSpeed;
 
+    // Density ramp: the road starts sparse and fills out as the run goes on.
+    const density = cfg.density;
+    const progress = THREE.MathUtils.clamp(playerDistance / density.fullAt, 0, 1);
+    const fraction = density.start + (1 - density.start) * Math.pow(progress, density.curve);
+
     for (let f = 0; f < this.fleets.length; f++) {
       const fleet = this.fleets[f];
       const vehicles = fleet.vehicles;
 
+      // An inactive vehicle is scaled to nothing, so it costs no fragments, and
+      // is skipped entirely so it cannot be collided with either.
+      const liveCount = Math.max(1, Math.round(vehicles.length * fraction));
+
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
+        vehicle.active = i < liveCount;
+
+        if (!vehicle.active) {
+          _matrix.makeScale(0, 0, 0);
+          fleet.mesh.body.setMatrixAt(i, _matrix);
+          fleet.mesh.strip.setMatrixAt(i, _matrix);
+          fleet.mesh.tail.setMatrixAt(i, _matrix);
+          fleet.mesh.glow.setMatrixAt(i, _matrix);
+          if (fleet.mesh.beacon) fleet.mesh.beacon.setMatrixAt(i, _matrix);
+          continue;
+        }
 
         vehicle.distance += vehicle.speed * maxSpeed * dt;
 
@@ -143,7 +160,7 @@ export class Traffic {
           this._respawn(fleet, vehicle, playerDistance + cfg.spawnAhead, i);
         }
 
-        this._test(fleet, vehicle, playerDistance, playerLateral, cfg);
+        testVehicle(this, fleet, vehicle, playerDistance, playerLateral, cfg, this.bike);
         this._place(fleet, vehicle, i, playerDistance);
       }
 
@@ -163,6 +180,8 @@ export class Traffic {
     const beacon = fleet.type.beacon;
     const on = Math.sin(this._beaconPhase * Math.PI * 2 * beacon.rate) >= 0;
 
+    // The lamps carry red and blue as vertex colours, so alternating the
+    // instance colour between those two lights one and extinguishes the other.
     for (let i = 0; i < fleet.vehicles.length; i++) {
       _color.set(on ? beacon.colorA : beacon.colorB);
       fleet.mesh.beacon.setColorAt(i, _color);
@@ -199,55 +218,17 @@ export class Traffic {
       }
     }
 
+    // Paint: the ambulance keeps its own, everything else draws the palette.
+    _color.set(type.bodyColor || cfg.bodyPalette[Math.floor(rng.next() * cfg.bodyPalette.length)]);
+    fleet.mesh.body.setColorAt(index, _color);
+    if (fleet.mesh.body.instanceColor) fleet.mesh.body.instanceColor.needsUpdate = true;
+
     _color.set(type.stripColor);
     fleet.mesh.strip.setColorAt(index, _color);
     if (fleet.mesh.strip.instanceColor) fleet.mesh.strip.instanceColor.needsUpdate = true;
 
     fleet.mesh.glow.setColorAt(index, _color);
     if (fleet.mesh.glow.instanceColor) fleet.mesh.glow.instanceColor.needsUpdate = true;
-  }
-
-  /** Collision and near miss, judged in road space rather than world space. */
-  _test(fleet, vehicle, playerDistance, playerLateral, cfg) {
-    const size = fleet.type.size;
-    const c = cfg.collision;
-
-    const alongGap = Math.abs(playerDistance - vehicle.distance);
-    const lateralGap = Math.abs(playerLateral - vehicle.lateral);
-
-    const alongReach = size.length * 0.5 * vehicle.scale + c.playerHalfLength;
-    const lateralReach = size.width * 0.5 * vehicle.scale + c.playerHalfWidth;
-
-    const overlapping = alongGap < alongReach && lateralGap < lateralReach;
-
-    if (c.mode === 'arcade' && overlapping && !vehicle.hit) {
-      vehicle.hit = true;
-      this.bike.applyImpact(c.speedLoss);
-      // Shove clear, so the player cannot settle inside a vehicle at a matched
-      // speed and sit there with the screen permanently flashing.
-      this.bike.knockAside(playerLateral >= vehicle.lateral ? c.knockLateral : -c.knockLateral);
-
-      if (this._impactRefractory <= 0) {
-        this.impact = 1;
-        this._impactRefractory = c.flashRefractory;
-      }
-    }
-
-    // Release on separation, never on a timer: while overlapped the latch stays
-    // set, so one pass can only ever be one hit.
-    if (vehicle.hit && alongGap > alongReach * 1.6) vehicle.hit = false;
-
-    // A near miss is judged on the frame the player draws level, so one pass
-    // fires at most once however long it takes.
-    const behind = playerDistance < vehicle.distance;
-    if (behind !== vehicle.wasBehind) {
-      const edgeGap = lateralGap - lateralReach;
-      if (edgeGap > 0 && edgeGap < cfg.nearMiss.range && this._nearMissCooldown <= 0) {
-        this.nearMiss = 1;
-        this._nearMissCooldown = cfg.nearMiss.cooldown;
-      }
-    }
-    vehicle.wasBehind = behind;
   }
 
   /** Writes one vehicle's transforms into its fleet's instance buffers. */

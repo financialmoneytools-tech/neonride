@@ -1,26 +1,20 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
-import { GeometryBuilder } from '../../utils/geometry.js';
+import { GeometryBuilder, paintVertices } from '../../utils/geometry.js';
 import { createStarTexture } from '../../utils/textures.js';
 import { applyDistanceFade } from '../../utils/distanceFade.js';
 
 /**
- * VehicleMesh - the instanced meshes for ONE vehicle type.
- *
- *   body    dark shell and cabin, merged
- *   strip   flank strips plus the rear outline, tinted per vehicle
- *   tail    rear lights, fixed red
- *   glow    additive: the halo behind the rear face and the blob on the road,
- *           merged into one geometry with their relative brightness baked into
- *           vertex colours, so the pair costs one draw call instead of two
- *   beacon  roof lights, only built for a type that asks for them
+ * VehicleMesh - the instanced meshes for ONE vehicle type: body, tinted strips
+ * and rear outline, tail lights, one additive mesh holding both the rear halo
+ * and the ground blob, and roof beacons for a type that asks for them.
  *
  * Four draw calls per type, five for the ambulance. A vehicle within a type
  * costs triangles and four matrix writes a frame, never a draw call.
  *
- * Silhouette is what separates the types at distance. A van reads as a van
- * because it is a tall slab, not because it has a wing mirror, so the geometry
- * here stays deliberately blunt.
+ * Silhouette is what separates the types at distance: a van reads as a van
+ * because it is a tall slab, not because it has a wing mirror, so the shapes
+ * stay deliberately blunt and deliberately far apart.
  */
 export class VehicleMesh {
   /**
@@ -40,6 +34,8 @@ export class VehicleMesh {
     this.materials = [];
     this.meshes = [];
 
+    // White base: the real paint arrives per vehicle through instanceColor,
+    // so variety inside a type costs nothing.
     this.bodyMaterial = new THREE.MeshBasicMaterial({ color: shared.bodyColor });
     this.stripMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
     this.tailMaterial = new THREE.MeshBasicMaterial({ color: shared.tail.color, toneMapped: false });
@@ -92,6 +88,16 @@ export class VehicleMesh {
       roof,
       matrix.makeTranslation(0, size.height * 0.5 + cabin.height * 0.5, cabin.offset),
     );
+
+    // A second, taller box over the rear. The step in the roofline is what makes
+    // an ambulance an ambulance at a hundred units, long before a light is.
+    const rearBox = type.rearBox;
+    if (rearBox) {
+      builder.add(
+        new THREE.BoxGeometry(rearBox.width, rearBox.height, rearBox.length),
+        matrix.makeTranslation(0, size.height * 0.5 + rearBox.height * 0.5, rearBox.offset),
+      );
+    }
 
     return builder.build('traffic-body-' + type.name);
   }
@@ -169,9 +175,9 @@ export class VehicleMesh {
   }
 
   /**
-   * Rear halo and ground blob in one additive mesh. Their relative brightness
-   * is baked into vertex colours, which three multiplies by the per instance
-   * colour, so one material serves both and the pair is a single draw call.
+   * Rear halo and ground blob in one additive mesh. Relative brightness is
+   * baked into vertex colours, which three multiplies by the instance colour,
+   * so one material serves both and the pair is a single draw call.
    */
   _buildGlow(type, shared, road) {
     const glow = shared.glow;
@@ -179,9 +185,9 @@ export class VehicleMesh {
     const size = type.size;
 
     this.glowTexture = createStarTexture(
-      // A fat, flat core rather than a soft falloff. What survives being
-      // averaged down to a couple of pixels is the mean, and a gradient that
-      // spends most of its area near zero has a mean near zero.
+      // Fat flat core, not a soft falloff: what survives being averaged down to
+      // a couple of pixels is the mean, and a gradient mostly near zero has a
+      // mean near zero.
       {
         coreStop: 0.3,
         coreAlpha: 1,
@@ -203,12 +209,12 @@ export class VehicleMesh {
       size.width * rear.widthScale,
       size.height * rear.heightScale,
     );
-    VehicleMesh._tint(halo, 1);
+    paintVertices(halo, 1);
     builder.add(halo, matrix.makeTranslation(0, 0, size.length * 0.5 + rear.offset));
 
     const ground = new THREE.PlaneGeometry(glow.size, glow.size);
     ground.rotateX(-Math.PI / 2);
-    VehicleMesh._tint(ground, glow.groundLevel);
+    paintVertices(ground, glow.groundLevel);
     builder.add(ground, matrix.makeTranslation(0, -size.height * 0.5 + glow.y, 0));
 
     this.glowMaterial = new THREE.MeshBasicMaterial({
@@ -245,13 +251,20 @@ export class VehicleMesh {
 
     for (let s = 0; s < 2; s++) {
       const sign = s === 0 ? 1 : -1;
-      builder.add(
-        new THREE.BoxGeometry(beacon.size[0], beacon.size[1], beacon.size[2]),
-        matrix.makeTranslation(sign * beacon.spacing, y, beacon.z),
-      );
+      const lamp = new THREE.BoxGeometry(beacon.size[0], beacon.size[1], beacon.size[2]);
+      // Left lamp red, right lamp blue, baked in. The instance colour then
+      // alternates between the two: multiplying red geometry by a blue instance
+      // colour gives black, so one lamp lights while the other goes out. That is
+      // a real alternating flash out of a single colour write per vehicle.
+      paintVertices(lamp, s === 0 ? beacon.colorA : beacon.colorB);
+      builder.add(lamp, matrix.makeTranslation(sign * beacon.spacing, y, beacon.z));
     }
 
-    this.beaconMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+    this.beaconMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      toneMapped: false,
+    });
     applyDistanceFade(this.beaconMaterial, road.neonFadeStart, road.neonFadeEnd);
     this.materials.push(this.beaconMaterial);
 
@@ -260,14 +273,6 @@ export class VehicleMesh {
       this.beaconMaterial,
       'Beacon',
     );
-  }
-
-  /** Flat grey vertex colour, used as a per part brightness multiplier. */
-  static _tint(geometry, level) {
-    const count = geometry.attributes.position.count;
-    const colors = new Float32Array(count * 3);
-    colors.fill(level);
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   }
 
   /** @returns {number} triangles drawn per vehicle of this type */

@@ -14,10 +14,6 @@ export const traffic = {
   enabled: true,
   seed: 90210,
 
-  // Pool size. Every one of these is live at all times; they recycle from
-  // behind the player to ahead of it, exactly like the road chunks.
-  count: 16,
-
   // Where a recycled vehicle reappears, measured from the player. `ahead` sits
   // inside the fog so they resolve out of it rather than popping in, and it has
   // to stay under the road's own neon fade end or a vehicle can appear on a
@@ -32,79 +28,100 @@ export const traffic = {
   // reachable and the outer ones sit near the edge lines.
   lanes: [-6.1, -2.5, 2.5, 6.1],
 
-  // Speed as a fraction of the player's maximum, so raising player top speed
-  // keeps the overtaking rate roughly the same. A wide spread is what makes the
-  // road feel busy: identical speeds read as a static formation.
-  speed: { min: 0.32, max: 0.74 },
+  // Speed is per type now; see the table below. It stays a fraction of the
+  // PLAYER's maximum, so raising the bike's top speed keeps the overtaking rate
+  // roughly where it is.
 
-  // Vehicle types. Each is its own pool and its own set of instanced meshes,
-  // so `count` IS the spawn weight: raising one type's count puts more of them
-  // on the road. Four draw calls per type, plus one for the ambulance beacons.
+  // Real automotive paint, dark enough for a night world but far enough apart
+  // to tell two vehicles apart. Picked per vehicle on respawn through
+  // instanceColor, so variety inside a type is free.
+  bodyPalette: [
+    0x1b2f5e, // deep blue
+    0x5e1b24, // deep red
+    0x3a3f4a, // graphite
+    0x6b6f78, // silver
+    0x1e3c32, // dark green
+    0x4a3a1e, // bronze
+    0x7a7f88, // light silver
+  ],
+
+  // Vehicle types. Each is its own pool and its own set of instanced meshes, so
+  // `count` IS the spawn weight.
   //
-  // Silhouette is what distinguishes them at distance, not detail: height and
-  // width read from 200 units away, a wing mirror does not.
+  // Silhouette has to carry the difference on its own: at 100 units a vehicle
+  // is a few dozen pixels, so height and width read and nothing else does. The
+  // first version failed because van, SUV and ambulance were all "tall box"
+  // within 0.4 units of each other. These are deliberately pushed apart.
   types: [
     {
       name: 'sedan',
       count: 6,
-      size: { length: 4.6, width: 1.95, height: 1.0 },
-      cabin: { length: 2.3, width: 1.62, height: 0.6, offset: 0.15, taper: 0.82 },
+      // Low and wide. The lowest thing on the road by a clear margin.
+      size: { length: 4.7, width: 2.1, height: 0.82 },
+      cabin: { length: 2.2, width: 1.7, height: 0.52, offset: 0.1, taper: 0.76 },
       speed: { min: 0.4, max: 0.78 },
       stripColor: 0x2de3ff,
     },
     {
       name: 'van',
       count: 3,
-      size: { length: 5.4, width: 2.1, height: 2.25 },
-      // Boxy: the cabin is the whole body, so the profile is a slab.
-      cabin: { length: 1.9, width: 2.0, height: 0.3, offset: -1.4, taper: 0.94 },
+      // Tall slab with a flat rear: the cabin is barely a lip, so the profile
+      // is one unbroken box.
+      size: { length: 5.2, width: 2.15, height: 2.55 },
+      cabin: { length: 1.5, width: 2.0, height: 0.12, offset: -1.6, taper: 0.96 },
       speed: { min: 0.3, max: 0.52 },
       stripColor: 0xff8a1f,
     },
     {
       name: 'ambulance',
-      count: 1,
-      size: { length: 5.8, width: 2.2, height: 2.45 },
-      cabin: { length: 1.9, width: 2.05, height: 0.35, offset: -1.6, taper: 0.9 },
+      count: 2,
+      // Box body over a lower cab. That step in the roofline is the shape that
+      // says ambulance, and it is legible long before any light is.
+      size: { length: 5.9, width: 2.25, height: 1.55 },
+      cabin: { length: 1.7, width: 2.05, height: 0.5, offset: -2.0, taper: 0.86 },
+      rearBox: { length: 3.6, width: 2.2, height: 1.35, offset: 1.0 },
+      bodyColor: 0xc8ccd4, // white, the one type that does not take the palette
       speed: { min: 0.5, max: 0.66 },
-      stripColor: 0xffffff,
-      // Roof beacons. Their own instanced mesh, alternating red and blue.
+      stripColor: 0xff2a3c,
       beacon: {
+        // Left lamp is red and right is blue, baked as vertex colours. The
+        // instance colour then alternates between red and blue, which lights
+        // one lamp and extinguishes the other: proper alternating flash out of
+        // a single colour write, no extra geometry and no extra draw call.
         colorA: 0xff2a3c,
         colorB: 0x3a6bff,
-        size: [0.42, 0.16, 0.42],
-        spacing: 0.62,
-        z: -1.7,
-        rate: 3.4, // alternations a second
+        size: [0.5, 0.2, 0.5],
+        spacing: 0.66,
+        z: -1.9,
+        rate: 2.6, // alternations a second
       },
     },
     {
-      name: 'suv',
+      name: 'jeep',
       count: 4,
-      // Wide and raised: sits higher off the road than anything else.
-      size: { length: 5.0, width: 2.3, height: 1.65 },
-      cabin: { length: 2.9, width: 2.05, height: 0.72, offset: 0.05, taper: 0.88 },
-      rideHeight: 0.28,
+      // Raised, NARROW and boxy - the tall-and-thin one. Its ride height lifts
+      // the whole body clear of the road, which is visible as a gap underneath.
+      size: { length: 4.3, width: 1.78, height: 1.72 },
+      cabin: { length: 2.5, width: 1.7, height: 0.78, offset: 0.0, taper: 0.97 },
+      rideHeight: 0.38,
       speed: { min: 0.36, max: 0.7 },
       stripColor: 0x39ff88,
     },
     {
       name: 'motorcycle',
       count: 4,
-      size: { length: 2.1, width: 0.62, height: 0.95 },
-      cabin: { length: 0.8, width: 0.5, height: 0.5, offset: -0.3, taper: 0.7 },
+      size: { length: 2.0, width: 0.5, height: 1.15 },
+      cabin: { length: 0.7, width: 0.42, height: 0.42, offset: -0.25, taper: 0.7 },
       speed: { min: 0.55, max: 0.86 },
       stripColor: 0xff36c8,
       singleTail: true,
-      // Slow lateral weave within its lane, which is what a bike does and what
-      // makes one readable as a bike rather than a small car.
       weave: { amount: 0.85, period: 4.5 },
     },
   ],
 
-  // Shared shape settings, applied to every type.
+  // Shape settings shared by every type.
   vehicle: {
-    bodyColor: 0x191d2b,
+    bodyColor: 0xffffff, // white base; instanceColor carries the real paint
     scaleJitter: 0.08,
 
     strip: { height: 0.15, inset: 0.02, y: -0.08, lengthScale: 0.86 },
@@ -120,14 +137,12 @@ export const traffic = {
 
     rear: {
       outline: { thickness: 0.14, inset: 0.05, depth: 0.05 },
-      // Additive halo behind the rear face, merged into the same mesh as the
-      // ground blob below so the pair is one draw call rather than two.
-      // A soft gradient mips down to its own average, and at 200 units a
-      // vehicle is only a few pixels tall - so a gentle halo averages away to
-      // nothing and the vehicle reads only as a dark gap in the road. The halo
-      // therefore has to be BIG relative to the body and genuinely bright:
-      // additive can and should exceed 1.
-      glow: { widthScale: 2.4, heightScale: 2.6, offset: 0.3, opacity: 1.6 },
+      // Big and bright enough to survive distance, small enough that it does
+      // not sit over the body and erase the silhouette - which is exactly what
+      // 2.4 by 2.6 at opacity 1.6 did. This is also the largest single fill
+      // cost in the traffic system, so it is the first thing to trim for frame
+      // rate: it is additive, so every pixel it covers is read and written.
+      glow: { widthScale: 1.5, heightScale: 1.55, offset: 0.3, opacity: 0.85 },
     },
 
     // Ground blob, dimmer than the rear halo. Its relative brightness is baked
@@ -135,10 +150,21 @@ export const traffic = {
     glow: {
       size: 5,
       y: 0.06,
-      groundLevel: 0.18, // vertex colour multiplier against the rear halo
-      nearFade: 14, // shared by both quads now that they are one mesh
+      groundLevel: 0.18,
+      nearFade: 14,
       textureSize: 128,
     },
+  },
+
+  // Traffic thins out at the start of a run and builds as it goes, so the
+  // opening is clean and the road gets busier the further you get.
+  //   fraction = start + (1 - start) * (distance / fullAt) ^ curve
+  // An inactive vehicle is scaled to nothing and skipped entirely; it costs no
+  // fragments and cannot be collided with.
+  density: {
+    start: 0.3, // share of each pool live at distance 0
+    fullAt: 26000, // units travelled before every pool is full
+    curve: 1.5, // above 1 holds it sparse for longer, then ramps
   },
 
   // What happens when the player hits one.
