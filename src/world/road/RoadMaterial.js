@@ -228,12 +228,21 @@ export class RoadMaterial {
     this.material.name = 'RoadSurface';
   }
 
-  /** @param {number} dt */
-  update(dt) {
-    const lanes = config.world.road.strips.lanes;
+  /**
+   * @param {number} dt
+   * @param {number} bikeSpeed world units per second the bike is travelling
+   */
+  update(dt, bikeSpeed = 0) {
+    const strips = config.world.road.strips;
+    const lanes = strips.lanes;
+
+    // Negative scrollFromSpeed carries the pattern back toward the rider, which
+    // adds to the flow the road already has instead of cancelling it.
+    const fromSpeed = strips.scrollFromSpeed * bikeSpeed;
+
     for (let i = 0; i < lanes.length; i++) {
       const period = this._periods[i];
-      let offset = this._offsets[i] + lanes[i].speed * dt;
+      let offset = this._offsets[i] + (lanes[i].speed + fromSpeed) * dt;
       // Wrapping in world units keeps the accumulator bounded forever, and the
       // pattern is periodic so the wrap itself is invisible.
       offset -= Math.floor(offset / period) * period;

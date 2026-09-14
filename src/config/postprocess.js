@@ -47,7 +47,9 @@ export const postprocess = {
     // glow almost nothing because it is blurred anyway.
     resolutionScale: 0.5,
 
-    // Added to strength at full speed.
+    // Added to strength at full speed. Small on purpose: the road fills more of
+    // the frame as the speed field of view opens up, so the same bloom setting
+    // is already doing more work at speed than it is at rest.
     speedGain: 0.15,
   },
 
@@ -66,7 +68,23 @@ export const postprocess = {
   // panel digits crisp.
   aberration: {
     amount: 0.0015,
-    speedGain: 0.002, // added at full speed
+    speedGain: 0.003, // added at full speed
     power: 2.6,
+  },
+
+  // Radial speed streaks. Rather than drawing lines, this smears the frame
+  // outward from the centre and keeps whichever is brighter, so the road's own
+  // neon is what streaks - which means the effect is always the right colour
+  // and costs no extra geometry.
+  //
+  // `start` keeps the middle of the frame untouched, so the instrument panel
+  // never smears. `strength` is the mix at the very corner at full speed;
+  // `exponent` holds it back until the bike is genuinely quick.
+  streaks: {
+    strength: 0.32,
+    length: 0.12, // how far out the smear reaches, in UV
+    start: 0.45, // radius where it begins, 1.0 is the corner
+    exponent: 2.2, // speed curve
+    taps: 6, // samples per pixel; the single biggest cost in this pass
   },
 };

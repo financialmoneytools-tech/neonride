@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { Input } from '../core/Input.js';
+import { createRng } from '../utils/rng.js';
+import { createNoise2D } from '../utils/noise.js';
 
 /**
  * BikePhysics - everything that decides where the camera is and which way it
@@ -31,12 +33,19 @@ export class BikePhysics {
   /**
    * @param {THREE.PerspectiveCamera} camera
    * @param {import('../world/road/RoadPath.js').RoadPath} path
+   * @param {import('../core/Framing.js').Framing} framing
    */
-  constructor(camera, path) {
+  constructor(camera, path, framing) {
     const bike = config.player.bike;
 
     this.camera = camera;
     this.path = path;
+    this.framing = framing;
+
+    // Shake is noise driven, not random per frame: white noise at 60 Hz strobes
+    // rather than shakes. Three lanes of one 2D noise keep the axes independent.
+    this._shakeNoise = createNoise2D(createRng(4177));
+    this._shakeTime = 0;
 
     this.distance = bike.startDistance;
     this.speed = bike.startSpeed;
@@ -48,8 +57,8 @@ export class BikePhysics {
     this._previousYaw = null;
     this._bobPhase = 0;
 
-    this.fov = config.camera.fov;
-    this._appliedFov = config.camera.fov;
+    this.fov = framing.fov;
+    this._appliedFov = framing.fov;
 
     // YXZ applies roll innermost, so rotation.z is a true roll about the view
     // axis rather than a yaw once the camera is pitched.
@@ -83,13 +92,22 @@ export class BikePhysics {
     const bobLateral = Math.sin(this._bobPhase * 0.5 + 1.1) * bob.lateral * strength;
     const bobRoll = Math.sin(this._bobPhase * 0.5 + 0.4) * bob.roll * strength;
 
+    // --- speed shake -----------------------------------------------------
+    const shake = cam.shake;
+    this._shakeTime += dt * shake.frequency;
+    const shakeAmount = shake.amount * Math.pow(speedRatio, shake.exponent);
+    const shakeLateral = this._shakeNoise(this._shakeTime, 0) * shakeAmount;
+    const shakeVertical = this._shakeNoise(this._shakeTime, 17.3) * shakeAmount;
+    const shakeRoll =
+      this._shakeNoise(this._shakeTime * 0.7, 41.7) * shake.roll * Math.pow(speedRatio, shake.exponent);
+
     // --- placement -------------------------------------------------------
     this.path.frameAt(this.distance, _position, _tangent, _lateral);
 
-    const across = this.lateral + bobLateral;
+    const across = this.lateral + bobLateral + shakeLateral;
     this.camera.position.set(
       _position.x + _lateral.x * across,
-      _position.y + cam.height + bobVertical,
+      _position.y + cam.height + bobVertical + shakeVertical,
       _position.z + _lateral.z * across,
     );
 
@@ -106,12 +124,14 @@ export class BikePhysics {
       .sub(this.camera.position)
       .normalize();
 
-    const pitch = Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1));
+    // The framing pitch trades sky for road. A tall frame with a level camera
+    // is half empty sky, so the narrower the aspect the further this tips down.
+    const pitch = Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + this.framing.pitch;
     const yaw = Math.atan2(-_direction.x, -_direction.z);
 
     this._updateLean(dt, input, bike, yaw);
 
-    this.camera.rotation.set(pitch, yaw, -this.lean + bobRoll);
+    this.camera.rotation.set(pitch, yaw, -this.lean + bobRoll + shakeRoll);
 
     this._updateFov(dt, cam, speedRatio);
 
@@ -184,8 +204,9 @@ export class BikePhysics {
   /** Field of view opens up with speed, and only touches the projection when
    *  the change is big enough to see. */
   _updateFov(dt, cam, speedRatio) {
-    const base = config.camera.fov;
-    this.fov = Input.damp(this.fov, base + (cam.fovMax - base) * speedRatio, cam.fovTau, dt);
+    const base = this.framing.fov;
+    const top = this.framing.fovMax;
+    this.fov = Input.damp(this.fov, base + (top - base) * speedRatio, cam.fovTau, dt);
 
     if (Math.abs(this.fov - this._appliedFov) > 0.02) {
       this._appliedFov = this.fov;

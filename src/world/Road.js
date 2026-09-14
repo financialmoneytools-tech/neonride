@@ -68,7 +68,7 @@ export class Road {
    * @param {object} state shared loop state; reads state.distance
    */
   update(dt, state) {
-    this.surface.update(dt);
+    this.surface.update(dt, state.speed || 0);
 
     const current = Math.floor((state.distance || 0) / this.chunkLength);
     const target = current - this.chunksBehind;

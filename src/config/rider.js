@@ -50,11 +50,14 @@ export const rider = {
 
   origin: { x: 0, y: -0.202, z: -0.6 },
 
-  // 1 keeps the cockpit exactly the same size on screen as the field of view
-  // opens up, by pulling it in and shrinking it by the same factor. 0 lets it
-  // shrink away with the rest of the world, which reads as more speed but
-  // makes the hands feel detached.
-  fovCompensation: 1,
+  // How much the cockpit resists the speed field of view ramp.
+  //   0 - it shrinks in frame as the view opens up, exactly like the world.
+  //       This is a real speed cue and is why it is the default.
+  //   1 - it keeps the same share of the frame at every speed.
+  // Only the size is scaled, never the distance; scaling both would cancel out.
+  // Values near 1 grow the rig toward the camera, so check the near plane
+  // clearance before shipping anything above about 0.6.
+  fovCompensation: 0,
   bobLag: 0.3, // share of the camera bob the rig does NOT follow
 
   // The bars turn about the steering head, which is raked back like a real

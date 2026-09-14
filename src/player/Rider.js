@@ -25,17 +25,24 @@ import { Instruments } from './rider/Instruments.js';
  * the bars, grips, hands, mirrors, forks, headlight and instruments all turn
  * together. That is also why the hands can never come off the grips.
  *
+ * Placement comes from the aspect aware framing profile, not from a fixed
+ * config value, so the cockpit composes at 16:9 and 9:16 alike.
+ *
  * The hands are the one part this file does not build. They come from
  * createHands, aligned to a named grip anchor, and Rider only ever adds their
  * group, ticks them and disposes them - so the primitive hands can be swapped
  * for a rigged model without anything here changing. See rider/Hands.js.
  */
 export class Rider {
-  /** @param {THREE.PerspectiveCamera} camera */
-  constructor(camera) {
+  /**
+   * @param {THREE.PerspectiveCamera} camera
+   * @param {import('../core/Framing.js').Framing} framing
+   */
+  constructor(camera, framing) {
     const cfg = config.player.rider;
 
     this.camera = camera;
+    this.framing = framing;
 
     this.group = new THREE.Group();
     this.group.name = 'Rider';
@@ -94,8 +101,6 @@ export class Rider {
     this._axis = new THREE.Vector3(0, Math.cos(cfg.steering.rake), Math.sin(cfg.steering.rake));
     this._axis.normalize();
 
-    this._tanBase = Math.tan(THREE.MathUtils.degToRad(config.camera.fov) * 0.5);
-
     this.update(0, { steer: 0, speed: 0, rpm: 0, bob: 0 });
   }
 
@@ -115,15 +120,25 @@ export class Rider {
     // on screen. Pulling the rig in and scaling it by the same factor keeps the
     // cockpit exactly the size it was, so the hands stay planted instead of
     // drifting away from the rider.
+    // Screen share of an object is tan(its half angle) / tan(half the fov), so
+    // keeping the cockpit the same size on screen as the view opens up means
+    // growing it in step with tan(fov / 2). Only the SIZE may scale: scaling the
+    // distance as well leaves x / d untouched and does nothing at all, which is
+    // what this used to do.
+    //
+    // The base is the current aspect's RESTING field of view, so a speed ramp is
+    // compensated while an aspect change is not - that is what lets the rig
+    // genuinely reframe between 16:9 and 9:16.
+    const tanBase = Math.tan(THREE.MathUtils.degToRad(this.framing.fov) * 0.5);
     const tanNow = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) * 0.5);
-    const scale = 1 + (this._tanBase / tanNow - 1) * cfg.fovCompensation;
+    const scale = 1 + (tanNow / tanBase - 1) * cfg.fovCompensation;
 
-    const origin = cfg.origin;
+    const origin = this.framing.riderOrigin;
     this.group.scale.setScalar(scale);
     this.group.position.set(
-      origin.x * scale,
-      origin.y * scale - (state.bob || 0) * cfg.bobLag,
-      origin.z * scale,
+      origin.x,
+      origin.y - (state.bob || 0) * cfg.bobLag,
+      origin.z,
     );
 
     this.hands.update(dt, state);

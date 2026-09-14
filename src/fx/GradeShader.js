@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { config } from '../config.js';
 
 /**
  * GradeShader - the final pass: chromatic aberration, ACES tone mapping,
@@ -26,6 +27,9 @@ export const GradeShader = {
     // renderer is not doing the mapping.
     toneMappingExposure: { value: 1 },
     uSaturation: { value: 1.12 },
+    uStreakStrength: { value: 0 },
+    uStreakLength: { value: 0.12 },
+    uStreakStart: { value: 0.34 },
     uAberration: { value: 0.0015 },
     uAberrationPower: { value: 2.6 },
     uVignetteStrength: { value: 0.34 },
@@ -44,6 +48,9 @@ export const GradeShader = {
   fragmentShader: `
     uniform sampler2D tDiffuse;
     uniform float uSaturation;
+    uniform float uStreakStrength;
+    uniform float uStreakLength;
+    uniform float uStreakStart;
     uniform float uAberration;
     uniform float uAberrationPower;
     uniform float uVignetteStrength;
@@ -74,6 +81,24 @@ export const GradeShader = {
       color.r = texture2D(tDiffuse, vUv + offset * shift).r;
       color.g = texture2D(tDiffuse, vUv).g;
       color.b = texture2D(tDiffuse, vUv - offset * shift).b;
+
+      // Radial speed streaks: smear the frame outward from the centre and keep
+      // whichever is brighter. Because it is the frame being smeared, the road's
+      // own neon is what streaks, so the colour is always right for free. Kept
+      // inside the same uniform branch for the whole low speed range, where it
+      // costs nothing.
+      if (uStreakStrength > 0.001) {
+        float reach = smoothstep(uStreakStart, 1.0, radius) * uStreakStrength;
+        if (reach > 0.001) {
+          vec3 smear = vec3(0.0);
+          for (int i = 0; i < STREAK_TAPS; i++) {
+            float t = float(i + 1) / float(STREAK_TAPS);
+            smear += texture2D(tDiffuse, vUv - offset * (t * uStreakLength)).rgb;
+          }
+          smear /= float(STREAK_TAPS);
+          color = mix(color, max(color, smear), reach);
+        }
+      }
 
       // The buffer is linear and unclamped, so anything the bloom piled above
       // 1.0 is still here for ACES to roll off rather than clip.
@@ -106,6 +131,7 @@ export const GradeShader = {
 export function createGradeMaterial() {
   const material = new THREE.ShaderMaterial({
     name: GradeShader.name,
+    defines: { STREAK_TAPS: config.postprocess.streaks.taps },
     uniforms: THREE.UniformsUtils.clone(GradeShader.uniforms),
     vertexShader: GradeShader.vertexShader,
     fragmentShader: GradeShader.fragmentShader,

@@ -77,6 +77,14 @@ export const world = {
     strips: {
       patternLength: 240,
       wrapCycles: 256, // wrap every 61440 units, keeps float32 precision sane
+
+      // Scroll tied to how fast the bike is actually going, as a fraction of
+      // road speed. NEGATIVE carries the pattern back toward the rider, which
+      // ADDS to the flow the road already has: at -0.45 the strips appear to
+      // approach at 1.45x the true speed. Cheapest speed cue in the project,
+      // and it costs nothing per frame. Each lane's own `speed` is a constant
+      // added on top of this.
+      scrollFromSpeed: -0.45,
       softness: 0.14, // dash edge fade, as a fraction of the dash length
       glow: 5.0, // halo reach as a multiple of the strip width
       halo: 0.35,
@@ -90,7 +98,11 @@ export const world = {
   },
 
   roadside: {
-    stationsPerChunk: 5, // pylon pairs per chunk, one every 40 units
+    // Pylon spacing is the strongest speed cue there is, because pylons are the
+    // only thing that passes CLOSE to the camera. Rate = speed / spacing: at 20
+    // units and 235 units per second that is 11.8 a second, against 2.4 at the
+    // old 40 unit spacing and 98 units per second.
+    stationsPerChunk: 10, // pylon pairs per chunk, one every 20 units
     offset: 14, // lateral distance from the road center
     postWidth: 0.45,
     postDepth: 0.45,

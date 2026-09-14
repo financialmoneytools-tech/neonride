@@ -90,6 +90,11 @@ export class Postprocess {
     uniforms.uAberrationPower.value = cfg.aberration.power;
     uniforms.uVignetteStrength.value = cfg.vignette.strength;
     uniforms.uVignetteStart.value = cfg.vignette.start;
+
+    const streaks = cfg.streaks;
+    uniforms.uStreakStrength.value = streaks.strength * Math.pow(speed, streaks.exponent);
+    uniforms.uStreakLength.value = streaks.length;
+    uniforms.uStreakStart.value = streaks.start;
   }
 
   /** Draws one frame. Called by Loop as the render step. */

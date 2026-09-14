@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from './config.js';
 import { Engine } from './core/Engine.js';
+import { Framing } from './core/Framing.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
@@ -21,6 +22,10 @@ import { Postprocess } from './fx/Postprocess.js';
 const container = document.getElementById('app');
 
 const engine = new Engine(container);
+
+// Resolves the field of view, the pitch and the cockpit placement for whatever
+// shape the frame is. Everything aspect dependent goes through here.
+const framing = new Framing().update(window.innerWidth / window.innerHeight);
 const input = new Input(container);
 
 // Distance fog. Its color is what every fogged out fragment converges to, and
@@ -32,14 +37,17 @@ const sky = new Sky(engine.scene, engine.camera);
 const road = new Road(engine.scene);
 const roadside = new Roadside(engine.scene, road);
 const mountains = new Mountains(engine.scene);
-const bike = new BikePhysics(engine.camera, road.path);
-const rider = new Rider(engine.camera);
+const bike = new BikePhysics(engine.camera, road.path, framing);
+const rider = new Rider(engine.camera, framing);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 // The composer owns the frame from here on; engine.render() is only the
 // fallback used when config.postprocess.enabled is turned off.
 const post = new Postprocess(engine.renderer, engine.scene, engine.camera);
-engine.onResize = (width, height) => post.setSize(width, height);
+engine.onResize = (width, height) => {
+  framing.update(width / height);
+  post.setSize(width, height);
+};
 
 const loop = new Loop(engine.renderer, {
   onRender: (dt) => post.render(dt),
@@ -68,7 +76,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, engine, loop, input, sky, road, roadside, mountains, bike, rider, post };
+  window.NEON = { config, engine, framing, loop, input, sky, road, roadside, mountains, bike, rider, post };
 }
 
 /** Releases every resource in order (the loop stops first). */
