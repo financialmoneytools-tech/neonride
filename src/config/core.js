@@ -10,7 +10,12 @@ export const renderer = {
   maxPixelRatio: 2, // anything above this kills performance
   powerPreference: 'high-performance',
   clearColor: 0x020108, // matches the sky base color
-  toneMappingExposure: 1.0,
+
+  // With bloom on, every extra device pixel costs two more full frame half
+  // float buffers. This is the first thing to lower if the frame rate is short
+  // on a high density display: 1.5, or 1, before touching any bloom setting.
+  // Tone mapping exposure is NOT here; it belongs to the grade pass, at
+  // config.postprocess.exposure.
 };
 
 // --- Camera ---

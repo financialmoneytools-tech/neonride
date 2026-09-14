@@ -11,6 +11,7 @@ import { renderer, camera, loop, stats, input } from './config/core.js';
 import { sky } from './config/sky.js';
 import { world } from './config/world.js';
 import { player } from './config/player.js';
+import { postprocess } from './config/postprocess.js';
 
 export const config = {
   renderer,
@@ -21,6 +22,7 @@ export const config = {
   sky,
   world,
   player,
+  postprocess,
 };
 
 export default config;

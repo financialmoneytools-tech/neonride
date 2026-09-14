@@ -93,7 +93,12 @@ export class Loop {
     this._measure(raw);
   }
 
-  /** Frame counter plus renderer.info readout (only valid AFTER render). */
+  /**
+   * Frame counter plus renderer.info readout. Only valid AFTER render, and with
+   * post processing on the counts cover every pass in the frame, not just the
+   * scene: Postprocess takes over the reset so they add up instead of being
+   * overwritten by the last full screen quad.
+   */
   _measure(raw) {
     const info = this.renderer.info;
     this.state.drawCalls = info.render.calls;

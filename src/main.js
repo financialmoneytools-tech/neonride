@@ -10,6 +10,7 @@ import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Rider } from './player/Rider.js';
+import { Postprocess } from './fx/Postprocess.js';
 
 /**
  * main.js - bootstrap only.
@@ -35,8 +36,13 @@ const bike = new BikePhysics(engine.camera, road.path);
 const rider = new Rider(engine.camera);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
+// The composer owns the frame from here on; engine.render() is only the
+// fallback used when config.postprocess.enabled is turned off.
+const post = new Postprocess(engine.renderer, engine.scene, engine.camera);
+engine.onResize = (width, height) => post.setSize(width, height);
+
 const loop = new Loop(engine.renderer, {
-  onRender: () => engine.render(),
+  onRender: (dt) => post.render(dt),
 });
 
 // Input values are exposed to every module through the shared state
@@ -52,6 +58,7 @@ loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
 loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
+loop.add((dt, state) => post.update(dt, state));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
 
 loop.start();
@@ -59,6 +66,7 @@ loop.start();
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
+  post.dispose();
   rider.dispose();
   bike.dispose();
   mountains.dispose();

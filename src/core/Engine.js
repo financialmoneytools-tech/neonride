@@ -39,9 +39,16 @@ export class Engine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, r.maxPixelRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = r.toneMappingExposure;
+    // Deliberately NOT tone mapped here. Postprocess applies ACES once, at the
+    // end of the chain, after bloom has added into a linear buffer. Leaving the
+    // renderer on NoToneMapping is what stops every MeshBasicMaterial in the
+    // project - three puts the tone mapping chunk in all of them - from mapping
+    // a second time on the way in.
+    this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.setClearColor(r.clearColor, 1);
+
+    /** Called after every resize with the new css size. Set by main.js. */
+    this.onResize = null;
 
     this._onResize = this.resize.bind(this);
     window.addEventListener('resize', this._onResize);
@@ -56,6 +63,8 @@ export class Engine {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.renderer.maxPixelRatio));
     this.renderer.setSize(w, h, false);
+
+    if (this.onResize) this.onResize(w, h);
   }
 
   /** Draws a single frame. Called by Loop. */
@@ -86,6 +95,7 @@ export class Engine {
   /** Called on HMR and page teardown so no resource is left behind. */
   dispose() {
     window.removeEventListener('resize', this._onResize);
+    this.onResize = null;
     Engine.disposeObject(this.scene);
     this.scene.clear();
     this.renderer.dispose();
