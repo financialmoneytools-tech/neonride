@@ -289,10 +289,10 @@ export const config = {
         glow: 5.0, // halo reach as a multiple of the strip width
         halo: 0.35,
         lanes: [
-          { offset: -0.40, width: 0.05, color: 0xff8a1f, repeats: 3, duty: 0.42, speed: 14, intensity: 0.9 },
-          { offset: -0.15, width: 0.04, color: 0x39ff88, repeats: 5, duty: 0.30, speed: 22, intensity: 0.8 },
-          { offset: 0.15, width: 0.04, color: 0x2de3ff, repeats: 4, duty: 0.34, speed: 18, intensity: 0.85 },
-          { offset: 0.40, width: 0.05, color: 0xff36c8, repeats: 6, duty: 0.38, speed: 10, intensity: 0.9 },
+          { offset: -0.40, width: 0.05, color: 0xff8a1f, repeats: 3, duty: 0.42, speed: 0, intensity: 0.9 },
+          { offset: -0.15, width: 0.04, color: 0x39ff88, repeats: 5, duty: 0.30, speed: 0, intensity: 0.8 },
+          { offset: 0.15, width: 0.04, color: 0x2de3ff, repeats: 4, duty: 0.34, speed: 0, intensity: 0.85 },
+          { offset: 0.40, width: 0.05, color: 0xff36c8, repeats: 6, duty: 0.38, speed: 0, intensity: 0.9 },
         ],
       },
     },
