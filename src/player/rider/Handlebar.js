@@ -32,7 +32,8 @@ export function buildHandlebar(builders) {
 
   for (let s = 0; s < 2; s++) {
     const sign = s === 0 ? 1 : -1;
-    buildBar(builders.frame, cfg.bar, sign);
+    // A supersport has clip-ons, built in bike/Controls.js, and no crossbar.
+    if (cfg.bar.style !== 'clipOn') buildBar(builders.frame, cfg.bar, sign);
     buildGrip(builders.grip, cfg.grip, sign);
     buildLever(builders.frame, cfg.lever, sign);
     buildMirror(builders.frame, builders.mirror, cfg.mirror, sign);

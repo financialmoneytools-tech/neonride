@@ -1,5 +1,5 @@
 import { hand } from './hand.js';
-import { machine } from './machine.js';
+import { bike, machine, machines } from './machine.js';
 
 /**
  * NEON RIDE - rider rig geometry, placement and shading.
@@ -88,6 +88,10 @@ export const rider = {
   // Handlebar centreline for the right half, mirrored for the left.
   // Points are joined by tubes with a sphere at every bend.
   bar: {
+    // 'clipOn' drops the crossbar entirely and bike/Controls.js builds the
+    // stubs from the fork tops out to the grips instead, which is what a
+    // supersport has and the clearest cue available at this camera.
+    style: 'clipOn',
     radius: 0.0155,
     radialSegments: 10,
     path: [
@@ -153,7 +157,13 @@ export const rider = {
 
   // Everything the rider can see of the machine itself. Lives in its own
   // file; see config/machine.js for why the placements are framing driven.
+  //
+  // `machine` is the fitted one and is what every builder reads. `machines` is
+  // the library it was chosen from; swapping bikes points the first at another
+  // entry of the second and rebuilds.
   machine,
+  machines,
+  bike,
 
   // Small neon gauge cluster in the middle of the bars.
   instruments: {

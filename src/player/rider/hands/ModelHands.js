@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { config } from '../../../config.js';
-import { createRiderMaterial } from '../RiderMaterial.js';
+import { createNeonMaterial, createRiderMaterial } from '../RiderMaterial.js';
 import { collectArmBones } from './armBones.js';
+import { buildCuff, cuffFrame } from './cuff.js';
 import { bakeSkin } from './bakeSkin.js';
 import { poseArm } from './poseArm.js';
 import { trimSkinnedGeometry } from './trimSkin.js';
+import { GeometryBuilder } from '../../../utils/geometry.js';
 
 /**
  * ModelHands - arms and hands loaded from a GLB instead of built from
@@ -61,9 +63,11 @@ export function createModelHands(anchor, onFailure) {
   const gloveMirrored = glove.clone();
   gloveMirrored.name = 'RiderGloveModelMirrored';
   gloveMirrored.side = THREE.DoubleSide;
+  const trim = createNeonMaterial(cfg.materials.neonRight, 'RiderCuffRim');
 
   let disposed = false;
   let geometry = null;
+  let rimGeometry = null;
 
   if (!loader) loader = new GLTFLoader();
 
@@ -105,10 +109,24 @@ export function createModelHands(anchor, onFailure) {
       // texture in particular is one we never render and never want uploaded.
       releaseScene(gltf.scene);
 
-      // The arm is posed to reach the grip, so it is already where it belongs:
+      // The hand is cut at the wrist, so it needs an end. The cuff is placed
+      // from the POSED skeleton rather than authored, because the cut is
+      // wherever this pack happens to put its wrist joint.
+      const frame = cuffFrame(collectArmBones(source.skeleton), _correction);
+      if (frame) {
+        const cuff = buildCuff(frame.wrist, frame.inward, model.cuff);
+        geometry = new GeometryBuilder().add(geometry).add(cuff.body).build('hand-with-cuff');
+        rimGeometry = cuff.rim;
+      }
+
+      // The hand is posed to hold the grip, so it is already where it belongs:
       // the only transform left is the mirror that makes the other side.
       addSide(geometry, new THREE.Matrix4(), glove, group, meshes);
       addSide(geometry, _mirror.clone(), gloveMirrored, group, meshes);
+      if (rimGeometry) {
+        addSide(rimGeometry, new THREE.Matrix4(), trim, group, meshes);
+        addSide(rimGeometry, _mirror.clone(), trim, group, meshes);
+      }
     },
     undefined,
     () => {
@@ -127,10 +145,13 @@ export function createModelHands(anchor, onFailure) {
       disposed = true;
       // Both sides share one geometry, so it is freed here rather than per mesh.
       if (geometry) geometry.dispose();
+      if (rimGeometry) rimGeometry.dispose();
       geometry = null;
+      rimGeometry = null;
       meshes.length = 0;
       glove.dispose();
       gloveMirrored.dispose();
+      trim.dispose();
       group.clear();
     },
   };

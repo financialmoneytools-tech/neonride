@@ -94,14 +94,36 @@ export const hand = {
     // Bones whose geometry survives: a name matching any prefix AND ending in
     // the suffix. The suffix is what picks a side - Blender names bones '.r'
     // and '.l', and a prefix alone cannot separate them because 'finger_'
-    // starts both hands. One arm is kept and mirrored for the other side.
+    // starts both hands. One hand is kept and mirrored for the other side.
     //
-    // The whole arm is kept now, not just a stub: once it is posed, the
-    // shoulder sits behind the camera near plane, so the arm runs off the
-    // bottom of the frame and reads as attached to a body.
+    // The HAND only. No forearm, no elbow, no shoulder - with the camera at the
+    // bars, an arm is outside the frame anyway, and every first person bike
+    // game solves the arm problem by not having arms. The cut at the wrist is
+    // covered by the cuff below, so nothing hollow is ever on screen.
     keepBones: {
-      prefixes: ['shoulder', 'bicep', 'forearm', 'wrist', 'finger_', 'socket'],
+      prefixes: ['wrist', 'finger_', 'socket'],
       suffix: '.r',
+    },
+
+    // The glove cuff, which ends the hand rather than letting it stop. Built
+    // rather than loaded: it has to sit exactly on the cut, and the cut is
+    // wherever the pack happens to put the wrist joint, so it is placed from
+    // the posed skeleton at load.
+    // A BAND, not a gauntlet. The open end points back up the arm, which from
+    // this camera means straight at the eye, so anything with length reads as a
+    // funnel aimed at the viewer and you see down the inside of it. Short and
+    // barely wider than the wrist is the whole trick: it closes the cut and
+    // then stops.
+    cuff: {
+      radius: 0.030, // at the wrist end
+      flare: 1.04, // how much wider the open end is
+      length: 0.018, // how far back along the forearm it reaches
+      sink: 0.014, // how far it pushes INTO the hand, so there is no seam
+      segments: 16,
+
+      // A thin lit band around it. Thin: at full brightness and any width this
+      // close to the camera it stops being trim and becomes a lamp.
+      rim: { width: 0.004, inset: 0.003, radius: 1.06 },
     },
 
     // Material overrides, merged over materials.glove in ./rider.js.

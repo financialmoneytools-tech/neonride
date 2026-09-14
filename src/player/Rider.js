@@ -4,6 +4,8 @@ import { Input } from '../core/Input.js';
 import { GeometryBuilder } from '../utils/geometry.js';
 import { createNeonMaterial, createRiderMaterial } from './rider/RiderMaterial.js';
 import { buildHandlebar } from './rider/Handlebar.js';
+import { buildControls } from './rider/bike/Controls.js';
+import { buildFairing } from './rider/bike/Fairing.js';
 import { buildBikeFront } from './rider/BikeFront.js';
 import { createHands } from './rider/Hands.js';
 import { Instruments } from './rider/Instruments.js';
@@ -71,14 +73,19 @@ export class Rider {
       grip: new GeometryBuilder(),
       mirror: new GeometryBuilder(),
       tank: new GeometryBuilder(),
+      paint: new GeometryBuilder(),
       neonLeft: new GeometryBuilder(),
     };
 
     // Which group each merged mesh belongs to. Everything steers except the tank.
-    const parents = { tank: this.chassis, neonLeft: this.chassis };
+    // Which group each merged mesh belongs to. The tank and the bodywork are
+    // bolted to the chassis and stay put; everything else turns with the bars.
+    const parents = { tank: this.chassis, paint: this.chassis, neonLeft: this.chassis };
 
     buildHandlebar(builders);
     buildBikeFront(builders);
+    buildFairing(builders);
+    buildControls(builders);
 
     this.instruments = new Instruments();
     this.instruments.addFrameTo(builders.frame);
@@ -90,6 +97,9 @@ export class Rider {
       grip: createRiderMaterial(presets.grip, 'RiderGrip'),
       mirror: createRiderMaterial(presets.mirror, 'RiderMirror'),
       tank: createRiderMaterial(presets.frame, 'RiderTank'),
+      // Bodywork is the one painted surface on the bike. Everything else is
+      // graphite; this is what stops the cockpit reading as a set of shapes.
+      paint: createRiderMaterial(cfg.machine.paint, 'RiderPaint'),
       neonLeft: createNeonMaterial(presets.neonLeft, 'RiderTankTrim'),
     };
 
