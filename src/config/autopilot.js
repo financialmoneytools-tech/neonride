@@ -63,52 +63,30 @@ export const autopilot = {
     // once leaves the centre as the only place clear of everything. At 2.5 it
     // uses the whole road and hits something. At 5 it is still no collisions,
     // 89 per cent, and it moves.
-    horizon: 7,
+    horizon: 3,
 
-    // A vehicle this close, ahead or behind, is planned around whatever the
-    // closing speed is. Without it a vehicle matched for speed vanishes from
-    // the plan, the bike drifts into the space it is holding, and the next time
-    // either of them changes speed it is already there.
-    nearDistance: 70,
 
     // Closer than this along the road and it counts as alongside: a problem
     // now, not in however many seconds the closing speed works out to.
     alongside: 12,
 
-    // Clearance beyond the collision reach that a chosen line must keep.
-    // Collision is judged edge to edge, so this is pure margin.
-    safety: 0.45,
 
-    // Close passes are the shots worth having, so a line is rewarded for
-    // being near the vehicle it is about to pass - all the way down to the
-    // safety margin and no further, since that is the one hard rule.
-    //
-    // Near miss fires at an edge gap under nearMiss.range, so the margin plus
-    // this span has to stay inside that: at 0.45 and 0.15 the bike aims for a
-    // gap between 0.45 and 0.6, which is a near miss every time with most of
-    // the margin still in hand.
-    grazeSpan: 0.15,
+    // Clearance the PLANNER will not go below when choosing a line. Distinct
+    // from the guard's floor: this is what it aims to keep, that is what it
+    // cannot cross. Keeping them apart means the guard stays a last resort
+    // rather than something the plan leans on.
+    safety: 0.25,
 
-    // Only the vehicle arriving within this many seconds is worth aiming a
-    // close pass at. Further off and it will have moved.
-    grazeWithin: 2.5,
-
-    // How much that reward is worth against holding the racing line.
+    // The gap the bike AIMS to pass at, edge to edge, and what wanting it is
+    // worth against holding the racing line.
     //
-    // ZERO by default, and that is a measured decision rather than a timid one.
-    // Over three minutes: at 0 it is no collisions and 98 per cent of top
-    // speed, with about one near miss a minute happening naturally; at 1.6 it
-    // is two collisions and 87 per cent; at 8 it is three near misses a minute
-    // but two collisions and 71 per cent.
-    //
-    // The reason is the size of the window. A near miss fires under 0.6 units
-    // of clearance and the safety margin is 0.45, so aiming for one means
-    // holding a line inside a band 0.15 wide - narrower than how far the bike
-    // drifts from its target while it is still settling. Wanting the shot more
-    // does not make the bike hold the line better, it just moves the aim closer
-    // to the edge. Raising this is the one knob that trades collisions for
-    // close passes; tightening the steering is what would make it free.
-    grazeWeight: 0,
+    // This is what makes it thread rather than avoid: an open road to the side
+    // costs as much as a vehicle too close, so the bike goes looking for the
+    // slot between two of them instead of the space beside all of them. It is
+    // only safe to aim this fine because the guard below cannot be crossed -
+    // without that, aiming near the floor is aiming at a collision.
+    thread: 0.35,
+    threadWeight: 4,
 
     // Cost per unit away from the racing line, and per unit of lateral move
     // from where the bike already is. The second one is what stops it
@@ -144,6 +122,30 @@ export const autopilot = {
     // Candidate lines tested across the band each frame. 41 is a step of about
     // 27 cm across the reachable width, finer than the margins being judged.
     candidates: 41,
+  },
+
+  // --- The guard --------------------------------------------------------
+  //
+  // The cheat that makes failure impossible. See autopilot/Guard.js.
+  guard: {
+    enabled: true,
+
+    // Clear air kept between the two, in units, when the guard has to step in.
+    // Small: it is a floor, not a margin, and the planner already aims well
+    // above it. Big enough that the collision test can never see an overlap.
+    floor: 0.05,
+
+    // How far ahead of the actual overlap the guard starts easing the bike
+    // clear, as a multiple of the collision length. Well ahead on purpose:
+    // inside this window it moves a little each frame, so by the time the real
+    // overlap arrives there is usually nothing left to correct.
+    lead: 1.6,
+
+    // Units per second the easing may move the bike. This is the difference
+    // between a guard you can see and one you cannot: without it the guard did
+    // nothing until the frame of contact and then moved the bike up to five
+    // units at once, which is half the road in a frame and reads as a cut.
+    easeRate: 9,
   },
 
   // --- Hands ------------------------------------------------------------
@@ -188,6 +190,13 @@ export const autopilot = {
     // Once braking, keep braking for at least this long, so a single awkward
     // frame does not produce a visible stab at the brakes.
     brakeHold: 0.35,
+
+    // With the guard on, do not brake at all. Braking is what a rider does
+    // when a gap might not work out, and the guard has already decided that
+    // every gap works out - so all it can do here is cost speed. Measured: with
+    // the road busy and the bike threading hard, this is the difference between
+    // 62 per cent of top speed and 97.
+    holdThrottleWhenGuarded: true,
 
     // Share of top speed below which it will not brake at all, whatever the
     // road looks like. Without a floor the bike brakes, drops under the

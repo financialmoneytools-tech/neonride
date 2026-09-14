@@ -57,20 +57,43 @@ export function planLine(autopilot, cfg, racing, state) {
   const rate = bike.lateralSpeed * authority * cfg.traffic.reachSafety;
 
   const steps = Math.max(3, cfg.traffic.candidates | 0);
+  const at = (i) => -limit + (2 * limit * i) / (steps - 1);
+
+  // Which vehicles are worth treating as rules, decided before any line is
+  // scored. A vehicle no line on the whole road can clear is not a constraint,
+  // it is a fact: the bike is already inside its path and will be for the
+  // moment it takes to go by. Letting one of those veto rules out every
+  // candidate at once, and on a busy road there is nearly always one - measured,
+  // the planner called itself trapped on 81 per cent of frames while a legal
+  // line was sitting there the whole time. They still count in the cost below,
+  // where they push the line away from themselves; they simply cannot veto.
+  const avoidable = [];
+  for (let k = 0; k < obstacles.length; k++) {
+    const obstacle = obstacles[k];
+    let reachable = false;
+    for (let i = 0; i < steps && !reachable; i++) {
+      if (sweptGap(current, at(i), rate, bike.lateralTau, obstacle, cfg) >= cfg.traffic.safety) {
+        reachable = true;
+      }
+    }
+    avoidable.push(reachable);
+  }
+
   let best = null;
   let roomiest = null;
 
   for (let i = 0; i < steps; i++) {
-    const candidate = -limit + (2 * limit * i) / (steps - 1);
+    const candidate = at(i);
 
     let clearance = Infinity;
     let openness = Infinity;
-    let closeness = 0;
+    let passing = Infinity;
 
     for (let k = 0; k < obstacles.length; k++) {
       const obstacle = obstacles[k];
       const edgeGap = sweptGap(current, candidate, rate, bike.lateralTau, obstacle, cfg);
-      if (edgeGap < clearance) clearance = edgeGap;
+
+      if (avoidable[k] && edgeGap < clearance) clearance = edgeGap;
 
       // The same gap judged at the DESTINATION rather than along the way. Only
       // used to break a tie when nothing is safe, and it has to be a separate
@@ -82,20 +105,16 @@ export function planLine(autopilot, cfg, racing, state) {
       const destination = Math.abs(candidate - obstacle.lateral) - obstacle.reach;
       if (destination < openness) openness = destination;
 
-      // How good a shot passing here would make, for the vehicle about to be
-      // passed. A RAMP, not a peak: one that peaks at some ideal distance puts
-      // a cost minimum beside every vehicle, so the gaps either side of a car
-      // trade places on the smallest change - measured, that flipped the plan
-      // between the edges of the road several times a second and cost eight
-      // collisions in three minutes. A ramp only ever says "closer is better,
-      // down to the margin", and the margin is enforced separately.
-      if (k === 0 && obstacle.time <= cfg.traffic.grazeWithin) {
-        closeness = clamp(
-          1 - (destination - cfg.traffic.safety) / Math.max(cfg.traffic.grazeSpan, 1e-3),
-          0,
-          1,
-        );
-      }
+      // How close this line would pass the vehicle the bike is ABOUT to pass,
+      // as opposed to the tightest gap anywhere. Those are different questions
+      // and only the first one makes a ride worth watching: with four lanes
+      // spaced evenly, the smallest gap anywhere is smallest dead in the
+      // middle of the road, so aiming at that sat the bike on the centre line
+      // and left it there - a hundred per cent of ten minutes inside one lane
+      // width. Aiming to pass the NEXT vehicle closely makes it pick a side,
+      // and picking a side over and over is what weaving is.
+      if (k === 0) passing = destination;
+
 
     }
 
@@ -113,7 +132,7 @@ export function planLine(autopilot, cfg, racing, state) {
 
     if (clearance < cfg.traffic.safety) continue;
 
-    const cost = score(candidate, racing, current, cfg) - closeness * cfg.traffic.grazeWeight;
+    const cost = score(candidate, racing, current, cfg, passing);
     if (!best || cost < best.cost) best = { target: candidate, cost };
   }
 
@@ -123,6 +142,7 @@ export function planLine(autopilot, cfg, racing, state) {
     // current line instead - which is what this used to do - turns a gap that
     // was merely tight into one the bike never even tried to take.
     state.autopilotBlocked = true;
+    state.autopilotBest = roomiest ? roomiest.clearance : -99;
     const escape = clamp(roomiest ? roomiest.target : current, -limit, limit);
     return { line: escape, target: escape, blocked: true };
   }
@@ -137,15 +157,35 @@ export function planLine(autopilot, cfg, racing, state) {
   let line = best.target;
   const held = autopilot.line;
   if (Math.abs(held - line) > 1e-3 && viable(held, obstacles, cfg, current, rate, limit)) {
-    const heldCost = score(held, racing, current, cfg);
+    const heldCost = score(held, racing, current, cfg, heldPassing(held, obstacles));
     if (heldCost - best.cost < cfg.traffic.switchMargin) line = held;
   }
 
   return { line, target: line, blocked: false };
 }
 
-function score(candidate, racing, current, cfg) {
+/**
+ * What a line costs.
+ *
+ * The first term is the one that makes the ride: it wants the bike to pass at a
+ * particular clearance rather than at the widest one available, so an open road
+ * to the side is as wrong as a vehicle too close. That is what threading is -
+ * choosing the gap, not avoiding the traffic - and it only works because the
+ * guard behind it makes the floor unreachable, so aiming near it is free.
+ *
+ * `passing` is the gap to the vehicle about to be passed, at the DESTINATION -
+ * not the smallest gap anywhere, and not the smallest gap on the way. How close
+ * a pass looks is about where the bike will be as that one vehicle goes by;
+ * what is safe to attempt is a different question, answered before this is
+ * reached.
+ */
+function score(candidate, racing, current, cfg, passing) {
+  const thread = Number.isFinite(passing)
+    ? Math.abs(passing - cfg.traffic.thread) * cfg.traffic.threadWeight
+    : 0;
+
   return (
+    thread +
     Math.abs(candidate - racing) * cfg.traffic.lineWeight +
     Math.abs(candidate - current) * cfg.traffic.effortWeight
   );
@@ -179,6 +219,12 @@ function sweptGap(current, candidate, rate, tau, obstacle, cfg) {
   const nearest = obstacle.lateral < low ? low : obstacle.lateral > high ? high : obstacle.lateral;
 
   return Math.abs(nearest - obstacle.lateral) - obstacle.reach;
+}
+
+/** The destination gap a line would have to the vehicle it passes first. */
+function heldPassing(target, obstacles) {
+  const soonest = obstacles[0];
+  return soonest ? Math.abs(target - soonest.lateral) - soonest.reach : Infinity;
 }
 
 /** Whether a line already being followed is still allowed. */

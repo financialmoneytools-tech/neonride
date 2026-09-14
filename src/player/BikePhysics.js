@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
+import { updateFov, updateLean } from './bike/response.js';
 import { Input } from '../core/Input.js';
 import { createRng } from '../utils/rng.js';
 import { createNoise2D } from '../utils/noise.js';
@@ -132,11 +133,11 @@ export class BikePhysics {
       Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + this.framing.pitch + profile.pitchOffset;
     const yaw = Math.atan2(-_direction.x, -_direction.z);
 
-    this._updateLean(dt, input, bike, yaw);
+    updateLean(this, dt, input, bike, yaw);
 
     this.camera.rotation.set(pitch, yaw, -this.lean + bobRoll + shakeRoll);
 
-    this._updateFov(dt, cam, speedRatio);
+    updateFov(this, dt, cam, speedRatio);
 
     state.distance = this.distance;
     state.speed = this.speed;
@@ -202,6 +203,26 @@ export class BikePhysics {
     );
   }
 
+  /**
+   * Puts the bike at an exact place across the road.
+   *
+   * The steering target is moved with it, not just the position. Moving the
+   * position alone leaves the bike asking to be somewhere it is not, so it
+   * spends the following frames pulling back toward the line it was taken off,
+   * and that argument reads as a stutter.
+   *
+   * Only the recording guard uses this - see autopilot/Guard.js. Nothing in
+   * ordinary play may place the bike; that is what steering is for.
+   *
+   * @param {number} value world units, positive to the rider's right
+   */
+  placeLateral(value) {
+    const bike = config.player.bike;
+    const placed = THREE.MathUtils.clamp(value, -bike.lateralLimit, bike.lateralLimit);
+    this.lateral = placed;
+    this._lateralTarget = placed;
+  }
+
   /** Throttle against brake and drag. Drag is what actually caps the speed. */
   _updateSpeed(dt, input, bike) {
     const throttle = Math.max(input.throttle, bike.throttleFloor);
@@ -236,40 +257,6 @@ export class BikePhysics {
       bike.lateralLimit,
     );
     this.lateral = Input.damp(this.lateral, this._lateralTarget, bike.lateralTau, dt);
-  }
-
-  /**
-   * Lean is positive to the right and is applied as a negative camera roll.
-   * It comes from two places: what the rider is asking for, and how hard the
-   * road itself is turning, so a long sweeper banks the view even hands off.
-   */
-  _updateLean(dt, input, bike, yaw) {
-    if (this._previousYaw === null) this._previousYaw = yaw;
-    const rawRate = dt > 0 ? (yaw - this._previousYaw) / dt : 0;
-    this._previousYaw = yaw;
-    this._yawRate = Input.damp(this._yawRate, rawRate, bike.curveTau, dt);
-
-    // A rising yaw is a turn to the left, which leans left, which is negative.
-    const target = THREE.MathUtils.clamp(
-      input.steer * bike.leanFromSteer - this._yawRate * bike.leanFromCurve,
-      -bike.leanMax,
-      bike.leanMax,
-    );
-    this.lean = Input.damp(this.lean, target, bike.leanTau, dt);
-  }
-
-  /** Field of view opens up with speed, and only touches the projection when
-   *  the change is big enough to see. */
-  _updateFov(dt, cam, speedRatio) {
-    const base = this.framing.fov;
-    const top = this.framing.fovMax;
-    this.fov = Input.damp(this.fov, base + (top - base) * speedRatio, cam.fovTau, dt);
-
-    if (Math.abs(this.fov - this._appliedFov) > 0.02) {
-      this._appliedFov = this.fov;
-      this.camera.fov = this.fov;
-      this.camera.updateProjectionMatrix();
-    }
   }
 
   /**

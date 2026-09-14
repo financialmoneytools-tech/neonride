@@ -133,3 +133,12 @@ src/
   rear-view awareness the police pursuit item needs.
 
 - **Multiple road themes** with different neon palettes and sky treatments.
+
+- **Multiple bike models the player can choose.** Needs the bike geometry behind
+  a factory the way the hands already are, plus somewhere to choose from.
+
+- **Multiple maps, each with its own identity.** Not just a palette swap: every
+  map needs its own sky treatment, road palette and roadside geometry.
+  - Night forest road, neon stars overhead.
+  - A route under the Northern Lights.
+  - More to follow.

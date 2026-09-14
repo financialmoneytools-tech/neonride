@@ -21,7 +21,7 @@ export const traffic = {
   spawnAhead: 900,
   spawnJitter: 260,
   recycleBehind: 140, // how far past the player before it is sent forward again
-  minGap: 42, // along the road, between two vehicles sharing a lane
+  minGap: 26, // along the road, between two vehicles sharing a lane
 
   // Lane centres, in world units either side of the centre line. The asphalt is
   // 9 units to each side and the player can reach 5.4, so every lane is
@@ -55,7 +55,7 @@ export const traffic = {
   types: [
     {
       name: 'sedan',
-      count: 6,
+      count: 22,
       // Low and wide. The lowest thing on the road by a clear margin.
       size: { length: 4.7, width: 2.1, height: 0.82 },
       cabin: { length: 2.2, width: 1.7, height: 0.52, offset: 0.1, taper: 0.76 },
@@ -64,7 +64,7 @@ export const traffic = {
     },
     {
       name: 'van',
-      count: 3,
+      count: 10,
       // Tall slab with a flat rear: the cabin is barely a lip, so the profile
       // is one unbroken box.
       size: { length: 5.2, width: 2.15, height: 2.55 },
@@ -74,7 +74,7 @@ export const traffic = {
     },
     {
       name: 'ambulance',
-      count: 2,
+      count: 5,
       // Box body over a lower cab. That step in the roofline is the shape that
       // says ambulance, and it is legible long before any light is.
       size: { length: 5.9, width: 2.25, height: 1.55 },
@@ -98,7 +98,7 @@ export const traffic = {
     },
     {
       name: 'jeep',
-      count: 4,
+      count: 14,
       // Raised, NARROW and boxy - the tall-and-thin one. Its ride height lifts
       // the whole body clear of the road, which is visible as a gap underneath.
       size: { length: 4.3, width: 1.78, height: 1.72 },
@@ -109,7 +109,7 @@ export const traffic = {
     },
     {
       name: 'motorcycle',
-      count: 4,
+      count: 14,
       size: { length: 2.0, width: 0.5, height: 1.15 },
       cabin: { length: 0.7, width: 0.42, height: 0.42, offset: -0.25, taper: 0.7 },
       speed: { min: 0.55, max: 0.86 },
@@ -161,10 +161,15 @@ export const traffic = {
   //   fraction = start + (1 - start) * (distance / fullAt) ^ curve
   // An inactive vehicle is scaled to nothing and skipped entirely; it costs no
   // fragments and cannot be collided with.
+  //
+  // The pools above are large and the road is meant to look busy from early on,
+  // so this starts high and fills quickly. Raising the counts costs triangles
+  // and nothing else: every type is a handful of InstancedMeshes whatever its
+  // count, so the draw call total does not move at all.
   density: {
-    start: 0.3, // share of each pool live at distance 0
-    fullAt: 26000, // units travelled before every pool is full
-    curve: 1.5, // above 1 holds it sparse for longer, then ramps
+    start: 0.72, // share of each pool live at distance 0
+    fullAt: 9000, // units travelled before every pool is full
+    curve: 1.2, // above 1 holds it sparse for longer, then ramps
   },
 
   // What happens when the player hits one.

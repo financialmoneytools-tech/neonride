@@ -15,6 +15,7 @@ import { Mountains } from './world/Mountains.js';
 import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Autopilot } from './player/Autopilot.js';
+import { Guard } from './player/autopilot/Guard.js';
 import { Rider } from './player/Rider.js';
 import { Postprocess } from './fx/Postprocess.js';
 
@@ -56,6 +57,11 @@ const traffic = new Traffic(engine.scene, road, bike);
 // so the bike, the lean, the bob and the camera cannot tell it from a player -
 // which is both why it looks like a rider and why it cannot drift out of sync.
 const autopilot = new Autopilot(road.path, traffic, bike);
+
+// The cheat that makes failure impossible while recording. It runs between the
+// bike moving and traffic judging it, which is the only window in the frame
+// where the position the collision test will read can still be corrected.
+const guard = new Guard(bike, traffic);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 // The composer owns the frame from here on; engine.render() is only the
@@ -107,6 +113,7 @@ loop.add((dt) => viewport.update(dt));
 // everything that recycles or follows reads them in the same frame, before the
 // sky recenters on the camera.
 loop.add((dt, state) => bike.update(dt, state));
+loop.add((dt, state) => guard.update(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
 loop.add((dt, state) => traffic.update(dt, state));
@@ -197,7 +204,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, post };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post };
 }
 
 /** Releases every resource in order (the loop stops first). */

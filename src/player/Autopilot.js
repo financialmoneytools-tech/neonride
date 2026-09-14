@@ -127,7 +127,10 @@ export class Autopilot {
     // throttle and does it again - an oscillation that spends the whole clip
     // crawling. Below the floor the answer is to steer, not to slow further.
     const floor = config.player.bike.maxSpeed * cfg.throttle.speedFloor;
-    const braking = this._brakeTimer > 0 && this.bike.speed > floor;
+    const braking =
+      this._brakeTimer > 0 &&
+      this.bike.speed > floor &&
+      !(cfg.guard.enabled && cfg.throttle.holdThrottleWhenGuarded);
 
     this.values.steer = THREE.MathUtils.clamp(this._steer + jitter, -1, 1);
     this.values.throttle = braking ? 0 : 1;
@@ -213,12 +216,16 @@ export class Autopilot {
         const closes = gap / closing;
         const time = closes > 0 ? closes : Infinity;
 
-        // Anything close counts even when nothing is being gained on it.
-        // Otherwise a vehicle matched for speed disappears from the plan, the
-        // bike drifts into the space it is holding, and the moment either of
-        // them changes speed it is already there.
-        const near = Math.abs(gap) <= cfg.traffic.nearDistance;
-        if (time > horizon && !near) continue;
+        // Level with the bike right now: a problem this instant, whatever the
+        // arithmetic says about when the two centres will meet.
+        const alongside = Math.abs(gap) < cfg.traffic.alongside;
+
+        // Everything else has to be CONVERGING to matter. A blanket "anything
+        // within seventy units counts" reads a vehicle that is quietly falling
+        // behind as something to plan around, and on a busy road there is one
+        // of those beside every lane - which left no legal line anywhere and
+        // had the planner reporting itself trapped on 99 per cent of frames.
+        if (!alongside && time > horizon) continue;
 
         list.push({
           // Where it will be, not where it is. A motorcycle weaves 0.85 units
@@ -227,9 +234,7 @@ export class Autopilot {
           // against a number that will be wrong by the time it matters.
           lateral: predictLateral(vehicle, weave, Math.min(time, horizon)),
           reach: halfWidth * vehicle.scale + collision.playerHalfWidth,
-          // A vehicle already alongside is a problem NOW, whatever the
-          // arithmetic says about when the two centres will meet.
-          time: near && Math.abs(gap) < cfg.traffic.alongside ? 0 : Math.min(time, horizon),
+          time: alongside ? 0 : Math.min(time, horizon),
         });
       }
     }
