@@ -94,3 +94,15 @@ src/
   on the road and the light wash on the rider would carry a clip on their own.
   Requires: rear-view awareness, chase AI, emissive flashing lights, possibly
   a rear-view mirror render.
+
+- **Rigged GLTF hands and rider arms**, replacing the primitives. Needs an
+  exception to the no-external-assets rule. The swap seam already exists:
+  `createHands(anchor)` in `src/player/rider/Hands.js`, selected by
+  `config.player.rider.hand.source`, aligned to `config.player.rider.anchors`.
+
+- **Third-person camera mode** showing the whole bike and rider. Needs a full
+  bike model - frame, seat, exhaust, rear wheel - and a rider body. Much bigger
+  than the cockpit-only geometry that exists today, and it would also want the
+  rear-view awareness the police pursuit item needs.
+
+- **Multiple road themes** with different neon palettes and sky treatments.
