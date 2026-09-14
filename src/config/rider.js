@@ -11,8 +11,8 @@
  *
  * To judge a placement on screen: at depth d the visible half height is
  * d * tan(fov / 2), so a part at height y appears (1 - y / (d * tan(fov / 2)))
- * / 2 of the way down the frame. As shipped the rig occupies 56 to 88 per cent
- * down and 22 to 78 per cent across, with the grips at 66 to 74 per cent down.
+ * / 2 of the way down the frame. As shipped the grips sit at 65 to 72 per cent
+ * down and 22 to 78 across, the mirrors at 50 to 57 down.
  */
 
 export const rider = {
@@ -83,95 +83,114 @@ export const rider = {
   },
 
   mirror: {
-    // The stalk has to lift the head clear of the bar or the mirror reads as
-    // a lump sitting on it. Raising stalkTo.y pushes the head up the screen;
-    // at 0.105 the pair sit between 56 and 65 per cent down, just under the
-    // centre line, which is about where they sit on a real bike.
-    stalkFrom: [0.128, 0.006, -0.008],
-    stalkTo: [0.295, 0.105, 0.012],
-    stalkRadius: 0.0085,
-    headRadius: 0.04,
-    headDepth: 0.013,
-    headSegments: 18,
-    // Rotation of the mirror head, so its face turns back toward the rider.
-    headRotation: { x: -0.22, y: -0.55, z: 0 },
+    // The stalk must RISE, not reach out: mostly outward plants the head over
+    // the hand, where it blocks the road. Up and back puts the heads at 50 to
+    // 57 per cent down while the hands stay at 63 and below, clear of them.
+    stalkFrom: [0.205, 0.014, 0.014],
+    stalkTo: [0.245, 0.165, 0.06],
+    stalkRadius: 0.0095,
+    headRadius: 0.036,
+    headDepth: 0.012,
+    headSegments: 22,
+    // The rider's eye is above the head, so the face tips up as well as back.
+    headRotation: { x: -0.35, y: -0.45, z: 0 },
     glassInset: 0.0035,
-    glassRadius: 0.0345,
+    glassRadius: 0.031,
   },
 
   // Hands are authored once, for the RIGHT grip, in a frame aligned to that
-  // grip: +X runs outward along the grip, +Y is up away from it, +Z points
-  // back at the rider. The left hand is the same numbers put through a
-  // mirror, so the two can never drift out of agreement.
-  //
-  // Angles around the grip are measured from straight up, increasing toward
-  // the front of the bike: 0 is the top of the grip, 1.57 is the leading
-  // edge, 3.14 is the bottom.
+  // grip: +X runs outward along the grip, +Y is up away from it, +Z points back
+  // at the rider. The left hand is the same numbers mirrored, so the two can
+  // never drift apart. Angles around the grip are measured from straight up,
+  // increasing toward the front: 0 is the top, 1.57 the leading edge, 3.14 the
+  // bottom.
   hand: {
-    alongGrip: 0.44, // 0 at the inner end of the grip, 1 at the outer end
+    alongGrip: 0.5, // 0 at the inner end of the grip, 1 at the outer end
 
-    palm: {
-      size: [0.088, 0.05, 0.076],
-      offset: [0, 0.019, 0.012],
-      rotation: [0.16, 0, -0.05],
+    // Segment counts: the difference between a hand and a bag of faceted tubes.
+    segments: {
+      palm: [22, 16],
+      knuckle: [14, 10],
+      finger: 14,
+      bead: [12, 9],
+      tip: [10, 8],
+      thumb: 14,
+      forearm: 16,
     },
 
-    knuckles: { radius: 0.0155, angle: 0.55, distance: 0.031 },
+    // The palm is an ellipsoid, not a box: a box this size reads as a block
+    // whatever it is wrapped around. Its vertical span has to STRADDLE the grip
+    // axis - offset minus radius must come out below zero - or the hand sits on
+    // top of the tube instead of closing around it, which is exactly how it
+    // looked when the offset was 0.019 against a radius of 0.025.
+    palm: {
+      radii: [0.038, 0.029, 0.033],
+      offset: [0, 0.012, 0.007],
+      rotation: [0.14, 0, -0.05],
+    },
+
+    knuckles: { radius: 0.0138, angle: 0.55, distance: 0.03 },
 
     fingers: {
       count: 4,
-      spacing: 0.0235, // along the grip
-      first: -0.0345, // offset of the index finger from the hand centre
-      radius: 0.0112,
+      spacing: 0.0225, // along the grip
+      first: -0.0335, // offset of the index finger from the hand centre
+      radius: 0.0102,
       taper: 0.84, // tip radius as a fraction of the base radius
 
-      // Three joints - knuckle, middle, tip - each given as an angle around
-      // the grip axis and a distance from it. Placing the joints ON arcs
-      // around the grip is what makes the finger wrap it; expressing them as
-      // directions and lengths instead sends the tips out past the grip, no
-      // matter how the angles are tuned.
-      //
-      // Distances sit a little inside grip radius plus finger radius on
-      // purpose, so the fingers press into the rubber rather than hover.
+      // Three joints - knuckle, middle, tip - each an angle around the grip axis
+      // and a distance from it. Placing them ON arcs is what makes the finger
+      // wrap; as directions and lengths the tips run out past the grip however
+      // the angles are tuned. Distances sit just inside grip plus finger radius,
+      // so the fingers press into the rubber rather than hover.
       joints: [
-        [0.55, 0.032],
-        [1.75, 0.041],
-        [2.78, 0.036],
+        [0.55, 0.031],
+        [1.78, 0.039],
+        [3.0, 0.034],
       ],
       // Per finger tweak on the tip angle, so the four do not curl as one
       // machined block. Index first, little finger last.
       curlOffsets: [-0.07, 0.05, 0.03, -0.1],
     },
 
+    // The thumb lies ACROSS the top of the grip, running outward and forward,
+    // which is what closes the hand. Its tip distance from the grip axis has to
+    // clear grip radius plus thumb radius or the tip disappears into the tube.
     thumb: {
-      offset: [-0.034, 0.024, 0.02],
-      direction: [0.55, -0.2, -0.81],
-      length: 0.058,
-      radius: 0.0132,
-      taper: 0.88,
+      offset: [-0.032, 0.034, 0.016],
+      direction: [0.78, -0.22, -0.58],
+      length: 0.05,
+      radius: 0.0115,
+      taper: 0.85,
     },
 
-    // Short forearm stub so the gloves do not read as floating props. It
-    // leaves the frame at the bottom, the way real arms do.
+    // Forearm. Three things must hold at once or it stops reading as an arm:
+    // thinner than the grip (at 0.031 it was fatter, and read as a pipe);
+    // pointed mostly BACK rather than down, so it foreshortens instead of
+    // sweeping across the frame; and long enough to leave the bottom of the
+    // screen at every field of view, since an arm ending in mid air reads as a
+    // floating block. Keep the inward component small or the arms walk across
+    // the instrument panel and the nose of the bike.
     forearm: {
-      offset: [-0.045, 0.012, 0.03],
-      direction: [-0.42, -0.24, 0.87],
-      length: 0.115,
-      radius: 0.031,
-      flare: 1.18, // the cuff end is wider than the wrist
-      radialSegments: 12,
+      offset: [-0.042, 0.008, 0.028],
+      direction: [-0.14, -0.45, 0.88],
+      length: 0.34,
+      radius: 0.02,
+      flare: 1.22, // wider toward the elbow
     },
 
-    // Thin emissive trim: a seam along the back of the hand and a cuff ring.
+    // Thin emissive trim: a seam over the back of the hand and a cuff ring.
     rim: {
-      seamSize: [0.078, 0.004, 0.007],
-      seamOffset: [0, 0.0435, 0.008],
-      seamRotation: [0.16, 0, -0.05],
-      cuffOffset: [-0.0765, 0.0045, 0.0555],
-      cuffDirection: [-0.42, -0.24, 0.87],
-      cuffRadius: 0.0375,
-      cuffWidth: 0.009,
-      cuffSegments: 16,
+      seamSize: [0.062, 0.0038, 0.0065],
+      seamOffset: [0, 0.0425, 0.006],
+      seamRotation: [0.14, 0, -0.05],
+      // Sits just down the forearm from the wrist, and must stay wider than the
+      // arm is at that point or the band sinks into it.
+      cuffOffset: [-0.048, -0.012, 0.068],
+      cuffDirection: [-0.14, -0.45, 0.88],
+      cuffRadius: 0.024,
+      cuffWidth: 0.008,
+      cuffSegments: 20,
     },
   },
 

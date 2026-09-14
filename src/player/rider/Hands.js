@@ -42,10 +42,11 @@ function around(angle, distance, alongGrip, target) {
 
 /**
  * Builds the frame that the right hand is authored in, taken straight from the
- * grip geometry so the two can never disagree.
+ * grip geometry so the two can never disagree. Exported so that tooling can ask
+ * the real code where a hand is, instead of reimplementing the placement.
  * @returns {THREE.Matrix4}
  */
-function gripFrame() {
+export function gripFrame() {
   const cfg = config.player.rider;
 
   _from.fromArray(cfg.grip.from);
@@ -78,11 +79,17 @@ export function buildHands(builders) {
   }
 }
 
-/** Palm, knuckles, fingers, thumb and the forearm stub. */
+/** Palm, knuckles, fingers, thumb and the forearm. */
 function buildGlove(glove, root) {
   const cfg = config.player.rider.hand;
+  const seg = cfg.segments;
 
-  const palm = new THREE.BoxGeometry(cfg.palm.size[0], cfg.palm.size[1], cfg.palm.size[2]);
+  // The palm is an ellipsoid rather than a box. A box of this size cannot read
+  // as a hand however it is placed; a unit sphere scaled on each axis can, and
+  // BufferGeometry.scale carries the normals through its inverse transpose, so
+  // the non uniform scale shades correctly.
+  const palm = new THREE.SphereGeometry(1, seg.palm[0], seg.palm[1]);
+  palm.scale(cfg.palm.radii[0], cfg.palm.radii[1], cfg.palm.radii[2]);
   partMatrix(1, cfg.palm.offset, cfg.palm.rotation, _local);
   glove.add(palm, _matrix.multiplyMatrices(root, _local));
 
@@ -98,36 +105,58 @@ function buildGlove(glove, root) {
     // Knuckle: the rounded ridge the finger leaves the back of the hand from.
     around(knuckles.angle, knuckles.distance, along, _origin);
     _local.makeTranslation(_origin.x, _origin.y, _origin.z);
-    glove.add(new THREE.SphereGeometry(knuckles.radius, 10, 7), _matrix.multiplyMatrices(root, _local));
+    glove.add(
+      new THREE.SphereGeometry(knuckles.radius, seg.knuckle[0], seg.knuckle[1]),
+      _matrix.multiplyMatrices(root, _local),
+    );
 
     // Proximal segment, knuckle to middle joint: a chord across the leading
     // edge of the grip, since both ends sit on arcs around the grip axis.
     around(joints[0][0], joints[0][1], along, _from);
     around(joints[1][0], joints[1][1], along, _to);
-    addSegment(glove, root, _from, _to, fingers.radius, fingers.radius * 0.94);
+    addSegment(glove, root, _from, _to, fingers.radius, fingers.radius * 0.94, seg.finger);
 
     // Joint bead, so the two segments read as a bend and not as a break.
     _local.makeTranslation(_to.x, _to.y, _to.z);
     glove.add(
-      new THREE.SphereGeometry(fingers.radius * 0.98, 8, 6),
+      new THREE.SphereGeometry(fingers.radius * 0.98, seg.bead[0], seg.bead[1]),
       _matrix.multiplyMatrices(root, _local),
     );
 
     // Distal segment, curling on under the grip toward the palm.
     _from.copy(_to);
     around(joints[2][0] + curl, joints[2][1], along, _to);
-    addSegment(glove, root, _from, _to, fingers.radius * 0.94, fingers.radius * fingers.taper);
+    addSegment(glove, root, _from, _to, fingers.radius * 0.94, fingers.radius * fingers.taper, seg.finger);
+
+    // Rounded tip, so a finger does not end on a flat disc.
+    _local.makeTranslation(_to.x, _to.y, _to.z);
+    glove.add(
+      new THREE.SphereGeometry(fingers.radius * fingers.taper, seg.tip[0], seg.tip[1]),
+      _matrix.multiplyMatrices(root, _local),
+    );
   }
 
   const thumb = cfg.thumb;
   _from.fromArray(thumb.offset);
   _to.fromArray(thumb.direction).normalize().multiplyScalar(thumb.length).add(_from);
-  addSegment(glove, root, _from, _to, thumb.radius, thumb.radius * thumb.taper);
+  addSegment(glove, root, _from, _to, thumb.radius, thumb.radius * thumb.taper, seg.thumb);
+
+  // Knuckle and tip beads, same treatment as the fingers.
+  _local.makeTranslation(_from.x, _from.y, _from.z);
+  glove.add(
+    new THREE.SphereGeometry(thumb.radius, seg.bead[0], seg.bead[1]),
+    _matrix.multiplyMatrices(root, _local),
+  );
+  _local.makeTranslation(_to.x, _to.y, _to.z);
+  glove.add(
+    new THREE.SphereGeometry(thumb.radius * thumb.taper, seg.tip[0], seg.tip[1]),
+    _matrix.multiplyMatrices(root, _local),
+  );
 
   const arm = cfg.forearm;
   _from.fromArray(arm.offset);
   _to.fromArray(arm.direction).normalize().multiplyScalar(arm.length).add(_from);
-  addSegment(glove, root, _from, _to, arm.radius, arm.radius * arm.flare, arm.radialSegments);
+  addSegment(glove, root, _from, _to, arm.radius, arm.radius * arm.flare, seg.forearm);
 }
 
 /** Emissive seam along the back of the hand, and the cuff ring. */
