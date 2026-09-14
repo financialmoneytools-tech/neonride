@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from './config.js';
 import { Engine } from './core/Engine.js';
 import { Framing } from './core/Framing.js';
+import { Hotkeys } from './core/Hotkeys.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
@@ -69,6 +70,31 @@ loop.add((dt) => sky.update(dt));
 loop.add((dt, state) => post.update(dt, state));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
 
+/** Applies capture mode: overlay off, pixel ratio pinned, chain resized. */
+function applyCapture() {
+  if (stats) stats.setVisible(!(config.capture.enabled && config.capture.hideOverlay));
+  engine.resize(); // picks up the capture pixel ratio and resizes the chain
+}
+
+const hotkeys = new Hotkeys(
+  {
+    capture: () => {
+      config.capture.enabled = !config.capture.enabled;
+      applyCapture();
+    },
+    cameraProfile: () => {
+      const names = Object.keys(config.player.camera.profiles);
+      const next = (names.indexOf(config.player.camera.profile) + 1) % names.length;
+      config.player.camera.profile = names[next];
+    },
+    overlay: () => {
+      if (stats) stats.setVisible(!stats.visible);
+    },
+  },
+  config.input.hotkeys,
+);
+
+applyCapture();
 loop.start();
 
 // Development only: every elimination test in the notes assumes config can be
@@ -76,12 +102,13 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, engine, framing, loop, input, sky, road, roadside, mountains, bike, rider, post };
+  window.NEON = { config, engine, framing, hotkeys, loop, input, sky, road, roadside, mountains, bike, rider, post };
 }
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
+  hotkeys.dispose();
   post.dispose();
   rider.dispose();
   bike.dispose();

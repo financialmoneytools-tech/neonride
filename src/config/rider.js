@@ -1,4 +1,5 @@
 import { hand } from './hand.js';
+import { machine } from './machine.js';
 
 /**
  * NEON RIDE - rider rig geometry, placement and shading.
@@ -135,37 +136,9 @@ export const rider = {
 
   hand,
 
-  // Everything ahead of the bars. All of it turns with the steering.
-  front: {
-    tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, -0.062, -0.012] },
-    fork: {
-      from: [0.086, -0.078, -0.018],
-      to: [0.097, -0.215, -0.092],
-      radius: 0.019,
-      radialSegments: 12,
-    },
-    headlight: {
-      offset: [0, -0.2, -0.185],
-      rotation: [0.28, 0, 0], // nose down, matching the fork rake
-      // Lathe profile of the housing, [radius, depth], listed front lip
-      // first so the depth increases: that is the order that yields outward
-      // normals. Positive depth is toward the rider, so the rider sees the
-      // closed back of the bowl bulging at them, not into the reflector.
-      profile: [
-        [0.084, -0.03],
-        [0.082, -0.012],
-        [0.074, 0.01],
-        [0.056, 0.032],
-        [0.03, 0.048],
-        [0.0, 0.055],
-      ],
-      segments: 20,
-      rimRadius: 0.087,
-      rimDepth: -0.03, // the front lip, where the ring sits
-      rimWidth: 0.012,
-      rimSegments: 20,
-    },
-  },
+  // Everything the rider can see of the machine itself. Lives in its own
+  // file; see config/machine.js for why the placements are framing driven.
+  machine,
 
   // Small neon gauge cluster in the middle of the bars.
   instruments: {

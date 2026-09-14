@@ -10,6 +10,7 @@
 import { renderer, camera, loop, stats, input } from './config/core.js';
 import { sky } from './config/sky.js';
 import { world } from './config/world.js';
+import { capture } from './config/capture.js';
 import { framing } from './config/framing.js';
 import { player } from './config/player.js';
 import { postprocess } from './config/postprocess.js';
@@ -20,6 +21,7 @@ export const config = {
   loop,
   stats,
   input,
+  capture,
   framing,
   sky,
   world,

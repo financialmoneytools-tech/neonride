@@ -17,10 +17,25 @@ export class StatsOverlay {
   }
 
   /**
+   * Shows or hides the overlay. Capture mode and the H key both use this.
+   * @param {boolean} visible
+   */
+  setVisible(visible) {
+    if (this.el) this.el.hidden = !visible;
+  }
+
+  /** @returns {boolean} */
+  get visible() {
+    return !!this.el && !this.el.hidden;
+  }
+
+  /**
    * @param {number} dt
    * @param {object} state shared state object owned by Loop
    */
   update(dt, state) {
+    if (!this.visible) return;
+
     // Rewriting the text every frame is pointless DOM traffic; refresh in steps.
     this._acc += dt;
     if (this._acc < config.stats.updateInterval) return;

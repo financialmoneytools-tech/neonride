@@ -36,7 +36,7 @@ export class Engine {
       antialias: r.antialias,
       powerPreference: r.powerPreference,
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, r.maxPixelRatio));
+    this.renderer.setPixelRatio(Engine.pixelRatio());
     this.renderer.setSize(window.innerWidth, window.innerHeight, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Deliberately NOT tone mapped here. Postprocess applies ACES once, at the
@@ -61,10 +61,20 @@ export class Engine {
     const h = window.innerHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.renderer.maxPixelRatio));
+    this.renderer.setPixelRatio(Engine.pixelRatio());
     this.renderer.setSize(w, h, false);
 
     if (this.onResize) this.onResize(w, h);
+  }
+
+  /**
+   * Capture mode pins the pixel ratio so two recordings of the same run match
+   * frame for frame whatever display they were made on.
+   * @returns {number}
+   */
+  static pixelRatio() {
+    if (config.capture.enabled) return config.capture.pixelRatio;
+    return Math.min(window.devicePixelRatio, config.renderer.maxPixelRatio);
   }
 
   /** Draws a single frame. Called by Loop. */

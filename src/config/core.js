@@ -47,4 +47,12 @@ export const input = {
   gamepadDeadzone: 0.15,
   gamepadTriggerThreshold: 0.05,
   touchSteerSplit: 0.5, // screen fraction that separates the left/right half
+
+  // One shot keys, by KeyboardEvent.code. Driving already owns W A S D, the
+  // arrows and Space, so these stay clear of them.
+  hotkeys: {
+    capture: 'KeyC', // capture mode on and off
+    cameraProfile: 'KeyV', // cycle ride / cinematic
+    overlay: 'KeyH', // show and hide the stats overlay on its own
+  },
 };

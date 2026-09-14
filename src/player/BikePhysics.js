@@ -20,6 +20,7 @@ import { createNoise2D } from '../utils/noise.js';
 
 const TWO_PI = Math.PI * 2;
 const NEUTRAL = { steer: 0, throttle: 0, brake: 0 };
+const _drift = { steer: 0, throttle: 0, brake: 0 };
 
 const _position = new THREE.Vector3();
 const _tangent = new THREE.Vector3();
@@ -70,9 +71,10 @@ export class BikePhysics {
    * @param {object} state shared loop state; reads state.input, writes the rest
    */
   update(dt, state) {
-    const input = state.input || NEUTRAL;
     const bike = config.player.bike;
     const cam = config.player.camera;
+    const profile = cam.profiles[cam.profile];
+    const input = this._effectiveInput(state.input || NEUTRAL, state);
 
     this._updateSpeed(dt, input, bike);
     const speedRatio = this.speed / bike.maxSpeed;
@@ -107,7 +109,7 @@ export class BikePhysics {
     const across = this.lateral + bobLateral + shakeLateral;
     this.camera.position.set(
       _position.x + _lateral.x * across,
-      _position.y + cam.height + bobVertical + shakeVertical,
+      _position.y + cam.height + profile.heightOffset + bobVertical + shakeVertical,
       _position.z + _lateral.z * across,
     );
 
@@ -118,7 +120,7 @@ export class BikePhysics {
     _direction
       .set(
         _aim.x + _aimLateral.x * across,
-        _aim.y + cam.height,
+        _aim.y + cam.height + profile.heightOffset,
         _aim.z + _aimLateral.z * across,
       )
       .sub(this.camera.position)
@@ -126,7 +128,8 @@ export class BikePhysics {
 
     // The framing pitch trades sky for road. A tall frame with a level camera
     // is half empty sky, so the narrower the aspect the further this tips down.
-    const pitch = Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + this.framing.pitch;
+    const pitch =
+      Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + this.framing.pitch + profile.pitchOffset;
     const yaw = Math.atan2(-_direction.x, -_direction.z);
 
     this._updateLean(dt, input, bike, yaw);
@@ -143,6 +146,29 @@ export class BikePhysics {
     state.lateral = this.lateral;
     state.bob = bobVertical;
     state.rpm = BikePhysics.revs(speedRatio, bike.gears);
+  }
+
+  /**
+   * Capture mode feeds in a slow weave so hands off footage still drifts across
+   * the road. It is injected as steer rather than applied to the position, so
+   * the bars turn and the bike leans with it exactly as if it were being ridden.
+   * @param {object} input
+   * @param {object} state
+   * @returns {object}
+   */
+  _effectiveInput(input, state) {
+    const capture = config.capture;
+    if (!capture.enabled || !capture.drift.enabled) return input;
+
+    const phase = (state.elapsed || 0) * ((Math.PI * 2) / capture.drift.period);
+    _drift.steer = THREE.MathUtils.clamp(
+      input.steer + Math.sin(phase) * capture.drift.amount,
+      -1,
+      1,
+    );
+    _drift.throttle = input.throttle;
+    _drift.brake = input.brake;
+    return _drift;
   }
 
   /** Throttle against brake and drag. Drag is what actually caps the speed. */

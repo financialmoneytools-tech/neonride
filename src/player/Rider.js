@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { Input } from '../core/Input.js';
 import { GeometryBuilder } from '../utils/geometry.js';
-import { createRiderMaterial } from './rider/RiderMaterial.js';
+import { createNeonMaterial, createRiderMaterial } from './rider/RiderMaterial.js';
 import { buildHandlebar } from './rider/Handlebar.js';
 import { buildBikeFront } from './rider/BikeFront.js';
 import { createHands } from './rider/Hands.js';
@@ -59,11 +59,23 @@ export class Rider {
     this.parts.position.set(-pivot.x, -pivot.y, -pivot.z);
     this.steering.add(this.parts);
 
+    // The tank is bolted to the chassis, not to the steering head, so it hangs
+    // beside the steering group rather than inside it. Turning the bars then
+    // swings the fork against a tank that stays put, the way it does on a bike.
+    this.chassis = new THREE.Group();
+    this.chassis.name = 'RiderChassis';
+    this.group.add(this.chassis);
+
     const builders = {
       frame: new GeometryBuilder(),
       grip: new GeometryBuilder(),
       mirror: new GeometryBuilder(),
+      tank: new GeometryBuilder(),
+      neonLeft: new GeometryBuilder(),
     };
+
+    // Which group each merged mesh belongs to. Everything steers except the tank.
+    const parents = { tank: this.chassis, neonLeft: this.chassis };
 
     buildHandlebar(builders);
     buildBikeFront(builders);
@@ -77,6 +89,8 @@ export class Rider {
       frame: createRiderMaterial(presets.frame, 'RiderFrame'),
       grip: createRiderMaterial(presets.grip, 'RiderGrip'),
       mirror: createRiderMaterial(presets.mirror, 'RiderMirror'),
+      tank: createRiderMaterial(presets.frame, 'RiderTank'),
+      neonLeft: createNeonMaterial(presets.neonLeft, 'RiderTankTrim'),
     };
 
     this.meshes = [];
@@ -89,7 +103,7 @@ export class Rider {
       // The rig is never behind the camera, and its bounding sphere is small
       // enough that a near miss on the cull test would blink a hand out.
       mesh.frustumCulled = false;
-      this.parts.add(mesh);
+      (parents[key] || this.parts).add(mesh);
       this.meshes.push(mesh);
     }
 
@@ -133,12 +147,15 @@ export class Rider {
     const tanNow = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) * 0.5);
     const scale = 1 + (tanNow / tanBase - 1) * cfg.fovCompensation;
 
+    // The camera profile shifts the whole cockpit relative to the eye, which is
+    // how the cinematic view brings the tank and the fork into shot.
+    const profile = config.player.camera.profiles[config.player.camera.profile];
     const origin = this.framing.riderOrigin;
     this.group.scale.setScalar(scale);
     this.group.position.set(
-      origin.x,
-      origin.y - (state.bob || 0) * cfg.bobLag,
-      origin.z,
+      origin.x + profile.riderOffset.x,
+      origin.y + profile.riderOffset.y - (state.bob || 0) * cfg.bobLag,
+      origin.z + profile.riderOffset.z,
     );
 
     this.hands.update(dt, state);
@@ -156,6 +173,7 @@ export class Rider {
 
     this.camera.remove(this.group);
     this.group.clear();
+    this.chassis.clear();
     this.steering.clear();
     this.parts.clear();
     this.camera = null;
