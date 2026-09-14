@@ -63,6 +63,14 @@ if (stats) loop.add((dt, state) => stats.update(dt, state));
 
 loop.start();
 
+// Development only: every elimination test in the notes assumes config can be
+// poked from the browser console, but Vite modules are not globals. Publishing
+// the live objects here is what makes those tests actually runnable. The guard
+// keeps it out of a production build entirely.
+if (import.meta.env && import.meta.env.DEV) {
+  window.NEON = { config, engine, loop, input, sky, road, roadside, mountains, bike, rider, post };
+}
+
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();

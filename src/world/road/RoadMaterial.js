@@ -6,7 +6,7 @@ import { config } from '../../config.js';
  *
  * The geometry carries only two custom values per vertex:
  *   aAlong  - distance along the road in world units, wrapped (see RoadChunk)
- *   aAcross - lateral position, -1 at the right rim of the ribbon, +1 at the left
+ *   aAcross - lateral position, -1 at the left rim of the ribbon, +1 at the right
  *
  * Everything else - asphalt, the fake wet reflection, the flowing neon strips
  * and the two edge lines - is drawn from those two numbers, so the whole road
@@ -127,8 +127,9 @@ const FRAGMENT_SHADER = `
     }
 
     // Edge lines: steady, never dashed. Cyan to the left, magenta to the right.
-    vec2 leftLine = lineProfile(abs(across - uAsphaltEdge), uEdgeWidth, uEdgeGlow);
-    vec2 rightLine = lineProfile(abs(across + uAsphaltEdge), uEdgeWidth, uEdgeGlow);
+    // across is positive to the RIGHT, so the left line is the one at -edge.
+    vec2 leftLine = lineProfile(abs(across + uAsphaltEdge), uEdgeWidth, uEdgeGlow);
+    vec2 rightLine = lineProfile(abs(across - uAsphaltEdge), uEdgeWidth, uEdgeGlow);
     color += uEdgeLeftColor * (leftLine.x + leftLine.y * uEdgeHalo) * uEdgeIntensity * reach;
     color += uEdgeRightColor * (rightLine.x + rightLine.y * uEdgeHalo) * uEdgeIntensity * reach;
 

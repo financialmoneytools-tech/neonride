@@ -70,8 +70,10 @@ export class Roadside {
     }
 
     // Side is fixed for a given instance index, so the tints are written once.
+    // Even indices are the s = 0 pylon, which _fillChunk places at +lateral,
+    // and the road's lateral axis points to the rider's RIGHT.
     for (let i = 0; i < count; i++) {
-      _color.set(i % 2 === 0 ? side.leftColor : side.rightColor);
+      _color.set(i % 2 === 0 ? side.rightColor : side.leftColor);
       this.tubes.setColorAt(i, _color);
     }
     this.tubes.instanceColor.needsUpdate = true;
@@ -104,7 +106,7 @@ export class Roadside {
       _matrix.makeBasis(_lateral, UP, _forward);
 
       for (let s = 0; s < 2; s++) {
-        const sign = s === 0 ? 1 : -1; // +1 is the rider's left
+        const sign = s === 0 ? 1 : -1; // +1 is the rider's right
         const index = base + k * 2 + s;
 
         _matrix.setPosition(

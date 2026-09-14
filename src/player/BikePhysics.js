@@ -13,7 +13,7 @@ import { Input } from '../core/Input.js';
  * what lets Road, Roadside and Mountains all recycle off one number.
  *
  * Published on the shared loop state: distance, speed, speedRatio, steer, lean,
- * rpm and bob. Everything downstream reads those and nothing reaches back in.
+ * lateral, rpm and bob. Everything downstream reads those and nothing reaches back in.
  */
 
 const TWO_PI = Math.PI * 2;
@@ -120,6 +120,7 @@ export class BikePhysics {
     state.speedRatio = speedRatio;
     state.steer = input.steer;
     state.lean = this.lean;
+    state.lateral = this.lateral;
     state.bob = bobVertical;
     state.rpm = BikePhysics.revs(speedRatio, bike.gears);
   }
@@ -141,10 +142,12 @@ export class BikePhysics {
 
   /** Drift across the road, bounded and self centring. */
   _updateLateral(dt, input, bike, speedRatio) {
-    // Positive steer is a turn to the right; the lateral axis of the road
-    // points to the rider's left, so the two disagree in sign.
+    // Positive steer is a turn to the right and the road's lateral axis also
+    // points right, so the two agree in sign. They were subtracted here while
+    // the axis was documented as pointing left, which steered the bike into the
+    // opposite side of the road from the one the bars and the lean showed.
     const authority = 0.35 + 0.65 * speedRatio;
-    this._lateralTarget -= input.steer * bike.lateralSpeed * authority * dt;
+    this._lateralTarget += input.steer * bike.lateralSpeed * authority * dt;
 
     if (Math.abs(input.steer) < 0.05) {
       this._lateralTarget = Input.damp(this._lateralTarget, 0, bike.lateralReturnTau, dt);

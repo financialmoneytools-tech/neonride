@@ -45,6 +45,9 @@ export class StatsOverlay {
           '  lean ' +
           (((state.lean || 0) * 180) / Math.PI).toFixed(1),
       );
+      // Signed distance from the centre line, positive to the rider's right.
+      // This is the readout to watch when checking that steering moves the bike.
+      lines.push('lateral ' + (state.lateral >= 0 ? '+' : '') + (state.lateral || 0).toFixed(2));
     }
 
     if (inp) {

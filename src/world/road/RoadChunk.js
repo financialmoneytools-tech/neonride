@@ -75,7 +75,7 @@ export class RoadChunk {
     this.mesh.matrixAutoUpdate = true;
   }
 
-  /** Lateral coordinate, -1 at the right rim and +1 at the left. Constant. */
+  /** Lateral coordinate, -1 at the left rim and +1 at the right. Constant. */
   static _buildAcross(rings, columns) {
     const data = new Float32Array(rings * columns);
     for (let c = 0; c < columns; c++) {

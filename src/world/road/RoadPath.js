@@ -128,7 +128,10 @@ export class RoadPath {
 
   /**
    * Position plus the horizontal frame at a distance along the road.
-   * outLateral points to the rider's left (across = +1 on the road surface).
+   * outLateral points to the rider's RIGHT. cross(tangent, UP) with the road
+   * running toward -Z yields +X, and +X is screen right for a camera looking
+   * down -Z - this used to be documented as left, and every consumer below
+   * inherited the mistake. Anything measuring "across" is positive to the right.
    * @param {number} distance
    * @param {THREE.Vector3} outPosition
    * @param {THREE.Vector3} outTangent
