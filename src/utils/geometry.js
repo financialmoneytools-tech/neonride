@@ -1,0 +1,192 @@
+import * as THREE from 'three';
+
+/**
+ * GeometryBuilder - merges many small transformed primitives into one buffer.
+ *
+ * The rider is assembled from several dozen boxes, cylinders, spheres and lathe
+ * shells. Left as separate meshes that would be several dozen draw calls for a
+ * few hundred triangles; merged per material it is one draw call each.
+ *
+ * Only position, normal and uv are carried, which is everything the primitives
+ * in this project produce. Sources are disposed as they are added: they exist
+ * only to be copied, and they are never uploaded to the GPU.
+ */
+export class GeometryBuilder {
+  constructor() {
+    this._parts = [];
+    this._vertexCount = 0;
+    this._indexCount = 0;
+  }
+
+  /** True when nothing has been added yet. */
+  get isEmpty() {
+    return this._parts.length === 0;
+  }
+
+  /**
+   * Transforms a primitive and queues it. The source geometry is consumed.
+   * @param {THREE.BufferGeometry} geometry
+   * @param {THREE.Matrix4} [matrix] applied in place before copying
+   * @returns {GeometryBuilder} this
+   */
+  add(geometry, matrix) {
+    if (matrix) geometry.applyMatrix4(matrix);
+
+    // An unindexed primitive gets a trivial index, so build() has one code path
+    if (geometry.index === null) {
+      const count = geometry.attributes.position.count;
+      const data = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+      for (let i = 0; i < count; i++) data[i] = i;
+      geometry.setIndex(new THREE.BufferAttribute(data, 1));
+    }
+
+    // A mirroring matrix reverses the orientation of every triangle. Normals
+    // come out right on their own - applyMatrix4 uses the inverse transpose -
+    // but the winding does not, so the front faces would be culled instead of
+    // the back ones. Flipping the index order puts them back.
+    if (matrix && matrix.determinant() < 0) {
+      const index = geometry.index.array;
+      for (let i = 0; i < index.length; i += 3) {
+        const swap = index[i];
+        index[i] = index[i + 2];
+        index[i + 2] = swap;
+      }
+    }
+
+    this._parts.push(geometry);
+    this._vertexCount += geometry.attributes.position.count;
+    this._indexCount += geometry.index.count;
+    return this;
+  }
+
+  /**
+   * @param {string} [name]
+   * @returns {THREE.BufferGeometry} merged, with the sources released
+   */
+  build(name = 'merged') {
+    const positions = new Float32Array(this._vertexCount * 3);
+    const normals = new Float32Array(this._vertexCount * 3);
+    const uvs = new Float32Array(this._vertexCount * 2);
+    const indices =
+      this._vertexCount > 65535 ? new Uint32Array(this._indexCount) : new Uint16Array(this._indexCount);
+
+    let vertexAt = 0;
+    let indexAt = 0;
+
+    for (let p = 0; p < this._parts.length; p++) {
+      const part = this._parts[p];
+      const position = part.attributes.position;
+      const normal = part.attributes.normal;
+      const uv = part.attributes.uv;
+      const index = part.index;
+
+      positions.set(position.array, vertexAt * 3);
+      if (normal) normals.set(normal.array, vertexAt * 3);
+      if (uv) uvs.set(uv.array, vertexAt * 2);
+
+      for (let i = 0; i < index.count; i++) indices[indexAt + i] = index.array[i] + vertexAt;
+
+      vertexAt += position.count;
+      indexAt += index.count;
+      part.dispose();
+    }
+
+    this._parts.length = 0;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.name = name;
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    geometry.computeBoundingSphere();
+    return geometry;
+  }
+}
+
+const _from = new THREE.Vector3();
+const _to = new THREE.Vector3();
+const _direction = new THREE.Vector3();
+const _matrix = new THREE.Matrix4();
+const _quaternion = new THREE.Quaternion();
+const _scale = new THREE.Vector3(1, 1, 1);
+const _midpoint = new THREE.Vector3();
+const _axis = new THREE.Vector3(0, 1, 0);
+const _euler = new THREE.Euler();
+
+/**
+ * Adds a tube running between two points. CylinderGeometry is built along +Y,
+ * so it is rotated onto the segment direction and moved to the midpoint.
+ * @param {GeometryBuilder} builder
+ * @param {number[]} from [x, y, z]
+ * @param {number[]} to [x, y, z]
+ * @param {number} radius
+ * @param {number} radialSegments
+ * @param {number} [endRadius] tapers toward the end when given
+ */
+export function addTube(builder, from, to, radius, radialSegments, endRadius = radius) {
+  _from.fromArray(from);
+  _to.fromArray(to);
+  _direction.copy(_to).sub(_from);
+
+  const length = _direction.length();
+  if (length === 0) return;
+
+  _direction.divideScalar(length);
+  _quaternion.setFromUnitVectors(_axis, _direction);
+  _midpoint.copy(_from).addScaledVector(_direction, length * 0.5);
+  _matrix.compose(_midpoint, _quaternion, _scale);
+
+  builder.add(new THREE.CylinderGeometry(endRadius, radius, length, radialSegments, 1), _matrix);
+}
+
+/**
+ * Builds a transform for one part, optionally mirrored through the YZ plane.
+ * Mirroring negates x, ry and rz, which is a proper rotation: the winding is
+ * preserved, so a mirrored part needs no special material side.
+ * @param {number} sign +1 as authored, -1 mirrored to the other side
+ * @param {number[]} position [x, y, z]
+ * @param {number[]} [rotation] [x, y, z] euler angles
+ * @param {THREE.Matrix4} [target]
+ * @returns {THREE.Matrix4}
+ */
+export function partMatrix(sign, position, rotation, target = new THREE.Matrix4()) {
+  const rx = rotation ? rotation[0] : 0;
+  const ry = rotation ? rotation[1] : 0;
+  const rz = rotation ? rotation[2] : 0;
+
+  _midpoint.set(position[0] * sign, position[1], position[2]);
+  _quaternion.setFromEuler(_euler.set(rx, ry * sign, rz * sign, 'XYZ'));
+  return target.compose(_midpoint, _quaternion, _scale);
+}
+
+/**
+ * Builds a transform that points a primitive's +Y axis along a direction.
+ * LatheGeometry and CylinderGeometry are both authored along +Y, so this is how
+ * either one gets aimed down a handlebar or a fork leg.
+ * @param {number[]} position [x, y, z]
+ * @param {number[]} direction [x, y, z], need not be normalized
+ * @param {THREE.Matrix4} [target]
+ * @returns {THREE.Matrix4}
+ */
+export function alignMatrix(position, direction, target = new THREE.Matrix4()) {
+  _direction.fromArray(direction).normalize();
+  _quaternion.setFromUnitVectors(_axis, _direction);
+  _midpoint.fromArray(position);
+  return target.compose(_midpoint, _quaternion, _scale);
+}
+
+/**
+ * Lathe profile helper. Profiles are authored as [radius, distance] pairs so
+ * they read the same way in config as they do on paper.
+ * @param {number[][]} profile
+ * @param {number} segments
+ * @returns {THREE.LatheGeometry}
+ */
+export function latheFromProfile(profile, segments) {
+  const points = [];
+  for (let i = 0; i < profile.length; i++) {
+    points.push(new THREE.Vector2(profile[i][0], profile[i][1]));
+  }
+  return new THREE.LatheGeometry(points, segments);
+}

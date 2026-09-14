@@ -8,8 +8,8 @@ import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
 import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
-import { RoadCamera } from './world/RoadCamera.js';
-import { FreeLook } from './debug/FreeLook.js'; // PHASE 4: delete with src/debug/
+import { BikePhysics } from './player/BikePhysics.js';
+import { Rider } from './player/Rider.js';
 
 /**
  * main.js - bootstrap only.
@@ -31,7 +31,8 @@ const sky = new Sky(engine.scene, engine.camera);
 const road = new Road(engine.scene);
 const roadside = new Roadside(engine.scene, road);
 const mountains = new Mountains(engine.scene);
-const roadCamera = new RoadCamera(engine.camera, road.path);
+const bike = new BikePhysics(engine.camera, road.path);
+const rider = new Rider(engine.camera);
 const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 
 const loop = new Loop(engine.renderer, {
@@ -43,23 +44,23 @@ loop.state.input = input.values;
 
 loop.add((dt) => input.update(dt));
 
-// Order matters: the camera publishes state.distance, and everything that
-// recycles reads it in the same frame, before the sky recenters on the camera.
-loop.add((dt, state) => roadCamera.update(dt, state));
+// Order matters: the bike publishes state.distance and state.speed, and
+// everything that recycles or follows reads them in the same frame, before the
+// sky recenters on the camera.
+loop.add((dt, state) => bike.update(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
+loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
-
-const freeLook = FreeLook.install(loop, engine.camera, input); // PHASE 4: delete
 
 loop.start();
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
-  if (freeLook) freeLook.dispose();
-  roadCamera.dispose();
+  rider.dispose();
+  bike.dispose();
   mountains.dispose();
   roadside.dispose();
   road.dispose();

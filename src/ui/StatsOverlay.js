@@ -37,7 +37,14 @@ export class StatsOverlay {
     ];
 
     if (state.distance !== undefined) {
-      lines.push('dist ' + Math.round(state.distance) + ' m');
+      lines.push(
+        'dist ' +
+          Math.round(state.distance) +
+          '  speed ' +
+          (state.speed || 0).toFixed(1) +
+          '  lean ' +
+          (((state.lean || 0) * 180) / Math.PI).toFixed(1),
+      );
     }
 
     if (inp) {
