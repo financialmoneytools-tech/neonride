@@ -8,6 +8,7 @@
  * far as every other module is concerned there is still one config object.
  */
 import { renderer, camera, loop, stats, input } from './config/core.js';
+import { quality, touch, viewport } from './config/device.js';
 import { sky } from './config/sky.js';
 import { world } from './config/world.js';
 import { capture } from './config/capture.js';
@@ -21,6 +22,9 @@ export const config = {
   loop,
   stats,
   input,
+  quality,
+  touch,
+  viewport,
   capture,
   framing,
   sky,

@@ -8,11 +8,16 @@ import { config } from '../config.js';
  * Raw input is written to "target" values first, then eased toward the
  * current values with exponential smoothing inside update(dt).
  *
- * Touch scheme:
- *   - Touch on the left half   -> steer left
- *   - Touch on the right half  -> steer right
- *   - Any touch                -> throttle on
- *   - Touch on both halves     -> brake (throttle off, steering neutral)
+ * Touch scheme, laid out for a phone held sideways in two hands:
+ *   - Bottom left corner    -> steer left
+ *   - Bottom right corner   -> steer right
+ *   - Both at once          -> brake
+ *   - Any touch             -> throttle on
+ *
+ * Steering lives in the bottom band only, because that is where thumbs are when
+ * both hands are holding the phone, and because a control anywhere else is a
+ * hand over the road. Touches above the band still drive but do not steer, so
+ * grabbing the top of the phone to steady it does nothing unexpected.
  */
 export class Input {
   /** @param {HTMLElement|Window} target Element the listeners are attached to */
@@ -29,6 +34,14 @@ export class Input {
     this._touchThrottle = 0;
     this._touchBrake = 0;
     this._gamepadIndex = null;
+
+    /**
+     * Called once, on the first touch. A user gesture is the only moment a
+     * browser will accept a fullscreen request, and this is the only place that
+     * reliably sees one on a device with no keyboard. Set by main.js.
+     * @type {(() => void)|null}
+     */
+    this.onFirstTouch = null;
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
@@ -75,28 +88,49 @@ export class Input {
   _onTouch(e) {
     e.preventDefault();
 
+    if (this.onFirstTouch && e.type === 'touchstart') {
+      const handler = this.onFirstTouch;
+      this.onFirstTouch = null;
+      handler();
+    }
+
+    const cfg = config.touch;
     const touches = e.touches;
-    const split = window.innerWidth * config.input.touchSteerSplit;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // The band is measured from the bottom of the frame, and each thumb zone
+    // from its own outside edge, so the layout holds at any aspect without a
+    // second set of numbers for portrait.
+    const bandTop = height * (1 - cfg.band.height);
+    const leftEdge = width * cfg.band.width;
+    const rightEdge = width * (1 - cfg.band.width);
+    const split = width * cfg.steerSplit;
+
     let left = false;
     let right = false;
+    let any = false;
 
     for (let i = 0; i < touches.length; i++) {
-      if (touches[i].clientX < split) left = true;
+      const x = touches[i].clientX;
+      const y = touches[i].clientY;
+      any = true;
+      if (y < bandTop) continue;
+      if (x <= leftEdge) left = true;
+      else if (x >= rightEdge) right = true;
+      // Between the two zones, fall back to the halves, so a thumb that lands
+      // short of the corner still steers the way it points.
+      else if (x < split) left = true;
       else right = true;
     }
 
-    if (left && right) {
-      // Both halves at once -> brake
+    if (left && right && cfg.bothSidesBrake) {
       this._touchSteer = 0;
       this._touchThrottle = 0;
       this._touchBrake = 1;
-    } else if (left || right) {
-      this._touchSteer = left ? -1 : 1;
-      this._touchThrottle = 1;
-      this._touchBrake = 0;
     } else {
-      this._touchSteer = 0;
-      this._touchThrottle = 0;
+      this._touchSteer = left ? -1 : right ? 1 : 0;
+      this._touchThrottle = cfg.autoThrottle && any ? 1 : right ? 1 : 0;
       this._touchBrake = 0;
     }
   }

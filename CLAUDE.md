@@ -44,6 +44,8 @@ src/
     Engine.js      # scene/camera/renderer/composer kurulumu + resize + dispose
     Loop.js        # delta-time yönetimi, sabit fizik adımı, FPS ölçümü
     Input.js       # klavye + touch + gamepad -> { steer, throttle, brake }
+    Device.js      # cihaz tespiti + kalite preset'ini config'e uygular
+    Viewport.js    # gercek kare boyutu (visualViewport) + fullscreen
   world/
     Sky.js         # gradient skydome shader + yıldız alanı + nebula katmanları
     Road.js        # sonsuz yol: spline chunk üretimi + geri dönüşüm havuzu
@@ -71,8 +73,22 @@ src/
 9. `THREE.CapsuleGeometry` KULLANMA — Cylinder + Sphere kombinasyonu kullan.
 10. Tüm sayısal ayarlar (hız, bobbing genliği, bloom strength, fog yoğunluğu) `src/config.js` içinde tek yerde toplanır.
 
+## Mobil
+- Hem yatay hem dikey desteklenir; yatay birincil, dikey 9:16 kayit icin zaten
+  `config.framing` profilinde tanimli.
+- Dokunmatik kontrol ekranin ALT SERIDINDE: sol alt kose sola, sag alt kose
+  saga, ikisi birden fren. Ust yariya dokunmak gaz verir ama direksiyon
+  cevirmez - telefonu tutan el yanlislikla yon vermesin diye.
+- Adres cubugu acilip kapanirken boyut degisimi `Viewport.js` tarafindan
+  `visualViewport` uzerinden okunur, debounce edilir ve kucuk degisimler
+  yok sayilir. Cihaz dondurulunce debounce atlanir.
+- Kalite preset'leri `config/device.js` icinde. `auto` dokunmatik + kucuk ekran
+  gorurse telefon kabul eder. Preset'in degistirdigi seylerin cogu insaat
+  aninda okundugu icin `Device` her seyden ONCE calisir.
+
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k
+- Orta seviye telefonda 30 FPS'in altina dusmemek (preset: low)
 - Her fazın sonunda ekranın köşesinde FPS + draw call sayacı görünür (config'den kapatılabilir)
 
 ## Görsel yön (referans görsellerden)

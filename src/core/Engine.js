@@ -37,7 +37,7 @@ export class Engine {
       powerPreference: r.powerPreference,
     });
     this.renderer.setPixelRatio(Engine.pixelRatio());
-    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.renderer.setSize(window.innerWidth, window.innerHeight, true);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Deliberately NOT tone mapped here. Postprocess applies ACES once, at the
     // end of the chain, after bloom has added into a linear buffer. Leaving the
@@ -49,20 +49,29 @@ export class Engine {
 
     /** Called after every resize with the new css size. Set by main.js. */
     this.onResize = null;
-
-    this._onResize = this.resize.bind(this);
-    window.addEventListener('resize', this._onResize);
-    this.resize();
   }
 
-  /** Refreshes camera and renderer to match the window size. */
-  resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+  /**
+   * Refreshes camera and renderer for a frame of this size.
+   *
+   * The size is passed in rather than read from the window, because on a phone
+   * the window is not the frame: the address bar covers part of it and comes
+   * and goes while you play. Viewport decides what the real size is and when it
+   * has settled; this only has to apply it.
+   *
+   * @param {number} w css pixels
+   * @param {number} h css pixels
+   */
+  resize(w, h) {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Engine.pixelRatio());
-    this.renderer.setSize(w, h, false);
+    // updateStyle true, deliberately: the canvas is told its CSS size as well
+    // as its buffer size. On a phone the element's own 100 per cent is the
+    // LAYOUT viewport, which stays tall while the address bar is showing, so
+    // leaving the style alone stretches a frame drawn for the visible area over
+    // a taller box. The inline size three writes here beats the stylesheet.
+    this.renderer.setSize(w, h, true);
 
     if (this.onResize) this.onResize(w, h);
   }
@@ -104,7 +113,6 @@ export class Engine {
 
   /** Called on HMR and page teardown so no resource is left behind. */
   dispose() {
-    window.removeEventListener('resize', this._onResize);
     this.onResize = null;
     Engine.disposeObject(this.scene);
     this.scene.clear();

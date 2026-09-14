@@ -40,6 +40,9 @@
         height: 100%;
       }
 
+      /* Only until the first resize: from then on Engine writes the canvas an
+         inline size in CSS pixels, because on a phone this element's 100% is
+         the layout viewport and the frame is drawn for the visible one. */
       #app canvas {
         display: block;
         width: 100%;

@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { config } from './config.js';
+import { Device } from './core/Device.js';
 import { Engine } from './core/Engine.js';
 import { Framing } from './core/Framing.js';
 import { Hotkeys } from './core/Hotkeys.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
+import { Fullscreen, Viewport } from './core/Viewport.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
@@ -22,6 +24,12 @@ import { Postprocess } from './fx/Postprocess.js';
  */
 
 const container = document.getElementById('app');
+
+// FIRST, before anything is constructed. Most of what a quality preset changes
+// cannot be changed afterwards: the renderer reads antialias once, the star
+// field allocates from the counts, the traffic pools size themselves on
+// creation.
+const device = new Device();
 
 const engine = new Engine(container);
 
@@ -52,6 +60,20 @@ engine.onResize = (width, height) => {
   post.setSize(width, height);
 };
 
+// Owns what size the frame is. On a phone that is not the window: the address
+// bar covers part of it and animates in and out while you play, so the size is
+// taken from visualViewport, debounced, and ignored entirely when it moves by
+// less than the bar could account for.
+const viewport = new Viewport((width, height) => engine.resize(width, height));
+
+// A browser only accepts a fullscreen request inside a user gesture, and on a
+// device with no keyboard the first touch is the only one that reliably
+// arrives. Offered, never forced, and allowed to be refused - iOS phones
+// refuse outright and the game plays the same either way.
+if (config.viewport.fullscreen.onFirstTouchWhenCoarse && device.coarsePointer) {
+  input.onFirstTouch = () => Fullscreen.request();
+}
+
 const loop = new Loop(engine.renderer, {
   onRender: (dt) => post.render(dt),
 });
@@ -60,6 +82,9 @@ const loop = new Loop(engine.renderer, {
 loop.state.input = input.values;
 
 loop.add((dt) => input.update(dt));
+// Shares the one clock rather than keeping its own timer, so a resize settles
+// in game time like everything else.
+loop.add((dt) => viewport.update(dt));
 
 // Order matters: the bike publishes state.distance and state.speed, and
 // everything that recycles or follows reads them in the same frame, before the
@@ -76,7 +101,8 @@ if (stats) loop.add((dt, state) => stats.update(dt, state));
 /** Applies capture mode: overlay off, pixel ratio pinned, chain resized. */
 function applyCapture() {
   if (stats) stats.setVisible(!(config.capture.enabled && config.capture.hideOverlay));
-  engine.resize(); // picks up the capture pixel ratio and resizes the chain
+  // Picks up the capture pixel ratio and resizes the chain.
+  engine.resize(viewport.width, viewport.height);
 }
 
 const hotkeys = new Hotkeys(
@@ -99,6 +125,19 @@ const hotkeys = new Hotkeys(
       rider.rebuildHands();
       console.info('[rider] hand source:', hand.source);
     },
+    fullscreen: () => Fullscreen.toggle(),
+    quality: () => {
+      // Only the settings that can be changed live are re-applied: the pixel
+      // ratio and the bloom buffer size. Anything allocated at construction -
+      // antialiasing, star counts, traffic pools - needs a reload, which is
+      // why this is a testing aid and not a settings menu.
+      const names = Object.keys(config.quality.presets);
+      const next = (names.indexOf(device.preset) + 1) % names.length;
+      device.preset = names[next];
+      device.apply();
+      engine.resize(viewport.width, viewport.height);
+      console.info('[quality] preset:', device.preset, '(reload for the rest)');
+    },
   },
   config.input.hotkeys,
 );
@@ -111,13 +150,14 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, engine, framing, hotkeys, loop, input, sky, road, roadside, mountains, traffic, bike, rider, post };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, post };
 }
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
   hotkeys.dispose();
+  viewport.dispose();
   post.dispose();
   rider.dispose();
   bike.dispose();
