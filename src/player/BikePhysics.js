@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../config.js';
 import { updateFov, updateLean } from './bike/response.js';
+import { placeView } from './bike/view.js';
 import { Input } from '../core/Input.js';
 import { createRng } from '../utils/rng.js';
 import { createNoise2D } from '../utils/noise.js';
@@ -19,17 +20,9 @@ import { createNoise2D } from '../utils/noise.js';
  * lateral, rpm and bob. Everything downstream reads those and nothing reaches back in.
  */
 
-const TWO_PI = Math.PI * 2;
 const NEUTRAL = { steer: 0, throttle: 0, brake: 0 };
 const _drift = { steer: 0, throttle: 0, brake: 0 };
 
-const _position = new THREE.Vector3();
-const _tangent = new THREE.Vector3();
-const _lateral = new THREE.Vector3();
-const _aim = new THREE.Vector3();
-const _aimTangent = new THREE.Vector3();
-const _aimLateral = new THREE.Vector3();
-const _direction = new THREE.Vector3();
 
 export class BikePhysics {
   /**
@@ -58,6 +51,7 @@ export class BikePhysics {
     this._yawRate = 0;
     this._previousYaw = null;
     this._bobPhase = 0;
+    this._input = null;
 
     this.fov = framing.fov;
     this._appliedFov = framing.fov;
@@ -68,14 +62,24 @@ export class BikePhysics {
   }
 
   /**
+   * Moves the bike. Does NOT place the camera - see place().
+   *
+   * The two are separate because something has to be able to correct where the
+   * bike is after it has moved and before the view is built from it. The
+   * recording guard does exactly that, and while this was one method the guard
+   * ran after the camera had already been placed for the frame: the physics
+   * threaded the gap correctly and the view went straight through the vehicle,
+   * because the view was built from the position the guard was about to
+   * replace. Measured, that was 38 apparent pass-throughs a minute with the
+   * collision test - correctly - reporting nothing at all.
+   *
    * @param {number} dt
-   * @param {object} state shared loop state; reads state.input, writes the rest
+   * @param {object} state shared loop state; reads state.input
    */
-  update(dt, state) {
+  step(dt, state) {
     const bike = config.player.bike;
-    const cam = config.player.camera;
-    const profile = cam.profiles[cam.profile];
     const input = this._effectiveInput(state.input || NEUTRAL, state);
+    this._input = input;
 
     this._updateSpeed(dt, input, bike);
     const speedRatio = this.speed / bike.maxSpeed;
@@ -83,70 +87,33 @@ export class BikePhysics {
     this.distance += this.speed * dt;
     this._updateLateral(dt, input, bike, speedRatio);
 
-    // --- bob -------------------------------------------------------------
-    const bob = cam.bob;
-    const strength = bob.floor + (1 - bob.floor) * speedRatio;
-    this._bobPhase += dt * TWO_PI * bob.frequency * strength;
-    // The half rate terms mean the pattern only repeats every two cycles, so
-    // the phase is wrapped at 4 PI rather than 2 PI.
-    if (this._bobPhase > TWO_PI * 2) this._bobPhase -= TWO_PI * 2;
-
-    const bobVertical = Math.sin(this._bobPhase) * bob.vertical * strength;
-    const bobLateral = Math.sin(this._bobPhase * 0.5 + 1.1) * bob.lateral * strength;
-    const bobRoll = Math.sin(this._bobPhase * 0.5 + 0.4) * bob.roll * strength;
-
-    // --- speed shake -----------------------------------------------------
-    const shake = cam.shake;
-    this._shakeTime += dt * shake.frequency;
-    const shakeAmount = shake.amount * Math.pow(speedRatio, shake.exponent);
-    const shakeLateral = this._shakeNoise(this._shakeTime, 0) * shakeAmount;
-    const shakeVertical = this._shakeNoise(this._shakeTime, 17.3) * shakeAmount;
-    const shakeRoll =
-      this._shakeNoise(this._shakeTime * 0.7, 41.7) * shake.roll * Math.pow(speedRatio, shake.exponent);
-
-    // --- placement -------------------------------------------------------
-    this.path.frameAt(this.distance, _position, _tangent, _lateral);
-
-    const across = this.lateral + bobLateral + shakeLateral;
-    this.camera.position.set(
-      _position.x + _lateral.x * across,
-      _position.y + cam.height + profile.heightOffset + bobVertical + shakeVertical,
-      _position.z + _lateral.z * across,
-    );
-
-    // Aim at a point further down the road, carried across by the same lateral
-    // offset. Without that shift the view would angle in toward the centre line
-    // whenever the bike is off to one side.
-    this.path.frameAt(this.distance + cam.lookAhead, _aim, _aimTangent, _aimLateral);
-    _direction
-      .set(
-        _aim.x + _aimLateral.x * across,
-        _aim.y + cam.height + profile.heightOffset,
-        _aim.z + _aimLateral.z * across,
-      )
-      .sub(this.camera.position)
-      .normalize();
-
-    // The framing pitch trades sky for road. A tall frame with a level camera
-    // is half empty sky, so the narrower the aspect the further this tips down.
-    const pitch =
-      Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + this.framing.pitch + profile.pitchOffset;
-    const yaw = Math.atan2(-_direction.x, -_direction.z);
-
-    updateLean(this, dt, input, bike, yaw);
-
-    this.camera.rotation.set(pitch, yaw, -this.lean + bobRoll + shakeRoll);
-
-    updateFov(this, dt, cam, speedRatio);
-
     state.distance = this.distance;
     state.speed = this.speed;
     state.speedRatio = speedRatio;
-    state.steer = input.steer;
-    state.lean = this.lean;
     state.lateral = this.lateral;
-    state.bob = bobVertical;
-    state.rpm = BikePhysics.revs(speedRatio, bike.gears);
+  }
+
+  /**
+   * Builds the view from wherever the bike now is.
+   *
+   * Anything that corrects the bike's position must run between step() and
+   * this, or it will not be what the camera shows.
+   *
+   * @param {number} dt
+   * @param {object} state shared loop state
+   */
+  place(dt, state) {
+    placeView(this, dt, state);
+  }
+
+  /**
+   * Both halves, for anything that has nothing to correct in between.
+   * @param {number} dt
+   * @param {object} state
+   */
+  update(dt, state) {
+    this.step(dt, state);
+    this.place(dt, state);
   }
 
   /**
@@ -257,20 +224,6 @@ export class BikePhysics {
       bike.lateralLimit,
     );
     this.lateral = Input.damp(this.lateral, this._lateralTarget, bike.lateralTau, dt);
-  }
-
-  /**
-   * Fake rev counter: the speed range is cut into gears, and the needle sweeps
-   * across each one, so accelerating reads as a series of pulls rather than one
-   * slow climb.
-   * @param {number} speedRatio
-   * @param {number} gears
-   * @returns {number} 0..1
-   */
-  static revs(speedRatio, gears) {
-    const span = 1 / gears;
-    const withinGear = (speedRatio % span) / span;
-    return 0.25 + 0.75 * withinGear;
   }
 
   dispose() {

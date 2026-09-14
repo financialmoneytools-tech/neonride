@@ -21,6 +21,13 @@ export const traffic = {
   spawnAhead: 900,
   spawnJitter: 260,
   recycleBehind: 140, // how far past the player before it is sent forward again
+
+  // How close to the player a vehicle may be brought back out of the pool. The
+  // density ramp turns vehicles on where they were left, and one switched on
+  // where the player is standing appears inside them - nothing downstream can
+  // catch that, because the recording guard has already run and skipped it as
+  // inactive. Comfortably longer than any vehicle.
+  spawnClear: 30,
   minGap: 26, // along the road, between two vehicles sharing a lane
 
   // Lane centres, in world units either side of the centre line. The asphalt is

@@ -46,8 +46,24 @@ export class Guard {
     this.saves = 0;
     /** The largest such last-frame correction, in units. */
     this.worst = 0;
+    /**
+     * How far the bike still has to be moved to be clear, this frame. The
+     * autopilot brakes on this: falling back is how a rider answers a gap that
+     * has not opened yet, and it is the only answer left once the view is built
+     * from the guarded position, because there a big correction is a visible
+     * jump rather than a silent one.
+     */
+    this.pressure = 0;
     /** Frames where the road left nowhere legal at all. */
     this.trapped = 0;
+
+    /**
+     * Last-frame corrections by size, so "is the guard visible" has an answer
+     * rather than an opinion. A few small ones a minute cannot be seen; one
+     * large one is a jump, and now that the view is built from the guarded
+     * position, a jump is exactly what it would look like.
+     */
+    this.buckets = [0, 0, 0, 0, 0];
 
     // Reused every frame: this runs inside the loop and allocates nothing.
     this._blocked = [];
@@ -71,11 +87,18 @@ export class Guard {
     // Without the wide window the guard was correct and ugly: it did nothing
     // until the frame of contact and then moved the bike up to five units at
     // once, which is half the road in one frame and reads as a cut.
+    this.pressure = 0;
+    state.guardPressure = 0;
+
     this._collect(dt, cfg, blocked, cfg.lead);
     if (blocked.length === 0) return;
 
     const from = this.bike.lateral;
     const free = nearestFree(from, blocked, limit);
+    if (free !== null) {
+      this.pressure = Math.abs(free - from);
+      state.guardPressure = this.pressure;
+    }
 
     // Urgent means the bike is INSIDE a real overlap right now, not merely
     // that something is level with it. Asking whether the nearest free point
@@ -86,6 +109,11 @@ export class Guard {
     const urgent = inside(from, this._imminent);
 
     if (free === null) {
+      // Nowhere legal on the whole road. Reported as maximum pressure so the
+      // autopilot slows down and lets the road open up again, which is the only
+      // thing that can help and is what a rider would do.
+      this.pressure = Infinity;
+      state.guardPressure = Infinity;
       // Nowhere legal on the whole road. Nothing can be done about it here, and
       // it means the traffic is denser than the road can carry rather than that
       // anything is wrong with the guard. Counted, because it is the number
@@ -113,6 +141,8 @@ export class Guard {
       if (urgent) {
         this.saves++;
         if (moved > this.worst) this.worst = moved;
+        const b = moved < 0.1 ? 0 : moved < 0.3 ? 1 : moved < 0.6 ? 2 : moved < 1.2 ? 3 : 4;
+        this.buckets[b]++;
       } else {
         this.eases++;
       }
@@ -184,6 +214,15 @@ function byLow(a, b) {
  * merged runs cover the whole band.
  */
 function nearestFree(from, blocked, limit) {
+  // Already clear: stay put. Without this the function answers a different
+  // question - "where is the nearest edge" - and returns one even when the bike
+  // is standing in open road. The easing then walks toward that edge, and when
+  // it lies on the FAR side of a vehicle the path to it goes straight through
+  // the vehicle. That is the pass-through: the guard was not failing to correct
+  // the bike, it was steering it into what it was supposed to avoid, for 64 per
+  // cent of frames.
+  if (!inside(from, blocked)) return from;
+
   let best = null;
   const consider = (value) => {
     if (value < -limit || value > limit) return;

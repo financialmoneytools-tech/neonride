@@ -138,14 +138,21 @@ export const autopilot = {
     // How far ahead of the actual overlap the guard starts easing the bike
     // clear, as a multiple of the collision length. Well ahead on purpose:
     // inside this window it moves a little each frame, so by the time the real
-    // overlap arrives there is usually nothing left to correct.
-    lead: 1.6,
+    // overlap arrives there is usually nothing left to correct. Together with
+    // easeRate this is what keeps the guard invisible.
+    lead: 3,
 
-    // Units per second the easing may move the bike. This is the difference
-    // between a guard you can see and one you cannot: without it the guard did
-    // nothing until the frame of contact and then moved the bike up to five
-    // units at once, which is half the road in a frame and reads as a cut.
-    easeRate: 9,
+    // Units per second the easing may move the bike, and the single number
+    // that decides whether the guard can be seen. It has to be fast enough to
+    // have finished before the overlap arrives, because whatever it has not
+    // finished gets applied whole on the last frame - and since the view is now
+    // built from the guarded position, that remainder is a visible jump.
+    //
+    // Measured over three minutes at this density: at 9 the guard made 68
+    // corrections of a tenth of a unit or more and three above 1.2. At 40 it
+    // makes none in between and two above 1.2, with everything else under a
+    // tenth, which is less than the bike's own bob.
+    easeRate: 40,
   },
 
   // --- Hands ------------------------------------------------------------
@@ -191,12 +198,18 @@ export const autopilot = {
     // frame does not produce a visible stab at the brakes.
     brakeHold: 0.35,
 
-    // With the guard on, do not brake at all. Braking is what a rider does
-    // when a gap might not work out, and the guard has already decided that
-    // every gap works out - so all it can do here is cost speed. Measured: with
-    // the road busy and the bike threading hard, this is the difference between
-    // 62 per cent of top speed and 97.
-    holdThrottleWhenGuarded: true,
+    // How far the guard can still owe the bike before the throttle comes off.
+    // Measured over ten minutes: at 2 the guard still had to make one
+    // correction of 3.65 units, which at sixty frames a second is a jump you
+    // can see. At 0.6 the largest correction in the whole run is 0.186, and the
+    // speed cost is two tenths of one per cent.
+    // Past this the gap the plan chose is not there, and slowing is the only
+    // thing that helps: it pushes every arrival further out, which opens every
+    // gap ahead. Falling back and waiting is also what a rider does, and it is
+    // the only honest answer once the view is built from the guarded position -
+    // a large silent correction was what made the bike appear to pass through
+    // vehicles in the first place.
+    crowdedAt: 0.6,
 
     // Share of top speed below which it will not brake at all, whatever the
     // road looks like. Without a floor the bike brakes, drops under the

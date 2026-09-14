@@ -126,11 +126,14 @@ export class Autopilot {
     // traffic's speed, stops closing on anything, sees an empty road, opens the
     // throttle and does it again - an oscillation that spends the whole clip
     // crawling. Below the floor the answer is to steer, not to slow further.
+    // Braking has one job now: when the road has not left a gap, fall back and
+    // wait for one. The guard reports how far it still has to move the bike to
+    // be clear, and anything past a small correction means the gap the plan
+    // chose is not there. Slowing opens every gap ahead, because every arrival
+    // is pushed further out.
+    const crowded = (state.guardPressure || 0) > cfg.throttle.crowdedAt;
     const floor = config.player.bike.maxSpeed * cfg.throttle.speedFloor;
-    const braking =
-      this._brakeTimer > 0 &&
-      this.bike.speed > floor &&
-      !(cfg.guard.enabled && cfg.throttle.holdThrottleWhenGuarded);
+    const braking = this.bike.speed > floor && (crowded || this._brakeTimer > 0);
 
     this.values.steer = THREE.MathUtils.clamp(this._steer + jitter, -1, 1);
     this.values.throttle = braking ? 0 : 1;

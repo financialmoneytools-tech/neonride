@@ -134,7 +134,18 @@ export class Traffic {
 
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
-        vehicle.active = i < liveCount;
+        const live = i < liveCount;
+
+        // A vehicle coming out of the pool appears wherever it was left, and
+        // the density ramp can bring one back while the player is standing on
+        // that spot. Nothing else in the frame can catch it: the recording
+        // guard has already run and skipped it as inactive, so it materialises
+        // inside the bike. Sent forward instead, which is where a new vehicle
+        // belongs anyway.
+        if (live && !vehicle.active && Math.abs(playerDistance - vehicle.distance) < cfg.spawnClear) {
+          this._respawn(fleet, vehicle, playerDistance + cfg.spawnAhead, i);
+        }
+        vehicle.active = live;
 
         if (!vehicle.active) {
           _matrix.makeScale(0, 0, 0);

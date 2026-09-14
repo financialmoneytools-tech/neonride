@@ -112,8 +112,13 @@ loop.add((dt) => viewport.update(dt));
 // Order matters: the bike publishes state.distance and state.speed, and
 // everything that recycles or follows reads them in the same frame, before the
 // sky recenters on the camera.
-loop.add((dt, state) => bike.update(dt, state));
+// Three steps, and the order is the whole point: the bike moves, the guard
+// corrects where it ended up, and only then is the view built from it. Placing
+// the camera inside the move meant the guard was correcting a position the
+// frame had already been drawn from.
+loop.add((dt, state) => bike.step(dt, state));
 loop.add((dt, state) => guard.update(dt, state));
+loop.add((dt, state) => bike.place(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
 loop.add((dt, state) => traffic.update(dt, state));
