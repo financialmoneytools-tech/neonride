@@ -31,7 +31,14 @@ export class StatsOverlay {
       'FPS       ' + state.fps.toFixed(1) + '  (' + state.frameMs.toFixed(2) + ' ms)',
       'draw call ' + state.drawCalls,
       'triangle  ' + state.triangles.toLocaleString('en-US'),
+      // Flat geometry and texture counts are the acceptance test for "no memory
+      // growth": the pools allocate once and never again.
+      'geom ' + state.geometries + '  tex ' + state.textures,
     ];
+
+    if (state.distance !== undefined) {
+      lines.push('dist ' + Math.round(state.distance) + ' m');
+    }
 
     if (inp) {
       lines.push(

@@ -40,6 +40,10 @@ export class Loop {
       drawCalls: 0,
       triangles: 0,
       programs: 0,
+      // Live resource counts. They are the cheapest leak detector there is:
+      // in a pooled scene they must stay flat once the first frame is drawn.
+      geometries: 0,
+      textures: 0,
     });
   }
 
@@ -95,6 +99,8 @@ export class Loop {
     this.state.drawCalls = info.render.calls;
     this.state.triangles = info.render.triangles;
     this.state.programs = info.programs ? info.programs.length : 0;
+    this.state.geometries = info.memory.geometries;
+    this.state.textures = info.memory.textures;
 
     this._frames++;
     this._elapsedSinceSample += raw;

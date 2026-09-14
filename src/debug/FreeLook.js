@@ -2,24 +2,29 @@ import { config } from '../config.js';
 
 /**
  * FreeLook - TEMPORARY development camera.
- * Lets the sky be inspected in every direction before the rider owns the
- * camera: steer looks left and right, throttle and brake look up and down.
+ * Steer looks left and right, throttle and brake look up and down.
+ *
+ * It runs after RoadCamera and ADDS its offsets to whatever rotation the road
+ * camera just wrote, so it is a look-around on top of the ride rather than a
+ * replacement for it. RoadCamera rewrites the rotation from scratch every
+ * frame, which is what makes adding safe and keeps this stateless.
+ *
+ * It is installed but idle by default. Set config.debug.freeLook to true - in
+ * the config file or straight from the browser console - to switch it on; the
+ * offsets reset whenever it is off, so the view snaps back to the road.
  *
  * Phase 4 removes this by deleting src/debug/ and the two FreeLook lines in
  * main.js. Nothing else in the project references it.
  */
 export class FreeLook {
   /**
-   * Creates the controller and registers it with the loop, but only when
-   * config.debug.freeLook is on.
+   * Creates the controller and registers it with the loop.
    * @param {import('../core/Loop.js').Loop} loop
    * @param {import('three').Camera} camera
    * @param {import('../core/Input.js').Input} input
-   * @returns {FreeLook|null} null when the flag is off
+   * @returns {FreeLook}
    */
   static install(loop, camera, input) {
-    if (!config.debug.freeLook) return null;
-
     const freeLook = new FreeLook(camera, input);
     freeLook._listener = loop.add((dt) => freeLook.update(dt));
     freeLook._loop = loop;
@@ -35,14 +40,16 @@ export class FreeLook {
 
     this._loop = null;
     this._listener = null;
-
-    // YXZ keeps yaw and pitch independent, which is what a look control wants
-    this._previousOrder = camera.rotation.order;
-    camera.rotation.order = 'YXZ';
   }
 
   /** @param {number} dt */
   update(dt) {
+    if (!config.debug.freeLook) {
+      this.yaw = 0;
+      this.pitch = 0;
+      return;
+    }
+
     const speed = config.debug.lookAroundSpeed;
     const limit = config.debug.lookPitchLimit;
     const values = this.input.values;
@@ -51,12 +58,12 @@ export class FreeLook {
     this.pitch += (values.throttle - values.brake) * speed * dt;
     this.pitch = Math.max(-limit, Math.min(limit, this.pitch));
 
-    this.camera.rotation.set(this.pitch, this.yaw, 0);
+    this.camera.rotation.x += this.pitch;
+    this.camera.rotation.y += this.yaw;
   }
 
   dispose() {
     if (this._loop && this._listener) this._loop.remove(this._listener);
-    this.camera.rotation.order = this._previousOrder;
     this._loop = null;
     this._listener = null;
     this.camera = null;
