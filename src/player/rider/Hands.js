@@ -1,4 +1,5 @@
 import { config } from '../../config.js';
+import { createModelHands } from './hands/ModelHands.js';
 import { createPrimitiveHands } from './hands/PrimitiveHands.js';
 
 export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anchors.js';
@@ -35,16 +36,53 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  */
 
 /**
+ * Sets currently alive, so an asynchronous failure can find the one it belongs
+ * to and graft a fallback into it.
+ * @type {Map<object, import('./Hands.js').HandSet>}
+ */
+const activeSets = new Map();
+
+/**
  * Builds the hand set named by config.player.rider.hand.source.
  * @param {object} anchor config.player.rider.anchors.rightGrip
  * @returns {HandSet}
  */
 export function createHands(anchor) {
   const source = config.player.rider.hand.source;
+  const set = build(anchor, source);
+
+  activeSets.set(anchor, set);
+  const release = set.dispose;
+  set.dispose = () => {
+    activeSets.delete(anchor);
+    if (set.fallback) set.fallback.dispose();
+    release();
+  };
+  return set;
+}
+
+/** @returns {HandSet} */
+function build(anchor, source) {
 
   switch (source) {
     case 'primitive':
       return createPrimitiveHands(anchor);
+
+    case 'model':
+      // The model loads asynchronously, so this returns immediately with an
+      // empty group. If it never arrives - no asset downloaded, bad path - the
+      // primitive hands are built into the SAME group, so a clone with nothing
+      // fetched still shows a cockpit instead of bare handlebars.
+      return createModelHands(anchor, (reason) => {
+        console.warn('[rider] ' + reason + ', falling back to primitive hands');
+        const fallback = createPrimitiveHands(anchor);
+        const set = activeSets.get(anchor);
+        if (set) {
+          set.group.add(fallback.group);
+          set.fallback = fallback;
+        }
+      });
+
     default:
       // Fall back rather than throw: a bad source value should cost the rider
       // its good looks, not the whole ride.

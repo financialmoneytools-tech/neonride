@@ -22,8 +22,14 @@ This means:
 ## Stack
 - Vite (vanilla JS, framework yok)
 - three (npm paketi, CDN değil)
-- three/examples/jsm: EffectComposer, RenderPass, UnrealBloomPass
+- three/examples/jsm: EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, GLTFLoader
 - Harici asset YOK. Tüm doku/gürültü/parçacık dokuları runtime'da canvas veya shader ile üretilecek.
+  - **Exception**: external models are permitted for character and vehicle
+    geometry only; road, sky and effects stay procedural. Every external file
+    must be CC0 or CC-BY, must live under `public/models/`, and must be recorded
+    in `ASSETS.md` with its source, licence and retrieval date. Bundled textures
+    and materials are not used - loaded geometry is re-materialled with the
+    project's own shaders so it matches the world.
 - Node 18+
 
 > Not: Bu proje Next.js DEĞİL. Supabase / API route / `force-dynamic` kuralları burada geçersiz.

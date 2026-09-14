@@ -16,10 +16,39 @@
 // increasing toward the front: 0 is the top, 1.57 the leading edge, 3.14 the
 // bottom.
 export const hand = {
-  // Which implementation createHands builds. 'primitive' is the geometry
-  // described by everything below; a model backed set will ignore all of it
-  // and read only the anchor.
+  // Which implementation createHands builds.
+  //   'primitive' - the geometry described by everything below
+  //   'model'     - the loaded GLB, which ignores all of it and reads only the
+  //                 grip anchor
+  // The B key cycles this at runtime and rebuilds, so the two can be compared
+  // side by side in one session.
   source: 'primitive',
+
+  // Loaded hand set. See ASSETS.md for provenance and licence.
+  //
+  // The pack's own texture is deliberately ignored: it is hand painted retro
+  // and would look cheap against the bloom. Only the geometry is taken, and it
+  // is given the project's own glove material and neon rim, so the hands belong
+  // to this world rather than to the pack they came from.
+  //
+  // If the file is missing, the primitive hands are built instead, so a fresh
+  // clone with nothing downloaded still runs.
+  model: {
+    url: 'models/wrad-arms.glb',
+
+    // Correction applied on top of the grip anchor frame. A pack has no idea
+    // what scale or orientation we work in, so these exist to reconcile it.
+    // Placeholders until the file is in the repo and can be looked at; there is
+    // no honest way to guess them.
+    scale: 1,
+    offset: [0, 0, 0],
+    rotation: [0, 0, 0],
+
+    // Which node inside the GLB is the right hand. Empty means take every mesh
+    // in the file as one hand and mirror it for the other side, which is what a
+    // single arm model needs.
+    rightNode: '',
+  },
 
   // Segment counts: the difference between a hand and a bag of faceted tubes.
   segments: {

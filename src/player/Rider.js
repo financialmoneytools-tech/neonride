@@ -119,6 +119,18 @@ export class Rider {
   }
 
   /**
+   * Tears the current hand set down and builds whatever
+   * config.player.rider.hand.source now names. The B key uses this so the
+   * primitive and the loaded hands can be compared in one session.
+   */
+  rebuildHands() {
+    this.parts.remove(this.hands.group);
+    this.hands.dispose();
+    this.hands = createHands(config.player.rider.anchors.rightGrip);
+    this.parts.add(this.hands.group);
+  }
+
+  /**
    * @param {number} dt
    * @param {object} state shared loop state; reads steer, bob, speed and rpm
    */

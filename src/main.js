@@ -93,6 +93,12 @@ const hotkeys = new Hotkeys(
     overlay: () => {
       if (stats) stats.setVisible(!stats.visible);
     },
+    handSource: () => {
+      const hand = config.player.rider.hand;
+      hand.source = hand.source === 'primitive' ? 'model' : 'primitive';
+      rider.rebuildHands();
+      console.info('[rider] hand source:', hand.source);
+    },
   },
   config.input.hotkeys,
 );
