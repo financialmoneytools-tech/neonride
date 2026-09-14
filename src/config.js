@@ -154,18 +154,23 @@ export const config = {
       contrastHigh: 0.86,
       falloffPower: 1.35, // radial fade that hides the sprite edge
 
-      // Magenta masses cluster near the dome glow, turquoise sits opposite
+      // A sprite spans atan((scale / 2) / distance) either side of its
+      // elevation. Anything whose lower edge reaches the horizon smears its
+      // soft edge along it and reads as a haze band rather than as a mass,
+      // so every cloud keeps its lower edge at least 10 degrees up.
+      // Magenta masses cluster near the dome glow; the cool masses sit
+      // opposite, in blue and violet rather than green leaning cyan.
       clouds: [
-        { azimuth: 2.15, elevation: 0.42, distance: 1150, scale: 1050,
+        { azimuth: 2.15, elevation: 0.62, distance: 1150, scale: 900,
           color: 0xff2d6f, opacity: 0.45, rotation: 0.4, breathSpeed: 0.06, breathAmount: 0.22, variant: 0 },
-        { azimuth: 1.55, elevation: 0.18, distance: 1150, scale: 900,
+        { azimuth: 1.55, elevation: 0.5, distance: 1150, scale: 760,
           color: 0xff4bd0, opacity: 0.36, rotation: -0.7, breathSpeed: 0.045, breathAmount: 0.25, variant: 2 },
         { azimuth: 2.9, elevation: 0.75, distance: 1150, scale: 820,
           color: 0xd83bff, opacity: 0.3, rotation: 1.1, breathSpeed: 0.07, breathAmount: 0.2, variant: 1 },
-        { azimuth: -1.25, elevation: 0.3, distance: 1150, scale: 980,
-          color: 0x1fd6c8, opacity: 0.34, rotation: 0.15, breathSpeed: 0.035, breathAmount: 0.3, variant: 1 },
-        { azimuth: -2.6, elevation: 0.12, distance: 1150, scale: 1100,
-          color: 0x19b8e0, opacity: 0.3, rotation: -1.3, breathSpeed: 0.055, breathAmount: 0.24, variant: 0 },
+        { azimuth: -1.25, elevation: 0.52, distance: 1150, scale: 620,
+          color: 0x3f6bff, opacity: 0.42, rotation: 0.15, breathSpeed: 0.035, breathAmount: 0.3, variant: 1 },
+        { azimuth: -2.6, elevation: 0.62, distance: 1150, scale: 660,
+          color: 0x9d3cf0, opacity: 0.38, rotation: -1.3, breathSpeed: 0.055, breathAmount: 0.24, variant: 0 },
       ],
     },
 
