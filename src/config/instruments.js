@@ -1,0 +1,95 @@
+/**
+ * NEON RIDE - the instrument cluster.
+ * Part of the single configuration surface; import from ../config.js, never
+ * from this file directly. Reached as config.player.rider.instruments.
+ *
+ * Split out of ./rider.js because that file went past the size a file in this
+ * project is allowed to be, and because a dash layout is its own subject: it is
+ * the only place in the config that talks in texture pixels.
+ */
+
+// Sport bike dash. The tachometer arc is the anchor - see
+// player/rider/instruments/dash.js for why it gets the whole panel - with the
+// gear in the middle of it and the speed secondary underneath.
+//
+// Everything from `texture` down is in TEXTURE PIXELS on a 512 x 288 face, so
+// the layout can be read here without holding the panel's world size in your
+// head. The two are kept at the same ratio (0.180 / 0.101 against 512 / 288)
+// so nothing is stretched.
+export const instruments = {
+  offset: [0, 0.052, -0.012],
+  rotation: [-0.95, 0, 0], // tipped back toward the rider
+  // Grown from 0.165 x 0.092 with the dash redesign, and again when the
+  // fairing was cut back. An arc needs the height a segment bar did not, and
+  // with the bodywork no longer filling the lower frame this is the thing the
+  // cockpit is built around rather than a readout tucked between the bars.
+  size: [0.200, 0.112, 0.008],
+  frameMargin: 0.007,
+  frameDepth: 0.012,
+  texture: { width: 512, height: 288 },
+  // Faster than the old 12, because an arc that steps is worse than a number
+  // that steps - the eye follows the sweep.
+  updateHz: 20,
+  // No label under the gear: a large digit in the middle of a tachometer is
+  // not ambiguous, and the label collided with the speed underneath it.
+  labels: { speed: 'HIZ', unit: 'KM/S', rpm: 'DEVIR x1000', neutral: 'N' },
+
+  tach: {
+    centre: [256, 214],
+    radius: 118,
+    width: 22,
+    // Start and end of the sweep, in units of PI, canvas angles with y down.
+    // 0.86 to 2.14 is 230 degrees: up from below the left, over the top, down
+    // to below the right.
+    sweep: [0.86, 2.14],
+    maxRpm: 16, // what the top of the arc reads, in thousands
+    redlineAt: 13,
+    shiftAt: 0.90, // fraction of the sweep where the shift light comes on
+    fillSlices: 48, // slices the lit part is drawn in, so its colour can ramp
+    // What the needle is quantised to before the face is redrawn. 160 steps
+    // over 230 degrees is under one and a half degrees, which is finer than
+    // the arc can show, and it is what keeps a steady cruise from redrawing
+    // and re-uploading the texture every frame.
+    steps: 160,
+  },
+
+  gear: { y: 180, size: 84 },
+  speed: { y: 250, size: 34, split: 4 }, // split: where the number ends and the unit starts
+
+  shift: { y: 12, width: 168, height: 16 },
+
+  // Two of these never light. That is deliberate - see dash.js.
+  lamps: [
+    { kind: 'neutral', at: [62, 22] },
+    { kind: 'beam', at: [118, 22] },
+    { kind: 'oil', at: [394, 22] },
+    { kind: 'temp', at: [450, 22] },
+  ],
+
+  colors: {
+    background: '#05030c',
+    border: '#2de3ff',
+    // Not pure white: the face is not tone mapped, so anything at full
+    // brightness this close to the camera blooms into a white lozenge and
+    // takes the digits with it.
+    speed: '#dde6ff',
+    // Dimmer than it looks like it should be. At #ffffff the gear digit - the
+    // largest and brightest thing on an untone-mapped face - bloomed into a
+    // white lozenge with a halo, and took the speed underneath with it.
+    gear: '#c6d2f0',
+    label: '#7a7fa8',
+    tick: '#8e96c4',
+    rpmLow: '#2de3ff',
+    rpmMid: '#39ff88',
+    rpmHigh: '#ff2bd0',
+    rpmOff: '#141a2e',
+    // Dark. It marks where the redline STARTS; it is not itself lit, and at
+    // #5a1030 it bloomed brighter than the lit part of the arc.
+    redline: '#39091d',
+    neutral: '#39ff88',
+    beam: '#4aa8ff',
+    shiftOn: '#ff2bd0',
+    shiftOff: '#141a2e',
+    lampOff: '#242a44',
+  },
+};

@@ -1,235 +1,150 @@
 /**
- * NEON RIDE - hand set settings.
+ * NEON RIDE - gloved hand settings.
  * Part of the single configuration surface; import from ../config.js, never
  * from this file directly. Reached as config.player.rider.hand.
  *
- * `source` chooses which implementation createHands builds. Everything after it
- * describes the primitive hands only: a model backed set will ignore all of it
- * and read nothing but the grip anchor in ./rider.js, which is the whole point
- * of keeping the two apart.
+ * The hand is authored once, for the RIGHT grip, in a frame aligned to that
+ * grip: +X runs outward along the grip, +Y is up away from it, +Z points back
+ * at the rider. The left hand is the same geometry under a mirrored frame, so
+ * the two can never drift apart.
+ *
+ * It is ONE lofted mass, not a set of parts - see player/rider/hands/
+ * GlovedFist.js for why, and for what the twenty-two separate solids that came
+ * before it looked like. The section wraps the grip and the spine runs along
+ * it, so the two things that matter are both structural rather than tuned: the
+ * section never comes closer to the grip axis than the grip's own radius, so
+ * the tube is always hidden, and there is nothing to come apart because there
+ * is only one piece.
  */
 
-// Hands are authored once, for the RIGHT grip, in a frame aligned to that
-// grip: +X runs outward along the grip, +Y is up away from it, +Z points back
-// at the rider. The left hand is the same numbers mirrored, so the two can
-// never drift apart. Angles around the grip are measured from straight up,
-// increasing toward the front: 0 is the top, 1.57 the leading edge, 3.14 the
-// bottom.
+// The grip is 0.0245 in radius. Every section point below, once multiplied by
+// its radii, sits further from the axis than that - the closest is the heel at
+// about 0.042 - which is what "the grip is mostly hidden behind the hand"
+// means in numbers rather than in hope.
+
+// Cross section of a closed fist, looking down the grip. Normalized to a unit
+// box: x is FORWARD, down the road, y is up. A third entry of 1 marks the point
+// hard, so the faces meeting there break into a crease instead of rolling into
+// each other; that is what keeps the hand from going back to being a blob.
+const FIST_SECTION = [
+  [-0.62, 0.86, 1], // back of the hand, wrist corner
+  [0.30, 1.00, 1], // crest, where the knuckle ridge is laid in
+  [0.86, 0.62, 1], // front of the knuckles, turning down
+  [1.00, 0.00, 0], // leading edge, facing the wind
+  [0.80, -0.62, 1], // fingers turning under the grip
+  [0.18, -0.96, 1], // fingertips, tucked underneath
+  [-0.60, -0.80, 0], // heel of the hand
+  [-0.94, -0.10, 0], // rear of the hand
+];
+
+// The knuckle ridge: a small rounded bar swept along the same axis and sunk
+// into the back of the fist. All points smooth - a knuckle is the one part of a
+// hand with no edge on it.
+const RIDGE_SECTION = [
+  [0.00, 1.00, 0],
+  [0.72, 0.70, 0],
+  [1.00, 0.00, 0],
+  [0.72, -0.70, 0],
+  [0.00, -1.00, 0],
+  [-0.72, -0.70, 0],
+  [-1.00, 0.00, 0],
+  [-0.72, 0.70, 0],
+];
+
 export const hand = {
-  // Which implementation createHands builds.
-  //   'primitive' - the geometry described by everything below
-  //   'model'     - the loaded GLB, which ignores all of it and reads only the
-  //                 grip anchor
-  // The B key cycles this at runtime and rebuilds, so the two can be compared
-  // side by side in one session.
-  source: 'primitive',
-
-  // Loaded hand set. See ASSETS.md for provenance and licence.
-  //
-  // The pack's own texture is deliberately ignored: it is hand painted retro
-  // and would look cheap against the bloom. Only the geometry is taken, and it
-  // is given the project's own glove material and neon rim, so the hands belong
-  // to this world rather than to the pack they came from.
-  //
-  // If the file is missing, the primitive hands are built instead, so a fresh
-  // clone with nothing downloaded still runs.
-  model: {
-    url: 'models/wrad-arms.glb',
-
-    // Scale, from the pack's own skeleton rather than tried by eye: the bind
-    // pose gives three independent readings against real anatomy - upper arm
-    // 0.103, forearm 0.112, hand 0.106 - so 0.11 is where they converge.
-    //
-    // Do NOT derive it from the distance between the wrists instead. The rest
-    // pose spreads them 1.03 m apart against our 0.67 m bar, and scaling to
-    // close that gap gives child sized hands.
-    scale: 0.11,
-
-    // No rotation needed: the pack is +X right, +Y up, -Z forward, which is
-    // already the frame the anchors are written in. This exists for the next
-    // pack, not this one.
-    rotation: [0, 0, 0],
-
-    // Residual nudge on top of the shoulder anchor, for fine tuning without
-    // moving the anchor itself.
-    offset: [0, 0, 0],
-
-    // Which way the elbow breaks, in rig space: down, out and a little back,
-    // the way a rider's elbow sits. Only the part perpendicular to the arm
-    // matters, so it does not need to be exact or normalised.
-    elbowPole: [0.45, -0.8, 0.4],
-
-    // How the fingers close. These describe the SHAPE of the curl, not how
-    // far it goes: the shares below are scaled together until the fingertip
-    // sits `wrapClearance` grip radii from the axis, which is searched at load.
-    // Angles that put a particular pack's fingers on a particular tube are not
-    // something anyone can know by looking, so they are not asked for here.
-    //
-    // The middle knuckle bends most, as a real finger does.
-    curlProfile: [0.8, 1.0, 0.85],
-    thumbCurlProfile: [0.7, 0.6, 0.5],
-
-    // Where the fingertip should end up, in grip radii from the grip axis.
-    // 1.0 would bury the tip in the tube; this leaves it just outside.
-    wrapClearance: 1.35,
-
-    // The thumb lies along the bar rather than wrapping under it, so it stops
-    // further out than the fingers do.
-    thumbWrap: 1.55,
-
-    // Ceiling on the search, so a finger that cannot reach the tube stops at a
-    // hand shape rather than folding through itself.
-    maxCurl: 2.2,
-
-    // Extra roll of the hand about the forearm, on top of the solved one. The
-    // solver gets the fingers across the bar; this is for taste.
-    wristRoll: 0,
-
-    // How many times the whole pose is re-solved. The IK aims the wrist, but a
-    // bar sits in the hollow the closed fingers make, a hand's thickness
-    // further on, so each pass shifts the wrist goal by however far that
-    // hollow missed last time. 1 puts the fist above the bar; 3 is convergence.
-    passes: 3,
-
-    // Bones whose geometry survives: a name matching any prefix AND ending in
-    // the suffix. The suffix is what picks a side - Blender names bones '.r'
-    // and '.l', and a prefix alone cannot separate them because 'finger_'
-    // starts both hands. One hand is kept and mirrored for the other side.
-    //
-    // The HAND only. No forearm, no elbow, no shoulder - with the camera at the
-    // bars, an arm is outside the frame anyway, and every first person bike
-    // game solves the arm problem by not having arms. The cut at the wrist is
-    // covered by the cuff below, so nothing hollow is ever on screen.
-    keepBones: {
-      prefixes: ['wrist', 'finger_', 'socket'],
-      suffix: '.r',
-    },
-
-    // The glove cuff, which ends the hand rather than letting it stop. Built
-    // rather than loaded: it has to sit exactly on the cut, and the cut is
-    // wherever the pack happens to put the wrist joint, so it is placed from
-    // the posed skeleton at load.
-    // A BAND, not a gauntlet. The open end points back up the arm, which from
-    // this camera means straight at the eye, so anything with length reads as a
-    // funnel aimed at the viewer and you see down the inside of it. Short and
-    // barely wider than the wrist is the whole trick: it closes the cut and
-    // then stops.
-    cuff: {
-      radius: 0.030, // at the wrist end
-      flare: 1.04, // how much wider the open end is
-      length: 0.018, // how far back along the forearm it reaches
-      sink: 0.014, // how far it pushes INTO the hand, so there is no seam
-      segments: 16,
-
-      // A thin lit band around it. Thin: at full brightness and any width this
-      // close to the camera it stops being trim and becomes a lamp.
-      rim: { width: 0.004, inset: 0.003, radius: 1.06 },
-    },
-
-    // Material overrides, merged over materials.glove in ./rider.js.
-    //
-    // The glove preset is tuned for the primitive hands, which are smooth and
-    // highly tessellated, so most of what you see faces the camera and the rim
-    // stays a thin edge. A low poly hand is the opposite: large flat facets at
-    // steep angles, so the same rim term covers nearly the whole surface and
-    // the hands come out solid violet. Measured, not guessed - setting
-    // rimStrength to 0 turns them black, which is the whole of the effect.
-    material: {
-      rimStrength: 0.14,
-      rimPower: 5.0,
-      keyStrength: 1.35,
-      color: 0x3a4156,
-      ambient: 0x2a3050,
-    },
-
-    // Which node inside the GLB to take. Empty means the first mesh in the
-    // file, which is what a single mesh pack gives you.
-    rightNode: '',
-  },
-
-  // Segment counts: the difference between a hand and a bag of faceted tubes.
-  segments: {
-    palm: [22, 16],
-    knuckle: [14, 10],
-    finger: 14,
-    bead: [12, 9],
-    tip: [10, 8],
-    thumb: 14,
-    forearm: 16,
-  },
-
-  // The palm is an ellipsoid, not a box: a box this size reads as a block
-  // whatever it is wrapped around. Its vertical span has to STRADDLE the grip
-  // axis - offset minus radius must come out below zero - or the hand sits on
-  // top of the tube instead of closing around it, which is exactly how it
-  // looked when the offset was 0.019 against a radius of 0.025.
-  palm: {
-    radii: [0.038, 0.029, 0.033],
-    offset: [0, 0.012, 0.007],
-    rotation: [0.14, 0, -0.05],
-  },
-
-  knuckles: { radius: 0.0138, angle: 0.55, distance: 0.03 },
-
-  fingers: {
-    count: 4,
-    spacing: 0.0225, // along the grip
-    first: -0.0335, // offset of the index finger from the hand centre
-    radius: 0.0102,
-    taper: 0.84, // tip radius as a fraction of the base radius
-
-    // Three joints - knuckle, middle, tip - each an angle around the grip axis
-    // and a distance from it. Placing them ON arcs is what makes the finger
-    // wrap; as directions and lengths the tips run out past the grip however
-    // the angles are tuned. Distances sit just inside grip plus finger radius,
-    // so the fingers press into the rubber rather than hover.
-    joints: [
-      [0.55, 0.031],
-      [1.78, 0.039],
-      [3.0, 0.034],
+  // The fist. radii are the half extents the section and the spine are scaled
+  // to: x forward, y up, z along the grip.
+  fist: {
+    section: FIST_SECTION,
+    radii: [0.045, 0.047, 0.047],
+    // Sat a touch above and behind the grip axis, the way a fist on a bar
+    // actually sits - the bar runs through the hollow of the fingers, not
+    // through the middle of the hand.
+    offset: [0, 0.004, 0.003],
+    // Stations run inboard to outboard along the grip. The four knuckles are
+    // the swollen ones and the dips between them are the gaps between fingers,
+    // so the top silhouette undulates four times - which is the whole of what
+    // reads as a row of knuckles at this distance.
+    stations: [
+      { z: -1.00, offset: [0, -0.04], scale: [0.84, 0.82] }, // wrist end
+      { z: -0.70, offset: [0, 0.03], scale: [1.00, 1.04] }, // index knuckle
+      { z: -0.46, offset: [0, -0.01], scale: [0.96, 0.95] },
+      { z: -0.23, offset: [0, 0.03], scale: [1.00, 1.05] }, // middle knuckle
+      { z: 0.00, offset: [0, -0.01], scale: [0.96, 0.95] },
+      { z: 0.24, offset: [0, 0.02], scale: [0.99, 1.02] }, // ring knuckle
+      { z: 0.48, offset: [0, -0.02], scale: [0.94, 0.93] },
+      { z: 0.71, offset: [0, 0.00], scale: [0.95, 0.96] }, // little knuckle
+      { z: 1.00, offset: [0, -0.05], scale: [0.78, 0.76] }, // outboard end
     ],
-    // Per finger tweak on the tip angle, so the four do not curl as one
-    // machined block. Index first, little finger last.
-    curlOffsets: [-0.07, 0.05, 0.03, -0.1],
+  },
+
+  // Laid along the crest of the fist section, sunk far enough that only its
+  // crown stands proud. Its stations swell at each knuckle and pinch hard
+  // between them, which is what makes one ridge read as four knuckles.
+  knuckleRidge: {
+    section: RIDGE_SECTION,
+    radii: [0.011, 0.0074, 0.047],
+    // The crest of FIST_SECTION is at (0.30 * 0.045, 1.00 * 0.047) = (0.0135,
+    // 0.047) plus the fist's own offset. This sits 0.006 inside that.
+    offset: [0.0130, 0.0432, 0.003],
+    stations: [
+      // The dips were 0.42 against a 1.00 crest to begin with. That is a real
+      // knuckle row's proportion on a bare hand, and on a GLOVED one it came
+      // out as a sawtooth: the trim line along the crest turned every valley
+      // into a spike. A glove fills the gaps in, so the ridge only has to
+      // undulate, not break.
+      { z: -0.86, offset: [0, 0], scale: [0.44, 0.42] },
+      { z: -0.70, offset: [0, 0], scale: [1.00, 1.00] },
+      { z: -0.46, offset: [0, 0], scale: [0.76, 0.68] },
+      { z: -0.23, offset: [0, 0], scale: [1.00, 1.04] },
+      { z: 0.00, offset: [0, 0], scale: [0.76, 0.68] },
+      { z: 0.24, offset: [0, 0], scale: [0.96, 0.98] },
+      { z: 0.48, offset: [0, 0], scale: [0.74, 0.66] },
+      { z: 0.71, offset: [0, 0], scale: [0.86, 0.88] },
+      { z: 0.86, offset: [0, 0], scale: [0.42, 0.40] },
+    ],
+    // A thin lit line along the crest. Without it the hand is a silhouette with
+    // nothing inside it at the size it actually occupies in frame - the ridge
+    // is there, but at night there is no light on it to see it by.
+    trim: { crease: 0, radius: 0.0024, radialSegments: 5 },
   },
 
   // The thumb lies ACROSS the top of the grip, running outward and forward,
-  // which is what closes the hand. Its tip distance from the grip axis has to
-  // clear grip radius plus thumb radius or the tip disappears into the tube.
+  // which is what closes the hand. It starts INSIDE the fist - 0.042 from the
+  // grip axis against a section that is never closer than 0.042 - so it grows
+  // out of the mass instead of floating beside it.
   thumb: {
-    offset: [-0.032, 0.034, 0.016],
-    direction: [0.78, -0.22, -0.58],
-    length: 0.05,
-    radius: 0.0115,
-    taper: 0.85,
+    offset: [-0.030, 0.030, 0.014],
+    direction: [0.70, -0.30, -0.62],
+    length: 0.044,
+    radius: 0.0118,
+    taper: 0.82,
+    segments: 12,
   },
 
   // Forearm. Three things must hold at once or it stops reading as an arm:
-  // thinner than the grip (at 0.031 it was fatter, and read as a pipe);
-  // pointed mostly BACK rather than down, so it foreshortens instead of
-  // sweeping across the frame; and long enough to leave the bottom of the
-  // screen at every field of view, since an arm ending in mid air reads as a
-  // floating block. Keep the inward component small or the arms walk across
-  // the instrument panel and the nose of the bike.
+  // thinner than the grip; pointed mostly BACK rather than down, so it
+  // foreshortens instead of sweeping across the frame; and long enough to leave
+  // the bottom of the screen at every field of view, since an arm ending in mid
+  // air reads as a floating block. Keep the inward component small or the arms
+  // walk across the instrument panel and the nose of the bike.
   forearm: {
-    offset: [-0.042, 0.008, 0.028],
+    offset: [-0.040, 0.004, 0.030],
     direction: [-0.14, -0.45, 0.88],
     length: 0.34,
-    radius: 0.02,
+    radius: 0.021,
     flare: 1.22, // wider toward the elbow
+    segments: 16,
   },
 
-  // Thin emissive trim: a seam over the back of the hand and a cuff ring.
-  rim: {
-    seamSize: [0.062, 0.0038, 0.0065],
-    seamOffset: [0, 0.0425, 0.006],
-    seamRotation: [0.14, 0, -0.05],
-    // Sits just down the forearm from the wrist, and must stay wider than the
-    // arm is at that point or the band sinks into it.
-    cuffOffset: [-0.048, -0.012, 0.068],
-    cuffDirection: [-0.14, -0.45, 0.88],
-    cuffRadius: 0.024,
-    cuffWidth: 0.008,
-    cuffSegments: 20,
+  // The lit band that ends the glove. A BAND, not a gauntlet: the open end
+  // points back up the arm, which from this camera means straight at the eye,
+  // so anything with length reads as a funnel you can see down the inside of.
+  cuff: {
+    offset: [-0.046, -0.010, 0.066],
+    direction: [-0.14, -0.45, 0.88],
+    radius: 0.025,
+    width: 0.008,
+    segments: 20,
   },
 };

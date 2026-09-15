@@ -1,6 +1,4 @@
-import { config } from '../../config.js';
-import { createModelHands } from './hands/ModelHands.js';
-import { createPrimitiveHands } from './hands/PrimitiveHands.js';
+import { createGlovedFist } from './hands/GlovedFist.js';
 
 export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anchors.js';
 
@@ -9,9 +7,21 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  *
  * Rider knows three things and no more: it calls createHands with an anchor,
  * adds the group it gets back, and drives update and dispose. It never learns
- * what the hands are made of. That is the whole point of this file: the
- * primitive hands can be replaced by a rigged model without a single line
- * changing anywhere else in the cockpit.
+ * what the hands are made of. That is the whole point of this file, and it is
+ * what made replacing them cheap when they had to be replaced.
+ *
+ * There used to be two implementations behind here and a config switch to
+ * choose between them: these, and a rigged GLB posed onto the grip by our own
+ * IK. The model is gone. It was a 1,200 triangle first person SHOOTER arms
+ * pack, authored around a rifle, and closing its fingers on a 26 mm tube needed
+ * per finger IK against a cylinder plus edge loops at the knuckles that it did
+ * not have. Rendered side by side it sat beside the bar gripping nothing, which
+ * was further from the reference than the primitives it was meant to replace.
+ * The one thing it offered over a well shaped fist is finger separation on an
+ * OPEN hand, and this hand is never open.
+ *
+ * The seam stays, because the next thing that wants to supply hands should not
+ * have to touch Rider either.
  *
  * The contract a hand set must satisfy:
  *
@@ -20,9 +30,8 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  *            immediately and fills it in when the load resolves, so nothing
  *            upstream has to wait or re-parent.
  *   meshes   the meshes inside it, for tooling that measures the rig.
- *   update   called every frame with (dt, state). The primitive hands ignore
- *            it; a rigged model will pose fingers and wrists from state.steer,
- *            state.speed and the brake input here.
+ *   update   called every frame with (dt, state). The fist ignores it; anything
+ *            that poses itself would read state.steer and the brake here.
  *   dispose  releases everything the set created. Whatever a set allocates, it
  *            frees; Rider never reaches inside.
  *
@@ -36,57 +45,9 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  */
 
 /**
- * Sets currently alive, so an asynchronous failure can find the one it belongs
- * to and graft a fallback into it.
- * @type {Map<object, import('./Hands.js').HandSet>}
- */
-const activeSets = new Map();
-
-/**
- * Builds the hand set named by config.player.rider.hand.source.
  * @param {object} anchor config.player.rider.anchors.rightGrip
  * @returns {HandSet}
  */
 export function createHands(anchor) {
-  const source = config.player.rider.hand.source;
-  const set = build(anchor, source);
-
-  activeSets.set(anchor, set);
-  const release = set.dispose;
-  set.dispose = () => {
-    activeSets.delete(anchor);
-    if (set.fallback) set.fallback.dispose();
-    release();
-  };
-  return set;
-}
-
-/** @returns {HandSet} */
-function build(anchor, source) {
-
-  switch (source) {
-    case 'primitive':
-      return createPrimitiveHands(anchor);
-
-    case 'model':
-      // The model loads asynchronously, so this returns immediately with an
-      // empty group. If it never arrives - no asset downloaded, bad path - the
-      // primitive hands are built into the SAME group, so a clone with nothing
-      // fetched still shows a cockpit instead of bare handlebars.
-      return createModelHands(anchor, (reason) => {
-        console.warn('[rider] ' + reason + ', falling back to primitive hands');
-        const fallback = createPrimitiveHands(anchor);
-        const set = activeSets.get(anchor);
-        if (set) {
-          set.group.add(fallback.group);
-          set.fallback = fallback;
-        }
-      });
-
-    default:
-      // Fall back rather than throw: a bad source value should cost the rider
-      // its good looks, not the whole ride.
-      console.warn('[rider] unknown hand source "' + source + '", using primitive');
-      return createPrimitiveHands(anchor);
-  }
+  return createGlovedFist(anchor);
 }

@@ -53,7 +53,6 @@ export const input = {
     capture: 'KeyC', // capture mode on and off
     cameraProfile: 'KeyV', // cycle ride / cinematic
     overlay: 'KeyH', // show and hide the stats overlay on its own
-    handSource: 'KeyB', // cycle primitive / loaded hands and rebuild
     fullscreen: 'KeyF', // enter and leave fullscreen
     quality: 'KeyQ', // cycle the quality preset, for testing a phone tier
   },

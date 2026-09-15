@@ -1,4 +1,5 @@
 import { hand } from './hand.js';
+import { instruments } from './instruments.js';
 import { bike, machine, machines } from './machine.js';
 
 /**
@@ -44,25 +45,10 @@ const rightGrip = {
   scale: 1,
 };
 
-// Where the rider's shoulder is, in the same frame as the grip. This is the
-// clavicle root - the base of the neck - not the ball joint, because that is
-// what the loaded arm model hangs from.
-//
-// It is not a free choice. Add `origin` below and it comes out 22 cm under the
-// eye and a little behind it, which is where a shoulder is. Behind the eye
-// means behind the near plane, so the arm leaves the bottom of the frame
-// instead of stopping in mid air - which is the whole reason the loaded arms
-// read as attached to a body when the primitives never could.
-//
-// It also has to be within reach: the pack's arm is 0.68 m from here to the
-// wrist and the grip is 0.61 m away, so the elbow ends up properly bent rather
-// than locked straight.
-const rightShoulder = [0.18, -0.018, 0.65];
-
 export const rider = {
   // The anchor frame is +X outward along the grip, +Y up away from it, +Z back
   // at the rider. Anything aligned here inherits the grip's own angle.
-  anchors: { rightGrip, rightShoulder },
+  anchors: { rightGrip },
 
   origin: { x: 0, y: -0.202, z: -0.6 },
 
@@ -176,28 +162,9 @@ export const rider = {
   machines,
   bike,
 
-  // Small neon gauge cluster in the middle of the bars.
-  instruments: {
-    offset: [0, 0.052, -0.012],
-    rotation: [-0.95, 0, 0], // tipped back toward the rider
-    size: [0.165, 0.092, 0.008],
-    frameMargin: 0.007,
-    frameDepth: 0.012,
-    texture: { width: 256, height: 144 },
-    updateHz: 12, // the canvas is only redrawn when a shown value changes
-    labels: { speed: 'HIZ', unit: 'KM/S', rpm: 'DEVIR' },
-    rpmSegments: 18,
-    colors: {
-      background: '#05030c',
-      border: '#2de3ff',
-      speed: '#ffffff',
-      label: '#7a7fa8',
-      rpmLow: '#2de3ff',
-      rpmMid: '#39ff88',
-      rpmHigh: '#ff2bd0',
-      rpmOff: '#141a2e',
-    },
-  },
+  // The dash. Next door; it is the one part of the rig laid out in texture
+  // pixels rather than in rider units.
+  instruments,
 
   // Fake lighting for the whole rig. There are no lights in the scene, so
   // every rider surface is shaded by this one model instead: a key from above
@@ -224,14 +191,24 @@ export const rider = {
       rimStrength: 0.3,
       rimPower: 3.2,
     },
+    // The rim term draws an outline around every convex lobe it is given, and
+    // at 0.42 it was most of what the old hand looked like: twenty-two lobes,
+    // twenty-two purple outlines, a cluster of floating capsules. One closed
+    // shell of large flat facets needs the opposite - a rim tight enough to
+    // stay on the silhouette, and the key doing the work instead.
     glove: {
-      color: 0x101219,
-      ambient: 0x1b2138,
-      key: 0x8890ad,
-      keyStrength: 0.7,
+      // Lifted off near-black with the rim. The old hand got most of its
+      // brightness FROM the rim - twenty-two lobes each with a lit edge - so
+      // cutting the rim back left a silhouette with nothing inside it. What
+      // replaced that brightness has to be the key and the base, or the hand is
+      // a hole in the frame.
+      color: 0x1c212f,
+      ambient: 0x232a45,
+      key: 0x99a3c4,
+      keyStrength: 1.25,
       rim: 0xa45cff,
-      rimStrength: 0.42,
-      rimPower: 2.9,
+      rimStrength: 0.26,
+      rimPower: 4.0,
     },
     mirror: {
       color: 0x070a14,

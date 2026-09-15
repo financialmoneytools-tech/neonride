@@ -101,6 +101,7 @@ export function placeView(rig, dt, state) {
   state.lateral = rig.lateral;
   state.bob = bobVertical;
   state.rpm = revs(speedRatio, bike.gears);
+  state.gear = gearAt(speedRatio, bike.gears);
 }
 
 /**
@@ -115,4 +116,17 @@ function revs(speedRatio, gears) {
   const span = 1 / gears;
   const withinGear = (speedRatio % span) / span;
   return 0.25 + 0.75 * withinGear;
+}
+
+/**
+ * Which gear the fake box is in. Comes from the same split of the speed range
+ * that revs() sweeps across, so the needle dropping and the number going up
+ * happen on the same frame - which is the whole reason the cluster shows both.
+ * @param {number} speedRatio
+ * @param {number} gears
+ * @returns {number} 0 for neutral, else 1..gears
+ */
+function gearAt(speedRatio, gears) {
+  if (speedRatio <= 0.002) return 0;
+  return Math.min(gears, Math.floor(speedRatio * gears) + 1);
 }
