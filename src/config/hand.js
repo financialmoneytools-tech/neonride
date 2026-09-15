@@ -16,37 +16,43 @@
 
 export const hand = {
   sprite: {
-    // One image per hand. They were one image mirrored to begin with, which is
-    // geometrically what a left hand is, but these two drawings are not each
-    // other's reflection - each is posed on its own bar, with its own lever and
-    // its own switch block - so each gets its own texture and its own placement.
+    // ONE IMAGE, MIRRORED. It was two drawings for a while, one per hand, and
+    // that was the wrong call: a mirrored right arm IS an anatomically correct
+    // left arm, and every detail matches by construction - the ribbed cuff, the
+    // neon piping, the glove proportions, the line weight of the drawing. Two
+    // separately generated images never matched, and no amount of regenerating
+    // the second one was going to make it match the first.
+    //
+    // It is right for the hardware too. Mirrored, the brake lever lands where
+    // the clutch lever belongs, the bar end goes to the upper left and the
+    // switch block ends up inboard, which is exactly where all three are on a
+    // real left bar.
     url: {
-      right: 'sprites/glove-right.png',
-      left: 'sprites/glove-left.png',
-      // The right hand with two fingers off the grip and over the lever. Keyed
+      glove: 'sprites/glove-right.png',
+      // The same hand with two fingers off the grip and over the lever. Keyed
       // as a GROUP with the neutral frame so the two share one crop and one
       // size; cropped separately they would come out different shapes and the
       // hand would jump sideways the instant the brake came on.
-      rightBrake: 'sprites/glove-right-brake.png',
+      //
+      // The RIGHT hand only. Mirrored onto the left it would be a clutch being
+      // pulled every time the rider brakes, which is not what a rider does.
+      gloveBrake: 'sprites/glove-right-brake.png',
     },
 
-    // Width of the plane in rider units, before the framing profile's handScale.
-    // Each image carries its own aspect, read off the texture once it loads, so
-    // the artwork is never stretched and the two may be different shapes.
-    // The left drawing carries more bar than the right does, so at the same
-    // plane width its hand would come out smaller. These are set so the two
-    // HANDS match on screen, not the two images.
-    width: { right: 0.271, left: 0.294 },
+    // Width of the plane in rider units, before the framing profile's
+    // handScale. One number, because both hands are now the same image at the
+    // same size - two were needed only while they were two drawings framed
+    // differently from each other. The aspect is read off the texture once it
+    // loads, so the artwork is never stretched by a number that disagrees.
+    width: 0.271,
 
     // From the point on the grip the anchor names, in the anchor's frame:
     // [along the grip, up, back at the rider]. A hand is not in the middle of
     // its own picture - the lever and the switch block take up part of it - so
     // this is what slides the DRAWN hand onto the grip rather than the plane's
-    // centre. Per side, because the two drawings are framed differently.
-    offset: {
-      right: [-0.020, 0.012, 0.012],
-      left: [-0.020, 0.012, 0.012],
-    },
+    // centre. One set: the mirror takes care of the other side, and x is
+    // multiplied by the side's sign.
+    offset: [-0.020, 0.012, 0.012],
 
     // 0 is a pure billboard, 1 is welded to the bar. A hand on a bar does turn
     // with it, just not as much as the bar does, because the wrist gives.

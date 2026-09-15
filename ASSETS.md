@@ -10,8 +10,8 @@ the file lives, and nothing goes in `public/` without a row.
 
 | | |
 |---|---|
-| Files | `public/sprites/glove-right.png`, `glove-right-brake.png`, `glove-left.png` |
-| Sources | the same three names under `art/sprites/` |
+| Files | `public/sprites/glove-right.png`, `glove-right-brake.png` |
+| Sources | the same two names under `art/sprites/` |
 | Retrieved | 15 September 2026 |
 | Used by | `src/player/rider/hands/SpriteHands.js` |
 
@@ -23,9 +23,21 @@ between a 2D hand and a 3D bar is what would give the trick away, and there is
 no join if the bar ends inside the picture. The 3D grip, lever and bar end are
 no longer built.
 
-ONE IMAGE PER HAND. An earlier pass used a single image mirrored, which is
-geometrically what a left hand is; these two are not each other's reflection,
-so each gets its own texture.
+ONE IMAGE, MIRRORED FOR THE LEFT. This went the other way for a while - a
+separate drawing per hand, on the reasoning that each is posed on its own bar
+with its own lever and switch block - and that was wrong in practice. Two
+separately generated images never matched: the ribbed cuff, the neon piping and
+the line weight came out differently each time the second was regenerated, and
+the eye reads two hands side by side as a pair or not at all.
+
+A mirrored right arm IS an anatomically correct left arm, so every detail
+matches by construction rather than by luck. It is right for the hardware too:
+reflected, the brake lever lands where the clutch lever belongs, the bar end
+goes to the upper left and the switch block ends up inboard, which is where all
+three are on a real left bar.
+
+The brake frame is NOT mirrored onto the left. A rider braking is not pulling
+the clutch.
 
 Sources live in `art/` and are not shipped. `tools/key-sprite.py` turns each one
 into the RGBA PNG the game loads:
