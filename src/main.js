@@ -68,7 +68,7 @@ const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
 // fallback used when config.postprocess.enabled is turned off.
 const post = new Postprocess(engine.renderer, engine.scene, engine.camera);
 engine.onResize = (width, height) => {
-  framing.update(width / height);
+  framing.refresh(width / height);
   post.setSize(width, height);
 };
 
@@ -108,6 +108,11 @@ loop.add((dt, state) => {
 // Shares the one clock rather than keeping its own timer, so a resize settles
 // in game time like everything else.
 loop.add((dt) => viewport.update(dt));
+// Framing resolves from whatever it reads, not from whatever last fired an
+// event: a resize above will already have pushed the new aspect through, and
+// this is what catches a profile edited from the console or over HMR. It is a
+// no-op on a frame where nothing it depends on has moved.
+loop.add(() => framing.refresh(engine.camera.aspect));
 
 // Order matters: the bike publishes state.distance and state.speed, and
 // everything that recycles or follows reads them in the same frame, before the

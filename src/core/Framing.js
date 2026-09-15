@@ -12,6 +12,18 @@ import { config } from '../config.js';
  * Profiles are interpolated rather than switched. Dragging a browser window
  * between shapes passes through every aspect in between, and a hard switch
  * would pop the cockpit and the horizon on the way.
+ *
+ * WHEN it resolves is the other half of the job, and it used to be wrong. The
+ * only trigger was a window resize, so a resolved value outlived every input it
+ * was resolved from: edit a profile from the console or over HMR and the frame
+ * kept composing from the previous numbers, with nothing anywhere reporting a
+ * problem. That is the same failure the NaN in addTube was - a stale value read
+ * as a valid result - and it wants the same answer, which is to make the thing
+ * that decides look at what it actually depends on. So refresh() compares every
+ * number it reads against the numbers it last resolved from, and re-resolves
+ * when any of them has moved. It is called once a frame and costs a dozen
+ * comparisons; a resize is then merely one of the things that can change them,
+ * rather than the only way the result is ever allowed to change.
  */
 export class Framing {
   constructor() {
@@ -30,10 +42,43 @@ export class Framing {
     /** Name of the nearer profile, for tooling and the overlay. */
     this.name = '';
 
+    /** Everything the last resolve read, and a scratch to compare against. */
+    this._resolved = [];
+    this._probe = [];
+
     this.update(1);
   }
 
   /**
+   * Re-resolves if, and only if, something it reads has changed since the last
+   * time. Safe to call every frame.
+   * @param {number} aspect width over height
+   * @returns {Framing} this
+   */
+  refresh(aspect) {
+    // A non-finite aspect is refused rather than resolved from. Blending
+    // through one produces a NaN field of view, and NaN does not announce
+    // itself: every comparison against it is false, so the fov guard in
+    // updateFov silently stops applying anything and the camera holds whatever
+    // it had. Keeping the last good framing is both the honest answer and the
+    // one that looks like nothing happened.
+    if (!Number.isFinite(aspect) || aspect <= 0) return this;
+
+    this._read(aspect, this._probe);
+    if (this._probe.length === this._resolved.length) {
+      let same = true;
+      for (let i = 0; i < this._probe.length; i++) {
+        if (this._probe[i] !== this._resolved[i]) { same = false; break; }
+      }
+      if (same) return this;
+    }
+
+    return this.update(aspect);
+  }
+
+  /**
+   * Resolves unconditionally. refresh() is the one to call in a loop; this is
+   * for construction and for anywhere the caller knows it has to happen now.
    * @param {number} aspect width over height
    * @returns {Framing} this
    */
@@ -69,6 +114,34 @@ export class Framing {
     this.riderOrigin.z = lower.riderOrigin.z + (upper.riderOrigin.z - lower.riderOrigin.z) * t;
 
     this.name = t < 0.5 ? lower.name : upper.name;
+
+    this._read(aspect, this._resolved);
     return this;
+  }
+
+  /**
+   * Every input the resolve depends on, flattened. Compared element by element
+   * rather than hashed: a hash of a dozen floats can collide, and a collision
+   * here is exactly the failure this is here to stop.
+   * @param {number} aspect
+   * @param {number[]} out reused, so a frame that changes nothing allocates nothing
+   */
+  _read(aspect, out) {
+    const profiles = config.framing.profiles;
+    out.length = 0;
+    out.push(aspect);
+
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      out.push(
+        profile.aspect,
+        profile.fov,
+        profile.fovMax,
+        profile.pitch,
+        profile.riderOrigin.x,
+        profile.riderOrigin.y,
+        profile.riderOrigin.z,
+      );
+    }
   }
 }
