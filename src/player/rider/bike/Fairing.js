@@ -79,16 +79,12 @@ export function buildFairing(builders) {
   buildScreen(cfg.screen, builders.mirror, builders.neonLeft);
 }
 
-/** The wings, the flanks, the shoulders and the nose. */
+/** A wing either side, and the nose between them. That is the whole fairing. */
 function buildPanels(cfg, builders) {
   // A part on the centreline is built once; everything else is built twice,
   // once per side, from a section reflected for the left.
   panel(cfg.wing, builders, 1);
   panel(cfg.wing, builders, -1);
-  panel(cfg.flank, builders, 1);
-  panel(cfg.flank, builders, -1);
-  panel(cfg.shoulder, builders, 1);
-  panel(cfg.shoulder, builders, -1);
   panel(cfg.nose, builders, 1);
 }
 

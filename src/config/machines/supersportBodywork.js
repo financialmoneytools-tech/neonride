@@ -79,115 +79,73 @@ export const paint = {
 
 // --- Fairing -----------------------------------------------------------
 //
-// The mass the cockpit was missing. From the saddle a supersport is mostly
-// this: two wings sweeping out and forward either side of the screen, and a
-// nose between them carrying the cluster. Without it the frame's lower half
-// is empty road, which is exactly what the reference shots do not look like.
+// A cluster surround, and nothing more.
+//
+// It was four panels a side reaching from the centreline out to the grips and
+// down past the bars - measured, 20.5 per cent of a 16:9 frame and 41 per cent
+// of its lower half, with its top edge 62 per cent down the frame and its
+// lowest point at y -0.320 against a bar line at about -0.03. That is not what
+// a fairing looks like from a saddle; it is what a wall looks like. The `flank`
+// and `shoulder` panels are gone entirely and the wing is a third of its former
+// height.
+//
+// The rule that replaced the tuning: NOTHING below the bar line. The triple
+// clamp bottoms out at y -0.083, so every panel here stops above roughly -0.09,
+// and what the camera sees below the bars is road.
 export const fairing = {
-  // Swept panel either side. Authored for the right; the left is the same
-  // section put through a mirror, which is NOT the same thing as placing the
-  // right one at a negative x - see Fairing.js.
+  // The panel either side of the cluster. Authored for the right; the left is
+  // the same section put through a mirror, which is NOT the same thing as
+  // placing the right one at a negative x - see Fairing.js.
   //
-  // radii are the half extents the section and the spine are scaled to, so
-  // they mean what they meant when this was an ellipsoid. Tall enough to
-  // reach the grips: a wing whose top sits well below the bar leaves a band
-  // of road between bodywork and glove, and in the reference shots there is
-  // none.
+  // radii are the half extents the section and the spine are scaled to. The
+  // half height of 0.048 is the number that matters: at 0.115 the wing reached
+  // the grips and then kept going, and everything else here is downstream of
+  // it.
   //
-  // The grip centre is at y 0.029, so a half height of 0.115 about y -0.075
-  // takes the top edge to +0.04 - just past the hand - and the bottom to
-  // -0.19, which is below the tank.
-  //
-  // Stations run rear to front, z +1 nearest the rider. Each one scales,
-  // shifts and rolls the section; the roll turning from positive to negative
-  // through the middle is what stops the wing reading as an extrusion.
+  // Stations run rear to front, z +1 nearest the rider. Each one scales, shifts
+  // and rolls the section; the roll turning from positive to negative through
+  // the middle is what stops the wing reading as an extrusion.
   wing: {
     section: WING_SECTION,
-    radii: [0.150, 0.115, 0.250],
-    offset: [0.288, -0.074, -0.045],
-    rotation: [0.14, -0.26, -0.30],
-    // Six of them rather than four, and the two extra are there for the
-    // vents: an opening can only be as short as the segment it is cut from,
-    // and on four stations the shortest available was a third of the wing.
+    // Broad and shallow, not long and thin. At [0.072, 0.048, 0.155] the panel
+    // was three times longer than it was tall and pointed away from the eye, so
+    // it foreshortened into a lump standing beside the cluster like an ear -
+    // every facet on it compressed into a few pixels. A fairing top seen from
+    // the saddle is the opposite: wide across the frame, shallow, and only as
+    // long as it needs to reach the screen.
+    radii: [0.098, 0.034, 0.118],
+    offset: [0.120, -0.030, -0.098],
+    rotation: [0.12, -0.34, -0.14],
     stations: [
-      { z: 1.00, offset: [-0.06, -0.10], scale: [0.30, 0.34], roll: 0.16 },
-      { z: 0.52, offset: [-0.02, -0.03], scale: [0.82, 0.88], roll: 0.08 },
-      { z: 0.16, offset: [0.01, 0.00], scale: [0.97, 0.99], roll: 0.03 },
-      { z: -0.22, offset: [0.03, 0.02], scale: [1.00, 1.00], roll: -0.03 },
-      { z: -0.58, offset: [0.02, 0.04], scale: [0.84, 0.82], roll: -0.10 },
-      { z: -1.00, offset: [-0.02, 0.02], scale: [0.44, 0.50], roll: -0.16 },
+      { z: 1.00, offset: [-0.08, -0.06], scale: [0.40, 0.44], roll: 0.14 },
+      { z: 0.46, offset: [-0.02, -0.02], scale: [0.90, 0.92], roll: 0.06 },
+      { z: 0.02, offset: [0.02, 0.01], scale: [1.00, 1.00], roll: -0.02 },
+      { z: -0.50, offset: [0.03, 0.03], scale: [0.88, 0.86], roll: -0.09 },
+      { z: -1.00, offset: [0.00, 0.02], scale: [0.50, 0.56], roll: -0.15 },
     ],
-    // Openings, not painted-on panels: the faces listed here are taken out of
-    // the shell and replaced by a pocket, which is why they still read as
-    // holes when the camera leans. Ranges are half open and index the SECTION
-    // EDGES - edge 0 runs from section point 0 to point 1.
-    //
-    // WHICH edges took some finding, and the answer is not the one a side-on
-    // photograph suggests. The gills on a real fairing are on the outer
-    // flank, and from this camera the outer flank is the side facing away:
-    // the rider sits inboard of and above the wing, so what fills the frame
-    // is the INNER shoulder, edges 6 and 7, with the top crease as its
-    // silhouette. Vents cut into the outer face were measured at exactly
-    // zero pixels of the frame. These are where the eye actually is.
-    //
-    // Both openings are on the same edge with a station segment of bodywork
-    // left between them, which is what a louvre pair on a real fairing is.
-    // It also avoids the one arrangement that does not work: two pockets that
-    // meet along a shared crease leave a divider with no thickness in it.
+    // One opening, not two. Ranges are half open and index the SECTION EDGES -
+    // edge 0 runs from section point 0 to point 1 - and edge 7 is the inner
+    // shoulder, which is the face this camera actually sees: the rider sits
+    // inboard of and above the wing, so the outer flank, where the gills go on
+    // a real bike, points away and measured zero pixels of the frame.
     // depth is in rider units, along the panel's own normal.
     vents: [
-      // A pair of gills in the widest part of the panel, just under the trim.
-      { edgeFrom: 7, edgeTo: 8, stationFrom: 1, stationTo: 2, depth: 0.020 },
-      { edgeFrom: 7, edgeTo: 8, stationFrom: 3, stationTo: 4, depth: 0.018 },
+      { edgeFrom: 7, edgeTo: 8, stationFrom: 1, stationTo: 2, depth: 0.010 },
     ],
     // A bright line laid along a crease, the same trick the tank seam uses: a
     // dark panel against a dark road needs a line on it to be seen. The index
     // is a section point, so the strip is on the edge by construction and
     // cannot drift off it when either one is tuned.
-    trim: { crease: 0, radius: 0.0062, radialSegments: 6 },
+    trim: { crease: 0, radius: 0.0055, radialSegments: 6 },
   },
 
-  // The lower flank, under the wing and outboard of the tank. This is what
-  // takes the road out of the bottom corners.
-  // Kept clear of the near plane the way the tank is: at this camera the
-  // rearmost bodywork is only centimetres from the eye.
-  flank: {
-    section: WING_SECTION,
-    radii: [0.128, 0.120, 0.200],
-    offset: [0.250, -0.200, -0.010],
-    rotation: [0.10, -0.16, -0.20],
-    stations: [
-      { z: 1.00, offset: [-0.05, -0.06], scale: [0.42, 0.46], roll: 0.12 },
-      { z: 0.30, offset: [0.00, 0.00], scale: [0.96, 1.00], roll: 0.04 },
-      { z: -0.40, offset: [0.02, 0.03], scale: [0.92, 0.86], roll: -0.06 },
-      { z: -1.00, offset: [0.00, 0.04], scale: [0.50, 0.54], roll: -0.14 },
-    ],
-    vents: [
-      { edgeFrom: 7, edgeTo: 8, stationFrom: 1, stationTo: 2, depth: 0.017 },
-    ],
-  },
-
-  // Inner shoulder, filling the gap between the wing and the nose. No vents:
-  // the hands and the screen cover most of it, so the triangles would be
-  // spent on something nobody sees.
-  shoulder: {
-    section: WING_SECTION,
-    radii: [0.112, 0.085, 0.180],
-    offset: [0.120, -0.086, -0.130],
-    rotation: [0.22, -0.16, -0.20],
-    stations: [
-      { z: 1.00, offset: [-0.04, -0.08], scale: [0.40, 0.44], roll: 0.14 },
-      { z: 0.20, offset: [0.00, 0.00], scale: [1.00, 1.00], roll: 0.02 },
-      { z: -1.00, offset: [0.00, 0.04], scale: [0.46, 0.52], roll: -0.12 },
-    ],
-  },
-
-  // The nose, between the wings and under the screen. Built once on the
-  // centreline from a symmetric section, so it is not mirrored at all.
+  // The centre section, under the screen and carrying the cluster. Built once
+  // on the centreline from a symmetric section, so it is not mirrored at all.
+  // No vents: the cluster covers most of it.
   nose: {
     section: NOSE_SECTION,
-    radii: [0.130, 0.082, 0.220],
-    offset: [0, -0.112, -0.180],
+    radii: [0.102, 0.046, 0.165],
+    offset: [0, -0.042, -0.165],
     rotation: [0.28, 0, 0],
     stations: [
       { z: 1.00, offset: [0, -0.02], scale: [0.72, 0.80], roll: 0 },

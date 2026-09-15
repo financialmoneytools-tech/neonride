@@ -51,11 +51,14 @@ function arc(radius, width, thetaStart, thetaLength, segments) {
 export function buildBikeFront(builders) {
   const cfg = config.player.rider.machine;
 
-  buildTank(builders.tank, builders.neonLeft, cfg.tank);
+  if (cfg.tank.visible) buildTank(builders.tank, builders.neonLeft, cfg.tank);
   buildSteeringSide(builders.frame, cfg);
 }
 
-/** Fuel tank top, filler cap and the neon seam. Chassis, not steering. */
+/**
+ * Fuel tank top, filler cap and the neon seam. Chassis, not steering.
+ * Off by default - see the note on `visible` in the machine config.
+ */
 function buildTank(tank, neon, cfg) {
   const body = new THREE.SphereGeometry(1, cfg.segments[0], cfg.segments[1]);
   body.scale(cfg.radii[0], cfg.radii[1], cfg.radii[2]);
@@ -74,7 +77,18 @@ function buildTank(tank, neon, cfg) {
   );
 }
 
-/** Everything that turns with the bars. */
+/**
+ * Everything that turns with the bars.
+ *
+ * What is built here splits in two, and the split is the camera's, not the
+ * bike's. The clamp and the upper fork tubes are what the bars are bolted to
+ * and they sit at the bar line, so they are always built. Everything below them
+ * - the sliders, the headlight, its cowl, the fender and the tyre - is hidden
+ * behind the bodywork on a real bike and was hidden behind the tank here. With
+ * the tank gone they stand in open road at the bottom of the frame: two pale
+ * fork legs and a cowl, reading as scaffolding under a cockpit rather than as a
+ * front end. `lowerFront` is the one switch for the lot.
+ */
 function buildSteeringSide(frame, cfg) {
   const clamp = cfg.tripleClamp;
   frame.add(
@@ -94,6 +108,7 @@ function buildSteeringSide(frame, cfg) {
       partMatrix(sign, fork.from, null, _matrix),
     );
 
+    if (!cfg.lowerFront) continue;
     const slider = fork.slider;
     addTube(
       frame,
@@ -104,6 +119,7 @@ function buildSteeringSide(frame, cfg) {
     );
   }
 
+  if (!cfg.lowerFront) return;
   buildHeadlight(frame, cfg.headlight);
   buildCowl(frame, cfg.cowl);
   buildFenderAndWheel(frame, cfg);

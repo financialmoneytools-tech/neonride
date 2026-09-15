@@ -43,6 +43,19 @@ export const supersport = {
     // else to fix something nobody can see.
     radii: [0.170, 0.082, 0.245], // ellipsoid half extents
     offset: [0, -0.170, -0.025],
+    // NOT BUILT. Lowering it out of shot was tried first and is worse than not
+    // building it: the cinematic camera profile moves the eye, and a tank
+    // parked 30 cm below where a tank goes would simply appear in the wrong
+    // place there instead of the wrong place here.
+    //
+    // At 16:9 it was the dark rounded shape in the middle of the lower frame.
+    // At 9:16, where the profile sits the rig lower and pitches the camera
+    // down, it filled the bottom of the picture as a single smooth egg - the
+    // one rounded lobe left once the bodywork became angular, and the exact
+    // thing the cockpit was cut back to get rid of. It is a real part of a real
+    // bike and every number here is tuned; it is the CAMERA that does not want
+    // it, so the geometry stays described and this is what turns it off.
+    visible: false,
     rotation: [0.2, 0, 0],
     segments: [28, 14],
     // Filler cap, the one piece of detail that says fuel tank rather than panel
@@ -52,6 +65,13 @@ export const supersport = {
   },
 
   tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, -0.062, -0.012] },
+
+  // Everything below the bar line: fork sliders, headlight, cowl, fender, tyre.
+  // Described, tuned, and not built - see the note in BikeFront.js. This camera
+  // is meant to show the bars, the hands, the cluster and the bodywork around
+  // it, and with the tank off these were the only things left standing in open
+  // road at the bottom of the frame.
+  lowerFront: false,
 
   // Upper fork tubes, then the fatter sliders below them.
   fork: {
