@@ -47,6 +47,20 @@ export const supersport = {
     // last rounded shape on the bike, and at 9:16 - where the camera sits lower
     // and looks further down - it filled the bottom third of the frame as one
     // smooth egg.
+    // ON. This was dropped in the commit that made the tank a lofted panel -
+    // the block was rewritten and the key went with it - and `visible` is read
+    // as a gate in BikeFront, so the tank silently stopped being built at all.
+    // The commit claimed the smooth egg was gone at 9:16 and it was, because
+    // nothing was drawn there. A flag whose absence means "off" is a flag that
+    // fails quietly, which is why the gate now needs an explicit false.
+    visible: true,
+    // Restored with `visible`. The rewrite that made this a lofted panel
+    // dropped THREE keys - visible, offset and rotation - and the first one
+    // hid the other two: with the gate reading undefined the builder never
+    // ran, so the missing offset never reached partMatrix, which would have
+    // thrown on it immediately. Two bugs cancelling into silence.
+    offset: [0, -0.150, -0.030],
+    rotation: [0.2, 0, 0], // nose down, so it recedes toward the bars
     section: TANK_SECTION,
     radii: [0.170, 0.070, 0.245], // half extents the section and spine scale to
     // Stations run rear to front, z +1 nearest the rider. Widest just behind

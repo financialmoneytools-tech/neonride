@@ -34,7 +34,10 @@ function side(point, sign) {
 export function buildBikeFront(builders) {
   const cfg = config.player.rider.machine;
 
-  if (cfg.tank.visible) buildTank(builders.tank, builders.neonLeft, cfg.tank);
+  // Explicit false, not "anything falsy". `visible` went missing from the
+  // machine config once and the tank silently stopped existing for several
+  // commits, because undefined reads exactly like off.
+  if (cfg.tank.visible !== false) buildTank(builders.tank, builders.neonLeft, cfg.tank);
   buildSteeringSide(builders.frame, cfg);
   // Fork legs below the clamp, the fender and the wheel. Their own file: they
   // are the parts only the cinematic profile and a 9:16 frame ever see, and
