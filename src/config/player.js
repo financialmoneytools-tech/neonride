@@ -46,26 +46,11 @@ export const player = {
     // The field of view and its ramp are per aspect now; see config/framing.js.
     fovTau: 0.55, // seconds for the field of view to follow a speed change
 
-    // Camera profiles, applied ON TOP of the aspect framing profile. The bike
-    // stays where it is; what moves is the eye, so both of these still read as
-    // the rider's own view rather than a chase camera.
-    //
-    // riderOffset.z is the one that matters for how much machine is in shot:
-    // pushing the cockpit away from the eye is what lets the tank, fork and
-    // fender climb into frame. Everything else is trim on top of that.
-    profile: 'ride', // the one in use; the V key cycles it at runtime
-    profiles: {
-      ride: {
-        heightOffset: 0,
-        pitchOffset: 0,
-        riderOffset: { x: 0, y: 0, z: 0 },
-      },
-      cinematic: {
-        heightOffset: 0.26, // eye a little higher, looking over the tank
-        pitchOffset: -0.09, // and tipped down to keep the machine in shot
-        riderOffset: { x: 0, y: 0.02, z: -0.5 },
-      },
-    },
+    // Which camera profile is in use. The NUMBERS are in config/framing.js,
+    // one set per aspect, because the same offsets do not compose at 16:9 and
+    // at 9:16 - see the note at the top of that file. This is the selector and
+    // nothing else; the V key cycles it at runtime.
+    profile: 'ride',
 
     // Bobbing. Amplitudes are in world units and radians; the defaults are
     // deliberately small. Raising `vertical` past about 0.08 starts to read as

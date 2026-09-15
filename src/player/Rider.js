@@ -89,12 +89,23 @@ export class Rider {
 
     const builders = {
       frame: new GeometryBuilder(),
-      grip: new GeometryBuilder(),
+      dark: new GeometryBuilder(),
       mirror: new GeometryBuilder(),
       tank: new GeometryBuilder(),
       paint: new GeometryBuilder(),
       vent: new GeometryBuilder(),
       neonLeft: new GeometryBuilder(),
+      // The tyre. Its own material rather than the frame's, because the frame
+      // carries a rim light strong enough to draw an outline round every convex
+      // shape it is given, and on a tyre that outline is the whole part: a
+      // wheel lit that way reads as a pale hoop rather than as rubber.
+      rubber: new GeometryBuilder(),
+      // The fender's paint and its neon seam. Same materials as the tank's, but
+      // they cannot share the tank's merged meshes: the tank is bolted to the
+      // chassis and the fender turns with the bars, and a merged mesh can only
+      // be parented to one group.
+      lowerPaint: new GeometryBuilder(),
+      lowerNeon: new GeometryBuilder(),
     };
 
     // Which group each merged mesh belongs to. The tank and the bodywork are
@@ -119,7 +130,7 @@ export class Rider {
     const presets = cfg.materials;
     this.materials = {
       frame: createRiderMaterial(presets.frame, 'RiderFrame'),
-      grip: createRiderMaterial(presets.grip, 'RiderGrip'),
+      dark: createRiderMaterial(presets.dark, 'RiderDark'),
       mirror: createRiderMaterial(presets.mirror, 'RiderMirror'),
       tank: createRiderMaterial(presets.frame, 'RiderTank'),
       // Bodywork is the one painted surface on the bike. Everything else is
@@ -127,6 +138,9 @@ export class Rider {
       paint: createRiderMaterial(cfg.machine.paint, 'RiderPaint'),
       vent: createRiderMaterial(presets.vent, 'RiderVent'),
       neonLeft: createNeonMaterial(presets.neonLeft, 'RiderTankTrim'),
+      rubber: createRiderMaterial(presets.rubber, 'RiderTyre'),
+      lowerPaint: createRiderMaterial(cfg.machine.paint, 'RiderLowerPaint'),
+      lowerNeon: createNeonMaterial(presets.neonLeft, 'RiderFenderTrim'),
     };
 
     this.meshes = [];
@@ -187,14 +201,16 @@ export class Rider {
     const scale = 1 + (tanNow / tanBase - 1) * cfg.fovCompensation;
 
     // The camera profile shifts the whole cockpit relative to the eye, which is
-    // how the cinematic view brings the tank and the fork into shot.
-    const profile = config.player.camera.profiles[config.player.camera.profile];
+    // how the cinematic view brings the tank, the fork and the wheel into shot.
+    // Resolved by Framing, per aspect, because the two aspects do not start
+    // from the same distance and a shared push composes for neither.
+    const profile = this.framing.camera.rider;
     const origin = this.framing.riderOrigin;
     this.group.scale.setScalar(scale);
     this.group.position.set(
-      origin.x + profile.riderOffset.x,
-      origin.y + profile.riderOffset.y - (state.bob || 0) * cfg.bobLag,
-      origin.z + profile.riderOffset.z,
+      origin.x + profile.x,
+      origin.y + profile.y - (state.bob || 0) * cfg.bobLag,
+      origin.z + profile.z,
     );
 
     this.hands.update(dt, state);

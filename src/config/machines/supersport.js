@@ -1,4 +1,5 @@
 import { TANK_SECTION, fairing, paint, screen } from './supersportBodywork.js';
+import { lower } from './supersportLower.js';
 
 /**
  * NEON RIDE - the supersport, one bike definition among several.
@@ -76,19 +77,19 @@ export const supersport = {
   // behind the fairing. The handlebars had nothing under them.
   lowerFront: true,
 
-  // Upper fork tubes, then the fatter sliders below them.
-  fork: {
+  // The very top of the fork leg, at the bar line. Always built: it is what the
+  // clamp holds and what the clip-ons bolt to. The leg itself - stanchion,
+  // slider, seal, lug and axle - belongs to `lower` and only exists when
+  // lowerFront is on, so `to` here is only reached when it is off.
+  forkTop: {
     from: [0.086, -0.078, -0.018],
     to: [0.097, -0.215, -0.092],
     radius: 0.019,
     radialSegments: 14,
-    slider: {
-      from: [0.098, -0.2, -0.085],
-      to: [0.108, -0.37, -0.175],
-      radius: 0.026,
-      radialSegments: 14,
-    },
   },
+
+  // Fork legs, fender and front wheel; see ./supersportLower.js.
+  lower,
 
   headlight: {
     offset: [0, -0.2, -0.185],
@@ -128,28 +129,6 @@ export const supersport = {
     lip: { radius: 0.127, width: 0.014, depth: -0.035, segments: 22 },
   },
 
-  // Front fender, seen as an arc over the tyre. thetaStart and thetaLength cut
-  // the cylinder down to just the part above the wheel.
-  fender: {
-    centre: [0, -0.46, -0.44],
-    radius: 0.195,
-    width: 0.1,
-    thetaStart: 0.35,
-    thetaLength: 2.1,
-    segments: 22,
-    thickness: 0.012,
-  },
-
-  // The tyre either side of the fender. Dark, and deliberately only the top arc:
-  // the rest is below the frame and below the fork.
-  wheel: {
-    centre: [0, -0.46, -0.44],
-    radius: 0.16,
-    width: 0.075,
-    thetaStart: 0.2,
-    thetaLength: 2.5,
-    segments: 24,
-  },
 
   // Bodywork, paint and glass. Next door, because the two together no longer
   // fit in a file this project allows.

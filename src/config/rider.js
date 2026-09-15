@@ -168,14 +168,23 @@ export const rider = {
       rimStrength: 0.5,
       rimPower: 2.6,
     },
-    grip: {
+    // Cast and anodised parts, as against the frame preset's polished ones.
+    // This was the grip preset, and the grip has been drawn into the hand
+    // sprite since; the values are close to what a fork slider wants anyway.
+    //
+    // The frame preset's rim runs at 0.5 over a power of 2.6, which draws a lit
+    // edge down the whole length of anything cylindrical. On a stanchion that
+    // is right - a stanchion IS polished - and on the slider, the lug and the
+    // caliper below it that made the darkest parts of the bike the brightest
+    // things in the frame: four pale blue tubes hanging under the bodywork.
+    dark: {
       color: 0x0c0d12,
       ambient: 0x161a2c,
       key: 0x6f7590,
       keyStrength: 0.55,
       rim: 0x2de3ff,
-      rimStrength: 0.3,
-      rimPower: 3.2,
+      rimStrength: 0.22,
+      rimPower: 3.6,
     },
     // The rim term draws an outline around every convex lobe it is given, and
     // at 0.42 it was most of what the old hand looked like: twenty-two lobes,
@@ -221,6 +230,21 @@ export const rider = {
       // to this it only catches the mouth, which is the part that should.
       rimStrength: 0.20,
       rimPower: 3.4,
+    },
+    // A tyre. Almost no rim light on purpose: the frame preset's rim draws an
+    // outline round every convex shape it is given, and a wheel is one large
+    // convex shape, so at the frame's 0.5 the tyre came out as a pale glowing
+    // hoop. What a tyre actually does at night is stay dark and catch one thin
+    // highlight along the crown, which is the key doing the work and the rim
+    // doing almost none.
+    rubber: {
+      color: 0x08090d,
+      ambient: 0x10131f,
+      key: 0x5a6076,
+      keyStrength: 0.42,
+      rim: 0x2de3ff,
+      rimStrength: 0.12,
+      rimPower: 4.5,
     },
     neonLeft: 0x22f7ff, // matches the left edge line of the road
     neonRight: 0xff2bd0, // matches the right edge line

@@ -17,6 +17,15 @@
  *
  * Profiles are interpolated on aspect rather than switched, so dragging a
  * browser window between shapes blends instead of popping.
+ *
+ * THE CAMERA PROFILES LIVE HERE TOO, one set per aspect, and they have to. They
+ * were a single set of offsets applied on top of whichever framing profile was
+ * resolved, which quietly meant the SAME push in world units at both shapes -
+ * and the two shapes do not start from the same place. The tall profile already
+ * sits the cockpit at z -0.600 against the wide one's -0.375, so a shared
+ * cinematic push of -0.30 took it to -0.90 and left a 9:16 frame two thirds
+ * empty with a small bike floating in the middle of it. Which profile is
+ * SELECTED is still one global switch; only the numbers are per aspect.
  */
 
 // --- Aspect aware framing ---
@@ -65,6 +74,15 @@ export const framing = {
       // frame the cluster with margins of 7 and 11 per cent and almost meet.
       // This is in rider units, applied inboard on each side.
       handInset: 0.049,
+
+      // A tall frame needs far less of a push than a wide one. It is already
+      // the further of the two, and it has the least road to give away: every
+      // unit the machine recedes is answered by black at the bottom of the
+      // picture rather than by more scenery.
+      cameras: {
+        ride: { height: 0, pitch: 0, rider: { x: 0, y: 0, z: 0 } },
+        cinematic: { height: 0.22, pitch: -0.05, rider: { x: 0, y: 0.03, z: -0.05 } },
+      },
     },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
@@ -92,6 +110,15 @@ export const framing = {
       riderOrigin: { x: 0, y: -0.196, z: -0.375 },
       handScale: 1.0,
       handInset: 0,
+
+      // Most of the cinematic framing is height and pitch, not distance.
+      // Pushing the cockpit away brings the machine into shot and shrinks it in
+      // the same move; looking DOWN at it from a raised eye brings it into shot
+      // and fills the lower half of the picture with it, which is the shot.
+      cameras: {
+        ride: { height: 0, pitch: 0, rider: { x: 0, y: 0, z: 0 } },
+        cinematic: { height: 0.46, pitch: -0.26, rider: { x: 0, y: 0.07, z: -0.30 } },
+      },
     },
   ],
 };

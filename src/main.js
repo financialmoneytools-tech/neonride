@@ -146,7 +146,10 @@ const hotkeys = new Hotkeys(
       applyCapture();
     },
     cameraProfile: () => {
-      const names = Object.keys(config.player.camera.profiles);
+      // The profiles are named in the framing profiles now, one set per aspect,
+      // so the list of them is read from there rather than from a second copy
+      // beside the selector.
+      const names = Object.keys(config.framing.profiles[0].cameras);
       const next = (names.indexOf(config.player.camera.profile) + 1) % names.length;
       config.player.camera.profile = names[next];
     },

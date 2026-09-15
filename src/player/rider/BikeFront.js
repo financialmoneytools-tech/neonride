@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from '../../config.js';
 import { addTube, latheFromProfile, partMatrix } from '../../utils/geometry.js';
 import { loftShell } from '../../utils/loft/shell.js';
+import { buildFrontEnd } from './bike/FrontEnd.js';
 
 /**
  * BikeFront - what the rider can see of the machine: the top of the fuel tank,
@@ -24,25 +25,6 @@ function side(point, sign) {
   return [point[0] * sign, point[1], point[2]];
 }
 
-/**
- * Partial tube for a fender or a tyre: a cylinder cut down to an arc and laid
- * on its side so the arc runs over the top of the wheel.
- */
-function arc(radius, width, thetaStart, thetaLength, segments) {
-  const geometry = new THREE.CylinderGeometry(
-    radius,
-    radius,
-    width,
-    segments,
-    1,
-    true,
-    thetaStart,
-    thetaLength,
-  );
-  // Built around +Y; the wheel spins about X, so stand it up on that axis.
-  geometry.rotateZ(Math.PI / 2);
-  return geometry;
-}
 
 /**
  * @param {{frame: import('../../utils/geometry.js').GeometryBuilder,
@@ -54,6 +36,10 @@ export function buildBikeFront(builders) {
 
   if (cfg.tank.visible) buildTank(builders.tank, builders.neonLeft, cfg.tank);
   buildSteeringSide(builders.frame, cfg);
+  // Fork legs below the clamp, the fender and the wheel. Their own file: they
+  // are the parts only the cinematic profile and a 9:16 frame ever see, and
+  // they carry enough geometry to push this one past the 300 line limit.
+  if (cfg.lowerFront) buildFrontEnd(builders);
 }
 
 /**
@@ -83,16 +69,17 @@ function buildTank(tank, neon, cfg) {
 }
 
 /**
- * Everything that turns with the bars.
+ * Everything that turns with the bars, down as far as the bar line.
  *
- * What is built here splits in two, and the split is the camera's, not the
- * bike's. The clamp and the upper fork tubes are what the bars are bolted to
- * and they sit at the bar line, so they are always built. Everything below them
- * - the sliders, the headlight, its cowl, the fender and the tyre - is hidden
- * behind the bodywork on a real bike and was hidden behind the tank here. With
- * the tank gone they stand in open road at the bottom of the frame: two pale
- * fork legs and a cowl, reading as scaffolding under a cockpit rather than as a
- * front end. `lowerFront` is the one switch for the lot.
+ * The split here is the camera's, not the bike's. The clamp and the fork tops
+ * are what the bars are bolted to, they sit at the bar line, and they are
+ * always built. Everything BELOW them - the legs, the fender, the wheel, the
+ * headlight and its cowl - is behind `lowerFront` and lives in bike/FrontEnd.js.
+ *
+ * The one part built both ways is the stub of fork between the clamp and where
+ * FrontEnd's stanchion starts. With lowerFront off it has to stop somewhere or
+ * the bars float; with it on, FrontEnd carries the leg the rest of the way and
+ * the stub would be a second cylinder inside the first, so it is skipped.
  */
 function buildSteeringSide(frame, cfg) {
   const clamp = cfg.tripleClamp;
@@ -101,10 +88,9 @@ function buildSteeringSide(frame, cfg) {
     partMatrix(1, clamp.offset, null, _matrix),
   );
 
-  const fork = cfg.fork;
+  const fork = cfg.forkTop;
   for (let s = 0; s < 2; s++) {
     const sign = s === 0 ? 1 : -1;
-    addTube(frame, side(fork.from, sign), side(fork.to, sign), fork.radius, fork.radialSegments);
 
     // Cap the top of the leg, which is otherwise an open cylinder end seen from
     // directly above.
@@ -113,21 +99,13 @@ function buildSteeringSide(frame, cfg) {
       partMatrix(sign, fork.from, null, _matrix),
     );
 
-    if (!cfg.lowerFront) continue;
-    const slider = fork.slider;
-    addTube(
-      frame,
-      side(slider.from, sign),
-      side(slider.to, sign),
-      slider.radius,
-      slider.radialSegments,
-    );
+    if (cfg.lowerFront) continue;
+    addTube(frame, side(fork.from, sign), side(fork.to, sign), fork.radius, fork.radialSegments);
   }
 
   if (!cfg.lowerFront) return;
   buildHeadlight(frame, cfg.headlight);
   buildCowl(frame, cfg.cowl);
-  buildFenderAndWheel(frame, cfg);
 }
 
 /**
@@ -171,28 +149,3 @@ function buildCowl(frame, cfg) {
   frame.add(ring, _matrix);
 }
 
-/** Fender arc, and the tyre showing either side of it. */
-function buildFenderAndWheel(frame, cfg) {
-  const fender = cfg.fender;
-  frame.add(
-    arc(fender.radius, fender.width, fender.thetaStart, fender.thetaLength, fender.segments),
-    partMatrix(1, fender.centre, null, _matrix),
-  );
-  // Inner skin, so the fender reads as a shell rather than as paper.
-  frame.add(
-    arc(
-      fender.radius - fender.thickness,
-      fender.width,
-      fender.thetaStart,
-      fender.thetaLength,
-      fender.segments,
-    ),
-    partMatrix(1, fender.centre, null, _matrix),
-  );
-
-  const wheel = cfg.wheel;
-  frame.add(
-    arc(wheel.radius, wheel.width, wheel.thetaStart, wheel.thetaLength, wheel.segments),
-    partMatrix(1, wheel.centre, null, _matrix),
-  );
-}

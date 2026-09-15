@@ -43,6 +43,14 @@ export class Framing {
     /** How far the hands are pulled toward the centreline, in rider units. */
     this.handInset = 0;
 
+    /**
+     * The selected camera profile, resolved for this aspect. Read by Rider and
+     * by bike/view.js; neither of them looks up a profile itself any more,
+     * because a camera profile is an aspect dependent thing like everything
+     * else here and resolving it in two places is how the two drift apart.
+     */
+    this.camera = { height: 0, pitch: 0, rider: { x: 0, y: 0, z: 0 } };
+
     /** Name of the nearer profile, for tooling and the overlay. */
     this.name = '';
 
@@ -119,6 +127,19 @@ export class Framing {
     this.riderOrigin.y = lower.riderOrigin.y + (upper.riderOrigin.y - lower.riderOrigin.y) * t;
     this.riderOrigin.z = lower.riderOrigin.z + (upper.riderOrigin.z - lower.riderOrigin.z) * t;
 
+    // An unknown profile name resolves to `ride`, which is all zeros, rather
+    // than throwing or leaving the last resolved offsets in place. A typo at
+    // the console then does nothing visible instead of freezing the camera
+    // wherever it happened to be.
+    const key = config.player.camera.profile;
+    const a = lower.cameras[key] || lower.cameras.ride;
+    const b = upper.cameras[key] || upper.cameras.ride;
+    this.camera.height = a.height + (b.height - a.height) * t;
+    this.camera.pitch = a.pitch + (b.pitch - a.pitch) * t;
+    this.camera.rider.x = a.rider.x + (b.rider.x - a.rider.x) * t;
+    this.camera.rider.y = a.rider.y + (b.rider.y - a.rider.y) * t;
+    this.camera.rider.z = a.rider.z + (b.rider.z - a.rider.z) * t;
+
     this.name = t < 0.5 ? lower.name : upper.name;
 
     this._read(aspect, this._resolved);
@@ -134,11 +155,21 @@ export class Framing {
    */
   _read(aspect, out) {
     const profiles = config.framing.profiles;
+    const key = config.player.camera.profile;
     out.length = 0;
     out.push(aspect);
 
+    // Which camera profile is selected is an INPUT to the resolve, so switching
+    // it has to change what this reads or refresh() will see no difference and
+    // keep the previous offsets. Names are not numbers, so the comparison gets
+    // a number: its index in the object's own key order, which is stable for a
+    // literal and only has to differ between profiles, not mean anything.
+    const names = Object.keys(profiles[0].cameras);
+    out.push(names.indexOf(key));
+
     for (let i = 0; i < profiles.length; i++) {
       const profile = profiles[i];
+      const camera = profile.cameras[key] || profile.cameras.ride;
       out.push(
         profile.aspect,
         profile.fov,
@@ -149,6 +180,11 @@ export class Framing {
         profile.riderOrigin.z,
         profile.handScale,
         profile.handInset,
+        camera.height,
+        camera.pitch,
+        camera.rider.x,
+        camera.rider.y,
+        camera.rider.z,
       );
     }
   }

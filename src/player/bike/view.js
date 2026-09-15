@@ -36,7 +36,10 @@ export function placeView(rig, dt, state) {
 
   const bike = config.player.bike;
   const cam = config.player.camera;
-  const profile = cam.profiles[cam.profile];
+  // Resolved per aspect by Framing, not looked up here: the same offsets do
+  // not compose at 16:9 and 9:16, and a lookup in two places is how the two
+  // copies drift apart.
+  const profile = rig.framing.camera;
   const input = rig._input || NEUTRAL;
   const speedRatio = rig.speed / bike.maxSpeed;
 
@@ -67,7 +70,7 @@ export function placeView(rig, dt, state) {
   const across = rig.lateral + bobLateral + shakeLateral;
   rig.camera.position.set(
     _position.x + _lateral.x * across,
-    _position.y + cam.height + profile.heightOffset + bobVertical + shakeVertical,
+    _position.y + cam.height + profile.height + bobVertical + shakeVertical,
     _position.z + _lateral.z * across,
   );
 
@@ -78,7 +81,7 @@ export function placeView(rig, dt, state) {
   _direction
     .set(
       _aim.x + _aimLateral.x * across,
-      _aim.y + cam.height + profile.heightOffset,
+      _aim.y + cam.height + profile.height,
       _aim.z + _aimLateral.z * across,
     )
     .sub(rig.camera.position)
@@ -87,7 +90,7 @@ export function placeView(rig, dt, state) {
   // The framing pitch trades sky for road. A tall frame with a level camera
   // is half empty sky, so the narrower the aspect the further this tips down.
   const pitch =
-    Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + rig.framing.pitch + profile.pitchOffset;
+    Math.asin(THREE.MathUtils.clamp(_direction.y, -1, 1)) + rig.framing.pitch + profile.pitch;
   const yaw = Math.atan2(-_direction.x, -_direction.z);
 
   updateLean(rig, dt, input, bike, yaw);
