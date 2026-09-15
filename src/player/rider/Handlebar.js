@@ -135,7 +135,9 @@ function buildMirror(frame, mirrorBuilder, cfg, sign) {
   const from = side(cfg.stalkFrom, sign);
   const to = side(cfg.stalkTo, sign);
 
-  addTube(frame, from, to, cfg.stalkRadius, 8);
+  // Tapered: thicker where it is bolted to the clamp, thin where it carries the
+  // head. A stalk of one radius end to end is a paddle handle.
+  addTube(frame, from, to, cfg.stalkRadius, 8, cfg.stalkTipRadius);
 
   const rotation = [cfg.headRotation.x, cfg.headRotation.y, cfg.headRotation.z];
   partMatrix(sign, cfg.stalkTo, rotation, _matrix);

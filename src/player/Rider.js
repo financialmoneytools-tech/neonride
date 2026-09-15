@@ -74,13 +74,20 @@ export class Rider {
       mirror: new GeometryBuilder(),
       tank: new GeometryBuilder(),
       paint: new GeometryBuilder(),
+      vent: new GeometryBuilder(),
       neonLeft: new GeometryBuilder(),
     };
 
-    // Which group each merged mesh belongs to. Everything steers except the tank.
     // Which group each merged mesh belongs to. The tank and the bodywork are
     // bolted to the chassis and stay put; everything else turns with the bars.
-    const parents = { tank: this.chassis, paint: this.chassis, neonLeft: this.chassis };
+    // The vent pockets are cut into the bodywork, so they go wherever it goes -
+    // parented anywhere else they would shear off their own panel on a turn.
+    const parents = {
+      tank: this.chassis,
+      paint: this.chassis,
+      vent: this.chassis,
+      neonLeft: this.chassis,
+    };
 
     buildHandlebar(builders);
     buildBikeFront(builders);
@@ -100,6 +107,7 @@ export class Rider {
       // Bodywork is the one painted surface on the bike. Everything else is
       // graphite; this is what stops the cockpit reading as a set of shapes.
       paint: createRiderMaterial(cfg.machine.paint, 'RiderPaint'),
+      vent: createRiderMaterial(presets.vent, 'RiderVent'),
       neonLeft: createNeonMaterial(presets.neonLeft, 'RiderTankTrim'),
     };
 

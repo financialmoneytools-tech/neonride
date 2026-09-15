@@ -142,15 +142,26 @@ export const rider = {
     // the hand, where it blocks the road. Up and back puts the heads at 50 to
     // 57 per cent down while the hands stay at 63 and below, clear of them.
     stalkFrom: [0.205, 0.014, 0.014],
-    stalkTo: [0.245, 0.165, 0.06],
-    stalkRadius: 0.0095,
-    headRadius: 0.036,
-    headDepth: 0.012,
-    headSegments: 22,
+    stalkTo: [0.262, 0.158, 0.056],
+    // Thin, and thinner still at the top. Once the bodywork moved in around
+    // them these read as paddles: a stalk of a constant 0.0095 is nearly as
+    // thick as a finger, and at this camera the eye reads thickness against
+    // the hand right beside it. A real stalk is a stem, so it tapers.
+    stalkRadius: 0.0072,
+    stalkTipRadius: 0.0042,
+    // Small heads, set further outboard, which is what the references have -
+    // the head is a chip of glass on the end of a stem, not a plate. Dropping
+    // the radius from 0.036 takes roughly half the area off each one.
+    headRadius: 0.019,
+    headDepth: 0.0055,
+    headSegments: 16,
     // The rider's eye is above the head, so the face tips up as well as back.
-    headRotation: { x: -0.35, y: -0.45, z: 0 },
-    glassInset: 0.0035,
-    glassRadius: 0.031,
+    // Turned further outboard than the old value: a head angled out shows the
+    // rider its edge rather than its full face, which is both what the
+    // references look like and less of the road blocked.
+    headRotation: { x: -0.35, y: -0.52, z: 0 },
+    glassInset: 0.0018,
+    glassRadius: 0.0155,
   },
 
   hand,
@@ -230,6 +241,23 @@ export const rider = {
       rim: 0x9a6cff,
       rimStrength: 0.75,
       rimPower: 1.7,
+    },
+    // The inside of a vent. Unpainted, and much darker than the panel around
+    // it - a recess that shades like its own bodywork is not a recess, it is a
+    // decal. The rim is what actually makes the opening read at night: the
+    // mouth of the pocket catches it at a grazing angle and draws its own edge.
+    vent: {
+      color: 0x0a0b10,
+      ambient: 0x141a2c,
+      key: 0x5c6480,
+      keyStrength: 0.45,
+      rim: 0x2de3ff,
+      // Tight and weak, unlike every other rim on the bike. At 0.38 and a power
+      // of 2.2 the rim reached right across the floor of the pocket and lit the
+      // whole thing teal, which read as a window rather than a hole. Pulled in
+      // to this it only catches the mouth, which is the part that should.
+      rimStrength: 0.20,
+      rimPower: 3.4,
     },
     neonLeft: 0x22f7ff, // matches the left edge line of the road
     neonRight: 0xff2bd0, // matches the right edge line

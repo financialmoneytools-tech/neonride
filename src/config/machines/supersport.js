@@ -1,3 +1,5 @@
+import { fairing, paint, screen } from './supersportBodywork.js';
+
 /**
  * NEON RIDE - the supersport, one bike definition among several.
  * Part of the single configuration surface; import from ../../config.js, never
@@ -126,94 +128,11 @@ export const supersport = {
     segments: 24,
   },
 
-  // --- Paint -------------------------------------------------------------
-  //
-  // What separates a machine from a set of shapes. Body panels get a real
-  // colour with a gloss term, the way a painted surface behaves, rather than
-  // the flat graphite everything else wears.
-  // Measured the hard way: at a rim strength of 0.5 and this key, a panel this
-  // close to the camera stops being painted metal and becomes a flat red blob -
-  // the same failure the gloves had. Bodywork wants a dark base with the colour
-  // arriving mostly through the key, and a rim tight enough to stay an edge.
-  paint: {
-    color: 0x5e121d, // deep race red
-    ambient: 0x1d0a0e,
-    key: 0xff9a86,
-    keyStrength: 0.85,
-    rim: 0xff6a4a,
-    rimStrength: 0.22,
-    rimPower: 3.6,
-  },
-
-  // --- Fairing -----------------------------------------------------------
-  //
-  // The mass the cockpit was missing. From the saddle a supersport is mostly
-  // this: two wings sweeping out and forward either side of the screen, and a
-  // nose between them carrying the cluster. Without it the frame's lower half
-  // is empty road, which is exactly what the reference shots do not look like.
-  fairing: {
-    // Swept panel either side. Authored for the right, mirrored for the left.
-    // A squashed ellipsoid: see Fairing.js for why not a cone.
-    // Tall enough to reach the grips. A wing whose top sits well below the bar
-    // leaves a band of road between bodywork and glove, and in the reference
-    // shots there is none: the wings sweep out and forward until they meet the
-    // hands, and they are as much of the silhouette as the screen is.
-    //
-    // The grip centre is at y 0.029, so a half height of 0.115 about y -0.075
-    // takes the top edge to +0.04 - just past the hand - and the bottom to
-    // -0.19, which is below the tank.
-    wing: {
-      radii: [0.150, 0.115, 0.250],
-      offset: [0.288, -0.074, -0.045],
-      rotation: [0.14, -0.26, -0.30],
-      segments: [24, 14],
-    },
-
-    // The lower flank, under the wing and outboard of the tank. This is what
-    // takes the road out of the bottom corners.
-    // Kept clear of the near plane the way the tank is: at this camera the
-    // rearmost bodywork is only centimetres from the eye.
-    flank: {
-      radii: [0.128, 0.120, 0.200],
-      offset: [0.250, -0.200, -0.010],
-      rotation: [0.10, -0.16, -0.20],
-      segments: [20, 12],
-    },
-    // Inner shoulder, filling the gap between the wing and the nose.
-    shoulder: {
-      radii: [0.112, 0.085, 0.180],
-      offset: [0.120, -0.086, -0.130],
-      rotation: [0.22, -0.16, -0.20],
-      segments: [20, 12],
-    },
-    // The nose, between the wings and under the screen.
-    nose: {
-      radii: [0.130, 0.082, 0.220],
-      offset: [0, -0.112, -0.180],
-      rotation: [0.28, 0, 0],
-      segments: [26, 14],
-    },
-    // A bright edge along the top of each wing, the same trick the tank seam
-    // uses: a dark panel against a dark road needs a line on it to be seen.
-    trim: {
-      from: [0.115, 0.010, 0.105],
-      to: [0.395, -0.055, -0.195],
-      radius: 0.006,
-      radialSegments: 8,
-    },
-  },
-
-  // Bubble screen. Short and steeply raked, so it crosses the frame just above
-  // the cluster without hiding the road.
-  screen: {
-    radii: [0.105, 0.085, 0.012],
-    offset: [0, -0.012, -0.235],
-    rotation: [-0.62, 0, 0],
-    segments: [22, 12],
-    // The lit edge is what actually reads at night; the panel behind it is
-    // nearly black.
-    edge: { radius: 0.104, tube: 0.0045, segments: [36, 6], offset: [0, -0.012, -0.235], rotation: [-0.62, 0, 0] },
-  },
+  // Bodywork, paint and glass. Next door, because the two together no longer
+  // fit in a file this project allows.
+  paint,
+  fairing,
+  screen,
 
   // --- Controls ----------------------------------------------------------
   //
