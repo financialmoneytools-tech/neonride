@@ -21,4 +21,24 @@ export const ui = {
     promptTouch: 'BAŞLAMAK İÇİN DOKUN',
     fadeMs: 420,
   },
+
+  // The score readout during a run.
+  hud: {
+    distanceUnit: ' M',
+    nearMiss: 'KIL PAYI',
+  },
+
+  // The pause and game over cards. Same object as the title card to the eye,
+  // so they share its stylesheet.
+  panel: {
+    pausedTitle: 'DURAKLATILDI',
+    resumeKey: 'DEVAM ETMEK İÇİN ESC',
+    resumeTouch: 'DEVAM ETMEK İÇİN DOKUN',
+
+    overTitle: 'DÜŞTÜN',
+    best: 'EN İYİ',
+    record: 'YENİ REKOR',
+    restartKey: 'TEKRAR DENEMEK İÇİN BİR TUŞA BAS',
+    restartTouch: 'TEKRAR DENEMEK İÇİN DOKUN',
+  },
 };

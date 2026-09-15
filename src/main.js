@@ -9,6 +9,9 @@ import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { StartScreen } from './ui/StartScreen.js';
+import { Hud } from './ui/Hud.js';
+import { Panels } from './ui/Panels.js';
+import { PHASE, Session } from './game/Session.js';
 import { Audio } from './audio/Audio.js';
 import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
@@ -165,6 +168,7 @@ const hotkeys = new Hotkeys(
     mute: () => {
       console.info('[audio]', audio.toggleMute() ? 'muted' : 'unmuted');
     },
+    pause: () => session.togglePause(),
     quality: () => {
       // Only the settings that can be changed live are re-applied: the pixel
       // ratio and the bloom buffer size. Anything allocated at construction -
@@ -197,6 +201,15 @@ function setAutopilot(on) {
     config.capture.enabled = true;
     applyCapture();
   }
+
+  // God mode leaves the scored game for good. Not a flag tested in six places:
+  // it is a PHASE with no HUD, no fail state and no pause, so a recording can
+  // neither be interrupted by a panel nor ended by clipping a van in the last
+  // second of a take.
+  if (cfg.enabled) {
+    session.free();
+    loop.paused = false;
+  }
   return cfg.enabled;
 }
 
@@ -212,6 +225,23 @@ const reveal = new KeySequence(
 window.neonRide = { god: setAutopilot };
 
 const audio = new Audio();
+const session = new Session();
+const hud = new Hud(document.body, session);
+const panels = new Panels(document.body, session);
+
+// After traffic, which is what publishes the hit and near miss totals the run
+// is scored and ended from, and after audio so a crash is heard on the frame it
+// happens rather than the one after.
+loop.add((dt, state) => {
+  session.update(dt, state);
+  hud.update();
+  panels.update();
+  // Pausing hands every listener a delta of zero; see core/Loop.js. Set here
+  // rather than by whatever toggled the phase, so there is one place that
+  // decides what a phase MEANS and the toggles only have to name one.
+  loop.paused = session.phase === PHASE.PAUSED;
+  audio.setPaused(session.phase === PHASE.PAUSED);
+});
 
 // The title card is the audio entry point, not decoration. A browser will not
 // start an AudioContext outside a user gesture, and one started without a
@@ -227,7 +257,31 @@ const wantsGod = new URLSearchParams(location.search).get('god') === '1';
 const start = new StartScreen(document.body, () => {
   audio.start(traffic);
   if (wantsGod) setAutopilot(true);
+  else session.begin(loop.state);
 });
+
+/**
+ * What a press means, decided from the phase and nowhere else.
+ *
+ * The title card owns the first gesture - it has to, that is where the
+ * AudioContext is unlocked - and everything after it comes through here. A
+ * panel that listened for its own key would be a second place that knows the
+ * rules, and the two would disagree the first time either changed.
+ */
+function onPress(event) {
+  if (!start.started) return; // the card has its own listener until it is gone
+  if (event.type === 'keydown') {
+    const key = event.key;
+    if (key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Meta') return;
+    // Escape is the pause key and is handled by Hotkeys; swallowing it here
+    // would restart the run instead of resuming it.
+    if (key === 'Escape') return;
+  }
+  if (session.phase === PHASE.OVER && session.overShown) session.begin(loop.state);
+  else if (session.phase === PHASE.PAUSED) session.togglePause();
+}
+window.addEventListener('pointerdown', onPress);
+window.addEventListener('keydown', onPress);
 
 applyCapture();
 loop.start();
@@ -237,7 +291,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -246,6 +300,10 @@ function disposeAll() {
   hotkeys.dispose();
   audio.dispose();
   start.dispose();
+  hud.dispose();
+  panels.dispose();
+  window.removeEventListener('pointerdown', onPress);
+  window.removeEventListener('keydown', onPress);
   reveal.dispose();
   viewport.dispose();
   post.dispose();

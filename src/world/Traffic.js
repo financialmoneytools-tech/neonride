@@ -53,6 +53,10 @@ export class Traffic {
 
     this.impact = 0;
     this.nearMiss = 0;
+    // Running totals for the run's score and its fail state. The two above are
+    // decaying levels for the post chain; these are events.
+    this.hits = 0;
+    this.nearMisses = 0;
     this._nearMissCooldown = 0;
     this._impactRefractory = 0;
     this._beaconPhase = 0;
@@ -121,6 +125,8 @@ export class Traffic {
       this.group.visible = false;
       state.impact = 0;
       state.nearMiss = 0;
+      state.hits = this.hits;
+      state.nearMisses = this.nearMisses;
       return;
     }
     this.group.visible = true;
@@ -194,6 +200,8 @@ export class Traffic {
 
     state.impact = this.impact;
     state.nearMiss = this.nearMiss;
+    state.hits = this.hits;
+    state.nearMisses = this.nearMisses;
   }
 
   /** Alternating roof lights. One colour write per vehicle, no new geometry. */

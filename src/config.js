@@ -17,6 +17,7 @@ import { framing } from './config/framing.js';
 import { player } from './config/player.js';
 import { postprocess } from './config/postprocess.js';
 import { ui } from './config/ui.js';
+import { game } from './config/game.js';
 import { audio } from './config/audio.js';
 
 export const config = {
@@ -36,6 +37,7 @@ export const config = {
   player,
   postprocess,
   ui,
+  game,
   audio,
 };
 

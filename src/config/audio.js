@@ -54,6 +54,10 @@ export const audio = {
     tau: 0.02,
     // Fade in when the ride starts, so the engine arrives rather than barks.
     startFade: 0.6,
+    // What the mix drops to behind a pause panel. Not zero: silence reads as a
+    // game that crashed, and full level behind a panel reads as one that did
+    // not notice it was paused.
+    pausedGain: 0.25,
   },
 
   engine: {

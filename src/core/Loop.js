@@ -16,6 +16,16 @@ export class Loop {
     this.onRender = onRender;
     this.running = false;
 
+    /**
+     * Frozen, but still drawn. Pausing by handing every listener a delta of
+     * zero means nothing in the project needs to know a pause exists: every
+     * module here integrates and damps against dt, so zero is a world that does
+     * not advance, and the frame is still rendered so the paused picture is the
+     * game rather than a black screen. The alternative - stopping the loop -
+     * also stops the render, and then a panel has nothing behind it.
+     */
+    this.paused = false;
+
     this._listeners = [];
 
     // THREE.Clock is deprecated since r183; Timer is the supported replacement.
@@ -77,11 +87,13 @@ export class Loop {
     this._timer.update(timestamp);
 
     const raw = this._timer.getDelta();
-    const dt = Math.min(raw, config.loop.maxDelta);
+    const dt = this.paused ? 0 : Math.min(raw, config.loop.maxDelta);
 
     const state = this.state;
     state.dt = dt;
     state.elapsed += dt;
+    // Frames still count while paused - they are drawn - but elapsed does not,
+    // because it is world time and the world is not moving.
     state.frame++;
 
     // A listener may mutate the list during update, so iterate over a copy

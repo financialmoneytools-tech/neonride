@@ -34,6 +34,12 @@ export function testVehicle(events, fleet, vehicle, playerDistance, playerLatera
 
   if (c.mode === 'arcade' && overlapping && !vehicle.hit) {
     vehicle.hit = true;
+    // A TOTAL, not a level. events.impact is a flash that decays over a third
+    // of a second, so anything reading it has to sample at the right moment and
+    // will either miss a hit between two frames or see one hit several times
+    // depending on the frame rate. A count that only goes up cannot do either,
+    // which is what the run's fail state needs.
+    events.hits++;
     bike.applyImpact(c.speedLoss);
     // Shove clear, so the player cannot settle inside a vehicle at a matched
     // speed and sit there with the screen permanently flashing.
@@ -56,6 +62,7 @@ export function testVehicle(events, fleet, vehicle, playerDistance, playerLatera
     const edgeGap = lateralGap - lateralReach;
     if (edgeGap > 0 && edgeGap < cfg.nearMiss.range && events._nearMissCooldown <= 0) {
       events.nearMiss = 1;
+      events.nearMisses++;
       events._nearMissCooldown = cfg.nearMiss.cooldown;
     }
   }

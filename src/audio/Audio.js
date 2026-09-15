@@ -35,6 +35,7 @@ export class Audio {
     this.wind = null;
     this.traffic = null;
     this.muted = false;
+    this._paused = false;
     this._started = false;
   }
 
@@ -92,6 +93,31 @@ export class Audio {
     // Some browsers still hand back a suspended context from inside a gesture.
     // Resuming is harmless when it is already running.
     if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  /**
+   * Ducks the mix while the game is paused. Not a mute: a paused game that goes
+   * completely silent reads as a game that crashed, and the engine holding one
+   * note behind a panel reads as a game that did not notice. Down and dull is
+   * what a pause sounds like.
+   * @param {boolean} paused
+   */
+  setPaused(paused) {
+    // ON CHANGE ONLY, and that is not an optimisation. This is called from the
+    // loop, so acting every frame would put a setTargetAtTime on the gain sixty
+    // times a second - and an automation event cancels the ramp that is already
+    // scheduled. The start fade would be overwritten on the frame after it was
+    // scheduled and the engine would arrive at full level instead of fading in.
+    if (!this.master || paused === this._paused) return;
+    this._paused = paused;
+    if (this.muted) return;
+
+    const cfg = config.audio.master;
+    this.master.gain.setTargetAtTime(
+      paused ? cfg.gain * cfg.pausedGain : cfg.gain,
+      this.ctx.currentTime,
+      0.08,
+    );
   }
 
   /** Toggles the master mute. The M key. @returns {boolean} muted */

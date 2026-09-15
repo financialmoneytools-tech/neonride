@@ -122,9 +122,114 @@
         50% { opacity: 1; }
       }
 
+      /* Score during a run. Bottom left: the cluster owns the middle of the
+         frame and the stats overlay owns the top left. */
+      .hud {
+        position: fixed;
+        left: 18px;
+        bottom: 16px;
+        z-index: 12;
+        pointer-events: none;
+        color: #eaf6ff;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        /* The frame under this is mostly bloom, so the readout carries its own
+           dark halo rather than relying on whatever happens to be behind it. */
+        text-shadow:
+          0 0 4px rgba(0, 0, 0, 0.9),
+          0 0 14px rgba(0, 0, 0, 0.7),
+          0 0 26px rgba(45, 227, 255, 0.5);
+      }
+
+      .hud-score {
+        font-size: clamp(1.6rem, 5vw, 2.6rem);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        line-height: 1;
+      }
+
+      .hud-meta {
+        margin-top: 4px;
+        font-size: clamp(0.62rem, 1.9vw, 0.78rem);
+        letter-spacing: 0.22em;
+        color: rgba(190, 220, 255, 0.72);
+      }
+
+      /* Pause and game over. Deliberately the same object as the title card. */
+      .panel {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.7rem;
+        text-align: center;
+        padding: 0 16px;
+        background: radial-gradient(
+          ellipse at 50% 55%,
+          rgba(10, 4, 28, 0.62) 0%,
+          rgba(2, 1, 8, 0.9) 70%
+        );
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 420ms ease-out;
+      }
+
+      .panel.panel-in {
+        opacity: 1;
+      }
+
+      .panel-title {
+        margin: 0 0 0.4rem;
+        font: 700 clamp(1.5rem, 6.5vw, 3rem) / 1 ui-monospace, SFMono-Regular, Menlo,
+          Consolas, monospace;
+        letter-spacing: 0.2em;
+        color: #ffd9ef;
+        text-shadow:
+          0 0 12px rgba(255, 43, 208, 0.8),
+          0 0 44px rgba(255, 43, 208, 0.4);
+      }
+
+      .panel-score {
+        font: 700 clamp(2.6rem, 13vw, 5rem) / 1 ui-monospace, SFMono-Regular, Menlo,
+          Consolas, monospace;
+        letter-spacing: 0.04em;
+        color: #eaf6ff;
+        text-shadow:
+          0 0 10px rgba(45, 227, 255, 0.85),
+          0 0 40px rgba(45, 227, 255, 0.4);
+      }
+
+      .panel-best {
+        font: 500 clamp(0.7rem, 2.4vw, 0.9rem) / 1.4 ui-monospace, SFMono-Regular, Menlo,
+          Consolas, monospace;
+        letter-spacing: 0.26em;
+        color: rgba(190, 220, 255, 0.66);
+        min-height: 1.2em;
+      }
+
+      /* A record is the one moment the interface is allowed to shout. */
+      .panel-record .panel-best {
+        color: #9dffc9;
+        text-shadow: 0 0 12px rgba(57, 255, 136, 0.7);
+      }
+
+      .panel-prompt {
+        margin: 1.1rem 0 0;
+        font: 500 clamp(0.7rem, 2.4vw, 0.9rem) / 1.4 ui-monospace, SFMono-Regular, Menlo,
+          Consolas, monospace;
+        letter-spacing: 0.3em;
+        text-indent: 0.3em;
+        color: rgba(200, 226, 255, 0.72);
+        animation: start-pulse 2.4s ease-in-out infinite;
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .start-prompt { animation: none; }
-        .start-screen { transition-duration: 1ms; }
+        .start-prompt,
+        .panel-prompt { animation: none; }
+        .start-screen,
+        .panel { transition-duration: 1ms; }
       }
     </style>
   </head>

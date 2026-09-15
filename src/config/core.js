@@ -55,6 +55,7 @@ export const input = {
     overlay: 'KeyH', // show and hide the stats overlay on its own
     fullscreen: 'KeyF', // enter and leave fullscreen
     mute: 'KeyM', // master mute
+    pause: 'Escape', // pause and resume a run
     quality: 'KeyQ', // cycle the quality preset, for testing a phone tier
   },
 };
