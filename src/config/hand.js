@@ -63,7 +63,44 @@ const RIDGE_SECTION = [
   [-0.72, 0.70, 0],
 ];
 
+// --- Sprite ---------------------------------------------------------------
+//
+// The palette the glove is drawn with. Dark, because everything the rider wears
+// in this world is; the shape has to come from the key and the creases rather
+// than from colour, the same way the bodywork does.
+const sprite = {
+  // Drawn at this size and scaled onto whatever plane carries it. A quality
+  // dial and nothing else - the drawing is authored in its own 512 space.
+  texture: { width: 512, height: 512 },
+
+  colors: {
+    glove: '#1c2231',
+    gloveLit: '#333d55', // up and inboard, where the key is
+    gloveShadow: '#0b0e15',
+    knuckleLit: 'rgba(138, 156, 200, 0.80)',
+    tendonLit: 'rgba(110, 126, 166, 1)',
+    crease: '#05070c',
+    armour: '#252c40',
+    armourEdge: '#424c69',
+    armourLit: '#8492b8',
+    cuff: '#0e1219',
+    sleeve: '#080a11',
+    bar: '#13151c',
+    barLit: '#2a303f',
+    barRib: '#080a0f',
+    barEnd: '#0c0f15',
+    neonLeft: '#22f7ff', // matches the left edge line of the road
+    neonRight: '#ff2bd0', // and the right
+  },
+
+  // Only along the lit edges. Wide and bright enough to read at the size the
+  // hand occupies, which is about five per cent of the frame.
+  rim: { width: 5, alpha: 0.85, blur: 10 },
+};
+
 export const hand = {
+  sprite,
+
   // The fist. radii are the half extents the section and the spine are scaled
   // to: x forward, y up, z along the grip.
   fist: {

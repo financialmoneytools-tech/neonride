@@ -67,11 +67,15 @@ export const supersport = {
   tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, -0.062, -0.012] },
 
   // Everything below the bar line: fork sliders, headlight, cowl, fender, tyre.
-  // Described, tuned, and not built - see the note in BikeFront.js. This camera
-  // is meant to show the bars, the hands, the cluster and the bodywork around
-  // it, and with the tank off these were the only things left standing in open
-  // road at the bottom of the frame.
-  lowerFront: false,
+  //
+  // Off for two commits, and that was wrong. It was switched off when the bar
+  // assembly was a quarter larger and sitting in open road, where the fork legs
+  // read as scaffolding under a cockpit. Since then hardwareScale took the
+  // assembly to 0.92 and the 16:9 profile pushed it further from the eye, and
+  // what was left without it was worse: the fork tubes stop dead at y -0.198
+  // and the triple clamp, the one part that ties the bars to the bike, sits
+  // behind the fairing. The handlebars had nothing under them.
+  lowerFront: true,
 
   // Upper fork tubes, then the fatter sliders below them.
   fork: {
