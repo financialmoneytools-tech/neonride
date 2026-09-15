@@ -25,7 +25,10 @@ export const hand = {
     // Width of the plane in rider units, before the framing profile's handScale.
     // Each image carries its own aspect, read off the texture once it loads, so
     // the artwork is never stretched and the two may be different shapes.
-    width: { right: 0.347, left: 0.347 },
+    // The left drawing carries more bar than the right does, so at the same
+    // plane width its hand would come out smaller. These are set so the two
+    // HANDS match on screen, not the two images.
+    width: { right: 0.271, left: 0.294 },
 
     // From the point on the grip the anchor names, in the anchor's frame:
     // [along the grip, up, back at the rider]. A hand is not in the middle of

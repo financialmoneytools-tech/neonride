@@ -55,7 +55,7 @@ export const framing = {
       // of it at once; this is the one part that is sized for legibility
       // instead, and a tall frame needs it larger to hold the same share of the
       // picture as a wide one does.
-      handScale: 1.075,
+      handScale: 1.313,
     },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
