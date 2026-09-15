@@ -61,6 +61,25 @@ export class Rider {
     this.parts.position.set(-pivot.x, -pivot.y, -pivot.z);
     this.steering.add(this.parts);
 
+    // Everything the rider's hands are on - bars, grips, levers, mirrors, the
+    // fork top, and the hands themselves - scaled together by one number.
+    //
+    // It is one number because the whole assembly was oversized against the
+    // bodywork rather than any part of it being wrong on its own: measured, the
+    // two gloves covered 11.7 per cent of a 16:9 frame against 5.9 for the
+    // entire fairing, while the fist was correctly proportioned to the grip it
+    // held - smaller than life, if anything. The hand was not too big for the
+    // bar; the bar was too big for the bike. Scaling the parts individually
+    // would have meant thirty coupled numbers across two files and a hand that
+    // no longer fits its own grip.
+    //
+    // The cluster is deliberately OUTSIDE it. It is read, not held, so its size
+    // is set by legibility rather than by the rider's reach.
+    this.hardware = new THREE.Group();
+    this.hardware.name = 'RiderHardware';
+    this.hardware.scale.setScalar(cfg.hardwareScale);
+    this.parts.add(this.hardware);
+
     // The tank is bolted to the chassis, not to the steering head, so it hangs
     // beside the steering group rather than inside it. Turning the bars then
     // swings the fork against a tank that stays put, the way it does on a bike.
@@ -95,8 +114,7 @@ export class Rider {
     buildControls(builders);
 
     this.instruments = new Instruments();
-    this.instruments.addFrameTo(builders.frame);
-    this.parts.add(this.instruments.mesh);
+    this.parts.add(this.instruments.group);
 
     const presets = cfg.materials;
     this.materials = {
@@ -121,13 +139,13 @@ export class Rider {
       // The rig is never behind the camera, and its bounding sphere is small
       // enough that a near miss on the cull test would blink a hand out.
       mesh.frustumCulled = false;
-      (parents[key] || this.parts).add(mesh);
+      (parents[key] || this.hardware).add(mesh);
       this.meshes.push(mesh);
     }
 
     // The hands align themselves to the anchor; this file never places them.
     this.hands = createHands(cfg.anchors.rightGrip);
-    this.parts.add(this.hands.group);
+    this.hardware.add(this.hands.group);
 
     this._steer = 0;
     this._axis = new THREE.Vector3(0, Math.cos(cfg.steering.rake), Math.sin(cfg.steering.rake));
@@ -191,6 +209,7 @@ export class Rider {
 
     this.camera.remove(this.group);
     this.group.clear();
+    this.hardware.clear();
     this.chassis.clear();
     this.steering.clear();
     this.parts.clear();

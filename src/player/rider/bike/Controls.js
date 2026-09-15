@@ -12,9 +12,9 @@ import { addTube, partMatrix } from '../../../utils/geometry.js';
  *
  * Clip-ons replace the straight bar: short stubs from the fork tops out to the
  * grips, angled down and back, which is the single clearest "supersport" cue
- * available at this camera. They end exactly where the grips already are,
- * because the grip anchor may not move - the hands are posed against it and
- * baked, so bars come to the hands rather than the other way round.
+ * available at this camera. They end exactly where the grips are, because the
+ * hands are built from the grip anchor's own frame: move the anchor and the
+ * bars, the grips and the hands all follow it together.
  *
  * The switch block, the lever perch and the brake master cylinder used to be
  * here too, and are gone. All three sat BELOW the bar line - y -0.062 to -0.090

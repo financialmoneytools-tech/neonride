@@ -10,10 +10,9 @@ import { supersport } from './machines/supersport.js';
  * selected one is reached as config.player.rider.machine, so every builder goes
  * on reading a single object and none of them knows a library exists.
  *
- * The one thing a definition may NOT move is the grip anchor in ./rider.js. The
- * hands are posed against it and baked, so a bike whose bars are somewhere else
- * would leave them gripping air. Bars come to the hands, not the other way
- * round - which is also how a rider fits a bike.
+ * A definition may move the grip anchor in ./rider.js, and a bike with its bars
+ * somewhere else should. The hands are built FROM the anchor frame, so they go
+ * where it goes; nothing is baked against a fixed pose any more.
  */
 
 // --- The library ---

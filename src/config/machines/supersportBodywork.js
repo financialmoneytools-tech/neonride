@@ -104,24 +104,32 @@ export const fairing = {
   // the same section put through a mirror, which is NOT the same thing as
   // placing the right one at a negative x - see Fairing.js.
   //
-  // radii are the half extents the section and the spine are scaled to. The
-  // half height of 0.048 is the number that matters: at 0.115 the wing reached
-  // the grips and then kept going, and everything else here is downstream of
-  // it.
-  //
   // Stations run rear to front, z +1 nearest the rider. Each one scales, shifts
   // and rolls the section; the roll turning from positive to negative through
   // the middle is what stops the wing reading as an extrusion.
   wing: {
     section: WING_SECTION,
-    // Broad and shallow, not long and thin. At [0.072, 0.048, 0.155] the panel
-    // was three times longer than it was tall and pointed away from the eye, so
-    // it foreshortened into a lump standing beside the cluster like an ear -
-    // every facet on it compressed into a few pixels. A fairing top seen from
-    // the saddle is the opposite: wide across the frame, shallow, and only as
-    // long as it needs to reach the screen.
-    radii: [0.135, 0.066, 0.155],
-    offset: [0.148, -0.018, -0.090],
+    // radii are the half extents the section and the spine are scaled to, and
+    // three passes have been spent on them. Broad and shallow, not long and
+    // thin: the panel was once three times longer than it was tall and pointed
+    // away from the eye, so it foreshortened into a lump standing beside the
+    // cluster like an ear. A fairing top seen from the saddle is the opposite -
+    // wide across the frame, shallow, only as long as it needs to reach the
+    // screen.
+    //
+    // The half height of 0.067 puts the bottom edge at -0.076, which IS the bar
+    // line: the triple clamp, scaled with the rest of the hardware, bottoms out
+    // at -0.076 too. Nothing hangs below it. The half width of 0.167 about
+    // x 0.158 sends it OUT past where the grips start and under the hands,
+    // which is where a fairing goes - it is much wider than the bars.
+    //
+    // Both grew by about a quarter when the bar assembly was scaled down and
+    // the 16:9 profile pushed out. That is not a change to how the panel looks:
+    // those two took its measured share of the frame from 5.9 per cent to 3.2
+    // as a side effect, and this puts it back. Move hardwareScale or the 16:9
+    // riderOrigin and this has to move with them.
+    radii: [0.167, 0.067, 0.210],
+    offset: [0.158, -0.009, -0.095],
     rotation: [0.12, -0.34, -0.16],
     stations: [
       { z: 1.00, offset: [-0.08, -0.06], scale: [0.40, 0.44], roll: 0.14 },
@@ -151,8 +159,8 @@ export const fairing = {
   // No vents: the cluster covers most of it.
   nose: {
     section: NOSE_SECTION,
-    radii: [0.102, 0.046, 0.165],
-    offset: [0, -0.042, -0.165],
+    radii: [0.109, 0.050, 0.196],
+    offset: [0, -0.026, -0.172],
     rotation: [0.28, 0, 0],
     stations: [
       { z: 1.00, offset: [0, -0.02], scale: [0.72, 0.80], roll: 0 },

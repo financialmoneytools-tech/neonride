@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { partMatrix } from '../../utils/geometry.js';
+import { createRiderMaterial } from './RiderMaterial.js';
 import { drawDash } from './instruments/dash.js';
 
 /**
@@ -16,8 +17,12 @@ import { drawDash } from './instruments/dash.js';
  * of steps the arc can resolve, the shift light to on or off. At a steady
  * cruise the texture is never touched at all.
  *
- * This owns a mesh of its own rather than merging into the rider's shared
- * builders, because it is the one part that needs a texture.
+ * It owns its own meshes rather than merging into the rider's shared builders -
+ * the face because it is the one part that needs a texture, and the bezel
+ * because the cluster has to sit OUTSIDE the scaled hardware group that holds
+ * the bars, the grips and the hands. The bezel used to go into the shared frame
+ * geometry, which would have shrunk it with them and left a lit face standing
+ * proud of a surround two sizes too small.
  */
 export class Instruments {
   constructor() {
@@ -49,29 +54,32 @@ export class Instruments {
     partMatrix(1, cfg.offset, cfg.rotation, this.mesh.matrix);
     this.mesh.matrix.decompose(this.mesh.position, this.mesh.quaternion, this.mesh.scale);
 
+    // Bezel: a slightly larger box pushed back, so the lit face sits proud of a
+    // surround it is set into rather than floating as a panel on its own.
+    const margin = cfg.frameMargin;
+    this.bezelGeometry = new THREE.BoxGeometry(
+      cfg.size[0] + margin * 2,
+      cfg.size[1] + margin * 2,
+      cfg.frameDepth,
+    );
+    this.bezelGeometry.translate(0, 0, -cfg.frameDepth * 0.5);
+    this.bezelMaterial = createRiderMaterial(config.player.rider.materials.frame, 'RiderBezel');
+    this.bezel = new THREE.Mesh(this.bezelGeometry, this.bezelMaterial);
+    this.bezel.name = 'InstrumentBezel';
+    this.bezel.matrix.copy(this.mesh.matrix);
+    this.bezel.matrix.decompose(this.bezel.position, this.bezel.quaternion, this.bezel.scale);
+
+    this.group = new THREE.Group();
+    this.group.name = 'Cluster';
+    this.group.add(this.bezel, this.mesh);
+    this.mesh.frustumCulled = false;
+    this.bezel.frustumCulled = false;
+
     this._accumulator = 0;
     // What the face is currently showing, in the units it shows them in.
     this._shown = { rpm: 0, gear: -1, speed: -1, shift: false };
 
     drawDash(this.ctx, this._shown);
-  }
-
-  /** Adds the surrounding bezel to the rider's shared frame geometry. */
-  addFrameTo(builder) {
-    const cfg = config.player.rider.instruments;
-    const margin = cfg.frameMargin;
-
-    const bezel = new THREE.BoxGeometry(
-      cfg.size[0] + margin * 2,
-      cfg.size[1] + margin * 2,
-      cfg.frameDepth,
-    );
-    // Pushed back so the lit face sits proud of the bezel it is set into.
-    bezel.translate(0, 0, -cfg.frameDepth * 0.5);
-
-    const matrix = new THREE.Matrix4();
-    partMatrix(1, cfg.offset, cfg.rotation, matrix);
-    builder.add(bezel, matrix);
   }
 
   /**
@@ -107,7 +115,10 @@ export class Instruments {
 
   dispose() {
     this.geometry.dispose();
+    this.bezelGeometry.dispose();
     this.material.dispose();
+    this.bezelMaterial.dispose();
     this.texture.dispose();
+    this.group.clear();
   }
 }

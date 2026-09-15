@@ -59,10 +59,17 @@ export const framing = {
       fov: 75,
       fovMax: 104,
       pitch: 0,
-      // As above: 90 per cent of the lower third, 70 per cent of the lower
-      // half. Further in still fills more, and at 45 per cent of the whole
-      // frame the bodywork starts eating the road ahead, which is the shot.
-      riderOrigin: { x: 0, y: -0.170, z: -0.34 },
+      // Pushed out from z -0.34, and dropped from y -0.170 to match, which
+      // keeps the cockpit where it was in the frame while making it smaller.
+      //
+      // The two profiles had drifted apart. Measured with each part marked and
+      // counted in a full frame, 16:9 showed the bodywork at 5.9 per cent of
+      // the picture against 3.6 at 9:16, and the gloves at 11.7 against 7.4 -
+      // the same 0.6 ratio for both, because it is the whole cockpit and not
+      // any one part of it. 16:9 comes down to meet 9:16 rather than the other
+      // way round: growing the tall profile would eat road, and vertical has
+      // the least road to spare.
+      riderOrigin: { x: 0, y: -0.226, z: -0.435 },
     },
   ],
 };

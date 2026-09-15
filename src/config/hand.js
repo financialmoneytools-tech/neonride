@@ -77,14 +77,25 @@ export const hand = {
     // the swollen ones and the dips between them are the gaps between fingers,
     // so the top silhouette undulates four times - which is the whole of what
     // reads as a row of knuckles at this distance.
-    // The two end stations close the hand by FLATTENING it - scaled hard in y,
-    // barely in x. Shrinking them evenly is the obvious way to taper a loft
-    // shut and it is the one way that cannot work here: the section is wrapped
-    // round a tube, so scaling it toward its own centre drives it into the
-    // grip. Flattening pulls the top and bottom in while the front and back
-    // stay out past the tube, which closes the silhouette and stays clear.
+    // The ends round off by tapering the section EVENLY, which keeps the
+    // cross section the shape of a hand all the way along.
+    //
+    // They used to flatten instead - scaled hard in y, barely in x - because
+    // scaling a section that wraps a tube toward its own centre looked like it
+    // must drive it into the grip. Measured, it does not: at full size the
+    // section's closest approach to the grip axis is 0.053 against ribs at
+    // 0.0265, so there is 27 mm of room to shrink into and the flattening was
+    // solving a problem that was not there. The ends do have to stop at about
+    // 0.62 of full size - below that the section really does close on the tube -
+    // which is why the hand ends bluntly rather than at a point. It cost the shape - the two end
+    // stations came out 1.44 and 1.48 deep-to-tall where the middle of the hand
+    // is 0.85, so both ends of the fist were wedges twice as wide as they were
+    // tall, and the INBOARD end is the one facing the rider. That is what read
+    // as a flat shell draped over the bar.
     stations: [
-      { z: -1.00, offset: [0, -0.03], scale: [0.90, 0.56] }, // wrist end
+      { z: -1.00, offset: [0, -0.03], scale: [0.64, 0.64] }, // wrist end
+      { z: -0.90, offset: [0, -0.01], scale: [0.80, 0.80] },
+      { z: -0.80, offset: [0, 0.00], scale: [0.92, 0.94] },
       { z: -0.70, offset: [0, 0.03], scale: [1.00, 1.04] }, // index knuckle
       { z: -0.46, offset: [0, -0.01], scale: [0.96, 0.95] },
       { z: -0.23, offset: [0, 0.03], scale: [1.00, 1.05] }, // middle knuckle
@@ -92,7 +103,9 @@ export const hand = {
       { z: 0.24, offset: [0, 0.02], scale: [0.99, 1.02] }, // ring knuckle
       { z: 0.48, offset: [0, -0.02], scale: [0.94, 0.93] },
       { z: 0.71, offset: [0, 0.00], scale: [0.95, 0.94] }, // little knuckle
-      { z: 1.00, offset: [0, -0.04], scale: [0.86, 0.52] }, // outboard end
+      { z: 0.84, offset: [0, -0.01], scale: [0.88, 0.88] },
+      { z: 0.94, offset: [0, -0.02], scale: [0.78, 0.78] },
+      { z: 1.00, offset: [0, -0.03], scale: [0.62, 0.62] }, // outboard end
     ],
   },
 
@@ -120,7 +133,7 @@ export const hand = {
       // out as a sawtooth: the trim line along the crest turned every valley
       // into a spike. A glove fills the gaps in, so the ridge only has to
       // undulate, not break.
-      { z: -0.86, offset: [0, 0], scale: [0.44, 0.42] },
+      { z: -0.78, offset: [0, 0], scale: [0.44, 0.42] },
       { z: -0.70, offset: [0, 0], scale: [1.00, 1.00] },
       { z: -0.46, offset: [0, 0], scale: [0.76, 0.68] },
       { z: -0.23, offset: [0, 0], scale: [1.00, 1.04] },
@@ -128,7 +141,7 @@ export const hand = {
       { z: 0.24, offset: [0, 0], scale: [0.96, 0.98] },
       { z: 0.48, offset: [0, 0], scale: [0.74, 0.66] },
       { z: 0.71, offset: [0, 0], scale: [0.86, 0.88] },
-      { z: 0.86, offset: [0, 0], scale: [0.42, 0.40] },
+      { z: 0.80, offset: [0, 0], scale: [0.42, 0.40] },
     ],
     // A thin lit line along the crest. Without it the hand is a silhouette with
     // nothing inside it at the size it actually occupies in frame - the ridge
@@ -166,6 +179,11 @@ export const hand = {
     radius: 0.0125,
     taper: 0.80, // tip radius as a fraction of the base
     segments: 12,
+    // A lit line along the thumb's crown, the same treatment the knuckle ridge
+    // gets and for the same reason. At the size the hand now occupies a dark
+    // thumb on a dark hand disappears entirely, and the thumb across the bar is
+    // the single thing that makes a hand read as gripping rather than resting.
+    trim: { radius: 0.0022, radialSegments: 5 },
   },
 
   // Forearm. Three things must hold at once or it stops reading as an arm:

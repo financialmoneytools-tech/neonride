@@ -66,6 +66,14 @@ export const rider = {
   // Only the size is scaled, never the distance; scaling both would cancel out.
   // Values near 1 grow the rig toward the camera, so check the near plane
   // clearance before shipping anything above about 0.6.
+  // How much smaller the bars, grips, levers, mirrors, fork top and hands are
+  // than they were authored. See the note on the hardware group in Rider.js:
+  // the assembly was oversized against the bodywork, the hands twice the
+  // fairing's share of the frame, and this is the one knob that fixes all of it
+  // without any part losing its fit against the others. The cluster is not
+  // inside it and does not change.
+  hardwareScale: 0.92,
+
   fovCompensation: 0,
   bobLag: 0.3, // share of the camera bob the rig does NOT follow
 

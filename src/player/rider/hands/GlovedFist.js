@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { config } from '../../../config.js';
-import { GeometryBuilder, addTube, alignMatrix } from '../../../utils/geometry.js';
+import { GeometryBuilder, addTube } from '../../../utils/geometry.js';
 import { sectionPath } from '../../../utils/loft/section.js';
 import { loftShell } from '../../../utils/loft/shell.js';
 import { createNeonMaterial, createRiderMaterial } from '../RiderMaterial.js';
 import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
+import { buildCuff, buildForearm, buildThumb, buildThumbTrim } from './extremities.js';
+import { absolute, placed } from './handSpace.js';
 
 /**
  * GlovedFist - a closed hand around the grip, built as one mass.
@@ -38,48 +40,7 @@ import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
  * rotation, which is right because a left hand IS a mirrored right hand.
  */
 
-// The loft is authored with its spine along +Z and its section in XY; the grip
-// runs along the anchor's +X. A quarter turn about Y maps one to the other, and
-// after it the section's +x points FORWARD, down the road, and +y points up.
-const _toGrip = new THREE.Matrix4().makeRotationY(Math.PI / 2);
-
-const _matrix = new THREE.Matrix4();
-const _local = new THREE.Matrix4();
-const _offset = new THREE.Matrix4();
-
 const _point = new THREE.Vector3();
-const _from = new THREE.Vector3();
-const _to = new THREE.Vector3();
-const _direction = new THREE.Vector3();
-const _midpoint = new THREE.Vector3();
-const _quaternion = new THREE.Quaternion();
-const _unitScale = new THREE.Vector3(1, 1, 1);
-const UP = new THREE.Vector3(0, 1, 0);
-
-/**
- * Stations in absolute units. Config authors them normalized against radii, the
- * same way the fairing does, so the numbers stay readable.
- */
-function absolute(radii, stations) {
-  const out = new Array(stations.length);
-  for (let s = 0; s < stations.length; s++) {
-    const station = stations[s];
-    out[s] = {
-      z: station.z * radii[2],
-      offset: [station.offset[0] * radii[0], station.offset[1] * radii[1]],
-      scale: [station.scale[0] * radii[0], station.scale[1] * radii[1]],
-      roll: station.roll || 0,
-    };
-  }
-  return out;
-}
-
-/** The loft's own frame, placed at an offset in the anchor frame. */
-function placed(root, offset) {
-  _offset.makeTranslation(offset[0], offset[1], offset[2]);
-  _local.multiplyMatrices(_offset, _toGrip);
-  return _matrix.multiplyMatrices(root, _local);
-}
 
 /**
  * @param {object} anchor config.player.rider.anchors.rightGrip
@@ -102,6 +63,7 @@ export function createGlovedFist(anchor) {
     const neon = side === SIDE_RIGHT ? builders.neonRight : builders.neonLeft;
     buildFist(builders.glove, root);
     buildThumb(builders.glove, root);
+    buildThumbTrim(neon, root);
     buildForearm(builders.glove, root);
     buildKnuckleTrim(neon, root);
     buildCuff(neon, root);
@@ -188,99 +150,4 @@ function buildKnuckleTrim(neon, root) {
   for (let i = 0; i < path.length - 1; i++) {
     addTube(neon, path[i], path[i + 1], trim.radius, trim.radialSegments);
   }
-}
-
-/**
- * The thumb, crossing the back of the hand and away over the crest.
- *
- * A path rather than a direction and a length, because a straight tube between
- * the two ends it wants cuts the corner: measured, a chord from the back face
- * to the front one passes 0.0165 from the grip axis, which is inside the tube.
- * A thumb goes AROUND a bar, so it is built the way it bends.
- *
- * It starts and ends sunk into the shell, so it grows out of the mass at the
- * web and dies back into it at the tip rather than stopping in mid air.
- */
-function buildThumb(glove, root) {
-  const cfg = config.player.rider.hand.thumb;
-  const path = cfg.path;
-
-  for (let i = 0; i < path.length - 1; i++) {
-    const from = i / (path.length - 1);
-    const to = (i + 1) / (path.length - 1);
-    _from.fromArray(path[i]);
-    _to.fromArray(path[i + 1]);
-    segment(
-      glove,
-      root,
-      _from,
-      _to,
-      cfg.radius * (1 - from * (1 - cfg.taper)),
-      cfg.radius * (1 - to * (1 - cfg.taper)),
-      cfg.segments,
-    );
-
-    // A bead at every bend, so two segments read as a joint rather than as a
-    // break, and a cap at the tip so it does not end on a flat disc.
-    const radius = cfg.radius * (1 - to * (1 - cfg.taper));
-    glove.add(
-      new THREE.SphereGeometry(radius, cfg.segments, 8),
-      _matrix.multiplyMatrices(root, _local.makeTranslation(_to.x, _to.y, _to.z)),
-    );
-  }
-}
-
-/**
- * Forearm, running back and down out of the bottom of the frame.
- *
- * Rounded off at the far end. A cylinder cap is flat, and flat is what an arm
- * leaving frame must not be: the rim term caught it as a hard ellipse in the
- * bottom corner, which read as one more loose lobe rather than as an arm
- * continuing past the edge of the picture.
- */
-function buildForearm(glove, root) {
-  const cfg = config.player.rider.hand.forearm;
-  _from.fromArray(cfg.offset);
-  _to.fromArray(cfg.direction).normalize().multiplyScalar(cfg.length).add(_from);
-
-  const endRadius = cfg.radius * cfg.flare;
-  segment(glove, root, _from, _to, cfg.radius, endRadius, cfg.segments);
-  glove.add(
-    new THREE.SphereGeometry(endRadius, cfg.segments, 10),
-    _matrix.multiplyMatrices(root, _local.makeTranslation(_to.x, _to.y, _to.z)),
-  );
-}
-
-/** The lit band that ends the glove at the wrist. */
-function buildCuff(neon, root) {
-  const cfg = config.player.rider.hand.cuff;
-
-  // Open ended cylinder: the wall alone is exactly a band around the cuff.
-  const band = new THREE.CylinderGeometry(
-    cfg.radius,
-    cfg.radius,
-    cfg.width,
-    cfg.segments,
-    1,
-    true,
-  );
-  alignMatrix(cfg.offset, cfg.direction, _local);
-  neon.add(band, _matrix.multiplyMatrices(root, _local));
-}
-
-/** One tapered tube expressed in hand space, transformed into the rig. */
-function segment(builder, root, from, to, radius, endRadius, segments) {
-  _direction.copy(to).sub(from);
-  const length = _direction.length();
-  if (length === 0) return;
-
-  _direction.divideScalar(length);
-  _quaternion.setFromUnitVectors(UP, _direction);
-  _midpoint.copy(from).addScaledVector(_direction, length * 0.5);
-  _local.compose(_midpoint, _quaternion, _unitScale);
-
-  builder.add(
-    new THREE.CylinderGeometry(endRadius, radius, length, segments, 1),
-    _matrix.multiplyMatrices(root, _local),
-  );
 }
