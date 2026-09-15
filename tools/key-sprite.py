@@ -2,7 +2,12 @@
 
 Run once per source image; the game loads only the PNG this produces.
 
-    python tools/key-sprite.py public/sprites/glove-right.jpg
+    python tools/key-sprite.py art/sprites/glove-right.png public/sprites/glove-right.png
+
+Sources live in art/ and are not shipped; only the keyed PNG under public/ is
+fetched at runtime. Keeping them apart matters more than it looks - the source
+is a PNG too now, and writing the result beside it under a derived name would
+overwrite the thing it was derived from the second time anyone ran this.
 
 Why a script and not a shader or a load-time canvas pass: the source is a JPEG,
 so its edges carry ringing, and getting clean alpha needs a flood fill from the
@@ -37,11 +42,17 @@ FEATHER = 3
 # Longest side of the written PNG. The sprite covers a few per cent of a 1080p
 # frame, so anything past this is bytes nobody sees.
 MAX_SIDE = 1024
-# The sleeve has to end somewhere, and a straight cut across it reads as a cut.
-# Faded over the last of the height it reads as an arm going into shadow, which
-# at night is what an arm does. Needed because the plane does not always reach
-# the bottom of the frame - at 9:16 it stops about four fifths of the way down.
-BOTTOM_FADE = 0.09
+# Artwork that runs off the edge of its own canvas - the forearm at the bottom,
+# the switch block at the side - leaves a dead straight cut that reads as a
+# rectangle pasted over the scene, because that is what it is. Faded over a band
+# it reads as the part going into shadow, which at night is what it would do.
+#
+# Applied to all four sides unconditionally. Where the drawing does not reach an
+# edge the pixels there are already transparent and the fade changes nothing, so
+# there is no side to remember to switch on. The bottom gets more because the
+# arm is the longest run of solid colour into an edge.
+EDGE_FADE = 0.05
+BOTTOM_FADE = 0.10
 
 
 def flood_background(rgb):
@@ -112,7 +123,31 @@ def dilate(mask, steps):
     return out
 
 
-def main(path):
+def fade_edges(image):
+    """Ramp alpha to zero at every border, so nothing ends on a straight cut."""
+    alpha = image.getchannel('A').load()
+    w, h = image.size
+
+    for depth, span, read, write in (
+        (round(h * BOTTOM_FADE), h, lambda i: h - 1 - i, 'row'),
+        (round(h * EDGE_FADE), h, lambda i: i, 'row'),
+        (round(w * EDGE_FADE), w, lambda i: i, 'col'),
+        (round(w * EDGE_FADE), w, lambda i: w - 1 - i, 'col'),
+    ):
+        if depth < 2:
+            continue
+        for i in range(depth):
+            scale = (i + 1) / depth
+            at = read(i)
+            if write == 'row':
+                for x in range(w):
+                    alpha[x, at] = int(alpha[x, at] * scale)
+            else:
+                for y in range(h):
+                    alpha[at, y] = int(alpha[at, y] * scale)
+
+
+def main(path, target):
     source = Image.open(path).convert('RGB')
     rgb = np.asarray(source).astype(np.float32)
 
@@ -146,16 +181,8 @@ def main(path):
         image = image.resize(
             (round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
 
-    bands = round(image.height * BOTTOM_FADE)
-    if bands > 1:
-        alpha_channel = image.getchannel('A').load()
-        for row in range(bands):
-            y = image.height - bands + row
-            scale = 1.0 - (row + 1) / bands
-            for x in range(image.width):
-                alpha_channel[x, y] = int(alpha_channel[x, y] * scale)
+    fade_edges(image)
 
-    target = path.rsplit('.', 1)[0] + '.png'
     image.save(target, optimize=True)
     print('%s -> %s' % (path, target))
     print('  cropped from %s to %s at %s' % (source.size, box, image.size))
@@ -164,4 +191,6 @@ def main(path):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else 'public/sprites/glove-right.jpg')
+    if len(sys.argv) != 3:
+        raise SystemExit('usage: key-sprite.py <source> <target>')
+    main(sys.argv[1], sys.argv[2])

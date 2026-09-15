@@ -42,20 +42,17 @@ export const supersport = {
     // near plane being lowered, which would cost depth precision everywhere
     // else to fix something nobody can see.
     radii: [0.170, 0.082, 0.245], // ellipsoid half extents
-    offset: [0, -0.170, -0.025],
-    // NOT BUILT. Lowering it out of shot was tried first and is worse than not
-    // building it: the cinematic camera profile moves the eye, and a tank
-    // parked 30 cm below where a tank goes would simply appear in the wrong
-    // place there instead of the wrong place here.
+    offset: [0, -0.150, -0.030],
+    // Back on, and it is what fills the area under the cluster.
     //
-    // At 16:9 it was the dark rounded shape in the middle of the lower frame.
-    // At 9:16, where the profile sits the rig lower and pitches the camera
-    // down, it filled the bottom of the picture as a single smooth egg - the
-    // one rounded lobe left once the bodywork became angular, and the exact
-    // thing the cockpit was cut back to get rid of. It is a real part of a real
-    // bike and every number here is tuned; it is the CAMERA that does not want
-    // it, so the geometry stays described and this is what turns it off.
-    visible: false,
+    // It was switched off when the bodywork sprawled: at that scale it put a
+    // rounded mass across the bottom of the frame between the two sides of the
+    // fairing, and with everything angular around it, it was the one smooth
+    // lobe left. What changed is the camera. Pulled in to z -0.375 the frame
+    // below the instrument panel was empty road, and the tank top is what a
+    // rider actually sees there - it is the only thing on a bike that is in
+    // that part of the picture.
+    visible: true,
     rotation: [0.2, 0, 0],
     segments: [28, 14],
     // Filler cap, the one piece of detail that says fuel tank rather than panel

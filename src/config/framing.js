@@ -48,7 +48,7 @@ export const framing = {
       // knobs: pulling the rig in without raising it sends the tank off the
       // bottom faster than the bodywork grows, which is why coverage fell the
       // first time this was tried at a fixed height.
-      riderOrigin: { x: 0, y: -0.33, z: -0.70 },
+      riderOrigin: { x: 0, y: -0.284, z: -0.600 },
 
       // The hands are sprites and do not have to shrink with the rest of the
       // cockpit. Everything else here is a camera decision and applies to all
@@ -66,8 +66,12 @@ export const framing = {
       fov: 75,
       fovMax: 104,
       pitch: 0,
-      // Pushed out from z -0.34, and dropped from y -0.170 to match, which
-      // keeps the cockpit where it was in the frame while making it smaller.
+      // The eye. Pulled back in to -0.375 after a spell at -0.435: pushing it
+      // out fixed a cockpit that was too big, and then left the frame with
+      // nothing under the cluster but road. Closer is what the references have,
+      // and the answer to a cockpit that is too big is a smaller cockpit, not a
+      // further one. y moves with z so the cockpit stays where it sits in the
+      // frame rather than climbing toward the horizon as it recedes.
       //
       // The two profiles had drifted apart. Measured with each part marked and
       // counted in a full frame, 16:9 showed the bodywork at 5.9 per cent of
@@ -76,7 +80,7 @@ export const framing = {
       // any one part of it. 16:9 comes down to meet 9:16 rather than the other
       // way round: growing the tall profile would eat road, and vertical has
       // the least road to spare.
-      riderOrigin: { x: 0, y: -0.226, z: -0.435 },
+      riderOrigin: { x: 0, y: -0.196, z: -0.375 },
       handScale: 1.0,
     },
   ],

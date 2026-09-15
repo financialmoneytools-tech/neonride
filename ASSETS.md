@@ -6,37 +6,48 @@ the file lives, and nothing goes in `public/` without a row.
 
 ## Sprites
 
-### Gloved hand on a grip
+### Gloved hands on the bars
 
 | | |
 |---|---|
-| File | `public/sprites/glove-right.png` |
-| Source | `public/sprites/glove-right.jpg`, generated to order for this project |
+| Files | `public/sprites/glove-right.png`, `public/sprites/glove-left.png` |
+| Sources | `art/sprites/glove-right.png`, `art/sprites/glove-left.png` |
 | Retrieved | 15 September 2026 |
 | Used by | `src/player/rider/hands/SpriteHands.js` |
 
-A right hand in a black leather racing glove closed on a bar grip, drawn with a
-cyan rim down its inboard edge and magenta down its outboard one, which is the
-same pair the road edge lines use. The image carries the grip, the bar end
-weight, the brake lever and the switch block along with the hand, and that is
-the point: the join between a 2D hand and a 3D bar is what would give the trick
-away, and there is no join if the bar ends inside the picture. The 3D grip,
-lever and bar end are no longer built.
+Hands in black leather racing gloves closed on the bars, seen from the rider's
+eyes, drawn with a cyan rim down one edge and magenta down the other - the same
+pair the road edge lines use. Each image carries the grip, the bar end, the
+lever and the switch block along with the hand, and that is the point: the join
+between a 2D hand and a 3D bar is what would give the trick away, and there is
+no join if the bar ends inside the picture. The 3D grip, lever and bar end are
+no longer built.
 
-ONE image serves both hands. The left is the same texture with the plane flipped
-in x, which is what a left hand is.
+ONE IMAGE PER HAND. An earlier pass used a single image mirrored, which is
+geometrically what a left hand is; these two are not each other's reflection,
+so each gets its own texture.
 
-The source is a JPEG on flat white. `tools/key-sprite.py` turns it into the RGBA
-PNG the game loads: a flood fill from the borders finds the background, enclosed
-white pockets - the gap between the lever and the fingers - are found
-separately, the anti aliased edge is recovered from luminance and unpremultiplied
-so no white halo survives, the result is cropped to what is drawn, resized to
-1024 on its long side, and the last ninth of the sleeve is faded out so it ends
-in shadow rather than on a cut. Run it again if the source is redrawn:
+Sources live in `art/` and are not shipped. `tools/key-sprite.py` turns each one
+into the RGBA PNG the game loads:
 
-    python tools/key-sprite.py public/sprites/glove-right.jpg
+    python tools/key-sprite.py art/sprites/glove-right.png public/sprites/glove-right.png
+    python tools/key-sprite.py art/sprites/glove-left.png public/sprites/glove-left.png
 
-The JPEG is kept as the source of record. Only the PNG is fetched at runtime.
+Keeping source and target apart matters more than it looks now that both are
+PNGs: a script that derived its own output name would have overwritten the
+source the second time anyone ran it.
+
+What it does, and why none of it is a per-pixel threshold: a threshold punches
+holes through every light thing INSIDE the drawing - the carbon knuckle armour
+is full of highlights - and leaves a white halo wherever the artwork is dark.
+So it floods from the borders, finds enclosed pockets separately (the gap
+between a lever and the fingers is background the border fill cannot reach, and
+came out as a white patch hanging in the middle of the sprite), recovers the
+anti aliased edge from luminance and unpremultiplies it, crops to what is drawn,
+resizes to 1024 on the long side, and fades all four borders. That last one is
+not optional: artwork that runs off its own canvas - the forearm at the bottom,
+the switch block at the side - otherwise leaves a dead straight cut that reads
+as a rectangle pasted over the scene, because that is what it is.
 
 ## Removed
 
