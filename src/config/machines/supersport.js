@@ -1,4 +1,4 @@
-import { fairing, paint, screen } from './supersportBodywork.js';
+import { TANK_SECTION, fairing, paint, screen } from './supersportBodywork.js';
 
 /**
  * NEON RIDE - the supersport, one bike definition among several.
@@ -41,20 +41,22 @@ export const supersport = {
     // behind the rider is never seen anyway, so it is shortened rather than the
     // near plane being lowered, which would cost depth precision everywhere
     // else to fix something nobody can see.
-    radii: [0.170, 0.082, 0.245], // ellipsoid half extents
-    offset: [0, -0.150, -0.030],
-    // Back on, and it is what fills the area under the cluster.
-    //
-    // It was switched off when the bodywork sprawled: at that scale it put a
-    // rounded mass across the bottom of the frame between the two sides of the
-    // fairing, and with everything angular around it, it was the one smooth
-    // lobe left. What changed is the camera. Pulled in to z -0.375 the frame
-    // below the instrument panel was empty road, and the tank top is what a
-    // rider actually sees there - it is the only thing on a bike that is in
-    // that part of the picture.
-    visible: true,
-    rotation: [0.2, 0, 0],
-    segments: [28, 14],
+    // Lofted, not an ellipsoid, and for the same reason the fairing is: beside
+    // panels with creases on them a smooth lobe reads as a balloon. It was the
+    // last rounded shape on the bike, and at 9:16 - where the camera sits lower
+    // and looks further down - it filled the bottom third of the frame as one
+    // smooth egg.
+    section: TANK_SECTION,
+    radii: [0.170, 0.070, 0.245], // half extents the section and spine scale to
+    // Stations run rear to front, z +1 nearest the rider. Widest just behind
+    // the middle and pinched at the front, where it meets the steering head.
+    stations: [
+      { z: 1.00, offset: [0, -0.02], scale: [0.72, 0.70] },
+      { z: 0.45, offset: [0, 0.00], scale: [1.00, 1.00] },
+      { z: -0.20, offset: [0, 0.01], scale: [0.95, 0.92] },
+      { z: -0.70, offset: [0, 0.00], scale: [0.74, 0.70] },
+      { z: -1.00, offset: [0, -0.02], scale: [0.48, 0.46] },
+    ],
     // Filler cap, the one piece of detail that says fuel tank rather than panel
     cap: { radius: 0.026, height: 0.009, offset: [0, 0.03, 0.12], segments: 18 },
     // Neon seam down the spine of the tank, matching the glove trim

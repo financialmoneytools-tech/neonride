@@ -53,6 +53,21 @@ const NOSE_SECTION = [
   [-0.62, 0.80, 1], // shoulder crease, left
 ];
 
+// Fuel tank: a flat top with a crease down its spine, hard shoulders where the
+// top turns into the flanks, and a keel. Symmetric, built once on the
+// centreline. It is the one panel a rider looks straight down at, so the top
+// plane is wide and the creases either side of it are what catch the key.
+export const TANK_SECTION = [
+  [0.00, 1.00, 1], // spine
+  [0.55, 0.88, 1], // shoulder, where the top plane turns down
+  [0.95, 0.30, 1], // flank
+  [0.80, -0.55, 1], // lower edge
+  [0.00, -0.95, 0], // keel, under the rider's knees and never seen
+  [-0.80, -0.55, 1],
+  [-0.95, 0.30, 1],
+  [-0.55, 0.88, 1],
+];
+
 // --- Paint -------------------------------------------------------------
 //
 // What separates a machine from a set of shapes. Body panels get a real

@@ -82,9 +82,11 @@ MAX_SIDE = 1024
 # The left glove does not do it because its arm sweeps inward - the same edge
 # travels 529 px - and a diagonal reads as an arm rather than as a cut.
 #
-# Fading from a third of the way up dissolves the straight run before it is long
-# enough to register as an edge.
-BOTTOM_FADE = 0.32
+# A fade alone cannot fix a hard edge, only move it: alpha is still ~1 just
+# below wherever the band starts, so the top of any straight run stays crisp.
+# What fixes it is softening the OUTLINE, below.
+EDGE_SOFT = 0.055
+BOTTOM_FADE = 0.38
 
 
 def flood_background(rgb):
@@ -186,17 +188,59 @@ def keyed(path):
     return Image.fromarray(out, 'RGBA'), source.size
 
 
+def soften_lower_edges(image):
+    """Ramp alpha inward from the silhouette's own outer edge, low on the sprite.
+
+    The right glove's forearm is drawn with a near vertical outer edge - it
+    moves 31 px across 120 rows - and a billboard turns a near vertical line in
+    the artwork into an exactly vertical one on screen. Against the road that
+    reads as the boundary of a rectangle rather than as the side of an arm. The
+    left glove escapes it only because its arm is drawn sweeping inward.
+
+    Softening the outline itself is what fixes it, rather than fading the whole
+    arm: a soft edge cannot read as a cut whichever direction it runs in, and
+    the arm stays visible.
+    """
+    depth = round(image.width * EDGE_SOFT)
+    if depth < 2:
+        return
+
+    alpha = image.getchannel('A')
+    px = alpha.load()
+    w, h = image.size
+
+    for y in range(h // 2, h):
+        row = [x for x in range(w) if px[x, y] > 8]
+        if not row:
+            continue
+        lo, hi = row[0], row[-1]
+        for i in range(min(depth, (hi - lo) // 2)):
+            scale = (i + 1) / (depth + 1)
+            for x in (lo + i, hi - i):
+                px[x, y] = int(px[x, y] * scale)
+    image.putalpha(alpha)
+
+
 def fade_bottom(image):
-    """The forearm leaves the picture; it should not leave it on a straight cut."""
+    """The forearm leaves the picture; it should not leave it on a straight cut.
+
+    Note what this does NOT do: getchannel('A') hands back a COPY of the alpha,
+    not a view into the image. Writing through that copy's pixel access and
+    walking away - which is what this did for three passes - changes nothing at
+    all, silently, and the PNG ships exactly as it was. It has to be put back.
+    """
     depth = round(image.height * BOTTOM_FADE)
     if depth < 2:
         return
-    alpha = image.getchannel('A').load()
+
+    alpha = image.getchannel('A')
+    px = alpha.load()
     for i in range(depth):
         y = image.height - 1 - i
         scale = (i + 1) / depth
         for x in range(image.width):
-            alpha[x, y] = int(alpha[x, y] * scale)
+            px[x, y] = int(px[x, y] * scale)
+    image.putalpha(alpha)
 
 
 def union(boxes):
@@ -224,6 +268,7 @@ def main(pairs, group):
             image = image.resize(
                 (round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
 
+        soften_lower_edges(image)
         fade_bottom(image)
         image.save(target, optimize=True)
 

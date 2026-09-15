@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { addTube, latheFromProfile, partMatrix } from '../../utils/geometry.js';
+import { loftShell } from '../../utils/loft/shell.js';
 
 /**
  * BikeFront - what the rider can see of the machine: the top of the fuel tank,
@@ -60,9 +61,13 @@ export function buildBikeFront(builders) {
  * Off by default - see the note on `visible` in the machine config.
  */
 function buildTank(tank, neon, cfg) {
-  const body = new THREE.SphereGeometry(1, cfg.segments[0], cfg.segments[1]);
-  body.scale(cfg.radii[0], cfg.radii[1], cfg.radii[2]);
-  tank.add(body, partMatrix(1, cfg.offset, cfg.rotation, _matrix));
+  const [rx, ry, rz] = cfg.radii;
+  const stations = cfg.stations.map((station) => ({
+    z: station.z * rz,
+    offset: [station.offset[0] * rx, station.offset[1] * ry],
+    scale: [station.scale[0] * rx, station.scale[1] * ry],
+  }));
+  tank.add(loftShell(cfg.section, stations), partMatrix(1, cfg.offset, cfg.rotation, _matrix));
 
   const cap = cfg.cap;
   tank.add(
