@@ -56,6 +56,8 @@ export const input = {
     fullscreen: 'KeyF', // enter and leave fullscreen
     mute: 'KeyM', // master mute
     pause: 'Escape', // pause and resume a run
+    comfort: 'KeyR', // reduced motion on and off
+    theme: 'KeyT', // cycle the road theme (reloads; see main.js)
     quality: 'KeyQ', // cycle the quality preset, for testing a phone tier
   },
 };

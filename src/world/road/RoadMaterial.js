@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
+import { motionScale } from '../../core/Comfort.js';
 
 /**
  * RoadMaterial - the road surface shader.
@@ -66,6 +67,11 @@ const FRAGMENT_SHADER = `
   uniform float uEdgeIntensity;
   uniform float uEdgeHalo;
 
+  // A theme may have NO centre strips at all - see config/themes.js - and an
+  // array declared [0] is not legal GLSL, so the whole block is conditional.
+  // The comfort theme carries its colour on the edges, the pylons and the sky
+  // instead, and it has to be able to mean zero rather than "a very dim one".
+  #if STRIP_COUNT > 0
   uniform float uStripOffset[STRIP_COUNT];
   uniform float uStripWidth[STRIP_COUNT];
   uniform float uStripPeriod[STRIP_COUNT];
@@ -76,6 +82,7 @@ const FRAGMENT_SHADER = `
   uniform float uStripSoftness;
   uniform float uStripGlow;
   uniform float uStripHalo;
+  #endif
 
   varying float vAlong;
   varying float vAcross;
@@ -115,6 +122,7 @@ const FRAGMENT_SHADER = `
     color += uSheenColor * fresnel * uSheenStrength * (1.0 - shoulder) * reach;
 
     // Flowing neon strips
+    #if STRIP_COUNT > 0
     for (int i = 0; i < STRIP_COUNT; i++) {
       vec2 profile = lineProfile(abs(across - uStripOffset[i]), uStripWidth[i], uStripGlow);
 
@@ -125,6 +133,7 @@ const FRAGMENT_SHADER = `
 
       color += uStripColor[i] * (profile.x + profile.y * uStripHalo) * dash * uStripIntensity[i] * reach;
     }
+    #endif
 
     // Edge lines: steady, never dashed. Cyan to the left, magenta to the right.
     // across is positive to the RIGHT, so the left line is the one at -edge.
@@ -238,11 +247,18 @@ export class RoadMaterial {
 
     // Negative scrollFromSpeed carries the pattern back toward the rider, which
     // adds to the flow the road already has instead of cancelling it.
-    const fromSpeed = strips.scrollFromSpeed * bikeSpeed;
+    //
+    // Scaled live by the comfort setting, not baked: this is the single worst
+    // thing in the frame for anyone prone to motion sickness - high contrast
+    // motion through the middle of the field of view, apparently travelling at
+    // 1.45 times the speed of the world it is painted on - and someone reaching
+    // for that toggle needs it to work on the next frame, not the next run.
+    const scale = motionScale('stripScroll');
+    const fromSpeed = strips.scrollFromSpeed * bikeSpeed * scale;
 
     for (let i = 0; i < lanes.length; i++) {
       const period = this._periods[i];
-      let offset = this._offsets[i] + (lanes[i].speed + fromSpeed) * dt;
+      let offset = this._offsets[i] + (lanes[i].speed * scale + fromSpeed) * dt;
       // Wrapping in world units keeps the accumulator bounded forever, and the
       // pattern is periodic so the wrap itself is invisible.
       offset -= Math.floor(offset / period) * period;

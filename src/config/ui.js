@@ -22,6 +22,15 @@ export const ui = {
     fadeMs: 420,
   },
 
+  // The reduced motion switch, on the title card and in the pause panel.
+  // Two taps from anywhere somebody is likely to be when they start to feel
+  // unwell, which is the whole requirement.
+  comfort: {
+    label: 'AZALTILMIŞ HAREKET',
+    on: '●', // filled circle
+    off: '○', // hollow circle
+  },
+
   // The score readout during a run.
   hud: {
     distanceUnit: ' M',

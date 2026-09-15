@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from '../../config.js';
 import { updateFov, updateLean } from './response.js';
 import { resolveGear } from './gearbox.js';
+import { motionScale } from '../../core/Comfort.js';
 
 /**
  * view - turns where the bike is into where the camera is.
@@ -47,7 +48,13 @@ export function placeView(rig, dt, state) {
 
   // --- bob -------------------------------------------------------------
   const bob = cam.bob;
-  const strength = bob.floor + (1 - bob.floor) * speedRatio;
+  // Read live, so the comfort toggle works in the middle of a run. A 2 Hz
+  // vertical oscillation is close to where the vestibular system is most
+  // sensitive, and it disagrees with an inner ear reporting somebody sitting
+  // perfectly still - which is most of what makes a first person ride
+  // uncomfortable to watch.
+  const bobScale = motionScale('bob');
+  const strength = (bob.floor + (1 - bob.floor) * speedRatio) * bobScale;
   rig._bobPhase += dt * TWO_PI * bob.frequency * strength;
   // The half rate terms mean the pattern only repeats every two cycles, so
   // the phase is wrapped at 4 PI rather than 2 PI.
@@ -60,7 +67,9 @@ export function placeView(rig, dt, state) {
   // --- speed shake -----------------------------------------------------
   const shake = cam.shake;
   rig._shakeTime += dt * shake.frequency;
-  const shakeAmount = shake.amount * Math.pow(speedRatio, shake.exponent);
+  // Small, fast and unpredictable, which is the hardest kind of motion to
+  // ignore and the one that buys the least. It goes almost entirely.
+  const shakeAmount = shake.amount * Math.pow(speedRatio, shake.exponent) * motionScale('shake');
   const shakeLateral = rig._shakeNoise(rig._shakeTime, 0) * shakeAmount;
   const shakeVertical = rig._shakeNoise(rig._shakeTime, 17.3) * shakeAmount;
   const shakeRoll =

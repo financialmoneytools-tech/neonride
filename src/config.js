@@ -18,6 +18,8 @@ import { player } from './config/player.js';
 import { postprocess } from './config/postprocess.js';
 import { ui } from './config/ui.js';
 import { game } from './config/game.js';
+import { comfort } from './config/comfort.js';
+import { theme, themes } from './config/themes.js';
 import { audio } from './config/audio.js';
 
 export const config = {
@@ -38,6 +40,9 @@ export const config = {
   postprocess,
   ui,
   game,
+  comfort,
+  theme,
+  themes,
   audio,
 };
 

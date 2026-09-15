@@ -36,6 +36,9 @@ This means:
     remembered manual edit. See `tools/key-sprite.py`.
 - Node 18+
 
+> Ses tamamen sentezlenmiş (Web Audio), örnek dosya yok - sebebi
+> `config/audio.js` başında yazılı.
+
 > Not: Bu proje Next.js DEĞİL. Supabase / API route / `force-dynamic` kuralları burada geçersiz.
 
 ## Mimari — dosya sorumlulukları
@@ -99,6 +102,53 @@ src/
   hicbir seyle senkronunun kaymamasinin sebebi bu.
 - Olculen (10 dakika, 60 Hz): 0 carpisma, azami hizin %98'i, dakikada ~1 near
   miss. Ayar noktalari ve olculen bedelleri `config/autopilot.js` icinde yazili.
+
+## Motion comfort - standing requirement
+
+Bu bir kerelik düzeltme değil, sürekli bir gereklilik. Someone was made
+nauseous by the scrolling centre strips, and that is a bug class, not an
+incident: **every new theme and every new camera profile must be checked
+against it before it ships.**
+
+What causes it here, in the order that matters:
+
+1. **Motion through the centre of vision.** The eye tries to track it and
+   cannot. The default theme's strips scroll at 1.45x road speed directly under
+   the cluster. Peripheral motion - pylons, edge lines - is fine and is where
+   speed cues belong.
+2. **Camera bob.** ~2 Hz vertical oscillation sits close to where the
+   vestibular system is most sensitive, and it disagrees with an inner ear
+   reporting somebody sitting still.
+3. **Field of view ramp.** A fov that opens under acceleration is a strong
+   speed cue and a strong trigger, and the one nobody thinks to name.
+4. **Speed shake.** Small, fast, unpredictable; the hardest to ignore.
+
+Rules:
+
+- `config/comfort.js` owns the reduced motion scales. Anything new that moves
+  the camera or scrolls a pattern **must go through `motionScale()`** in
+  `core/Comfort.js`, not read its amplitude straight from config.
+- The toggle must stay reachable in **two taps** - it lives on the title card
+  and in the pause panel. Someone reaching for it already feels unwell; a
+  settings tree is not an acceptable answer.
+- It must take effect **mid-run**. That is why motion comfort is not a theme:
+  "restart for this to take effect" is not an answer either.
+- `prefers-reduced-motion` is honoured on first load. A stored choice beats it
+  from then on, so turning it back OFF sticks.
+- A new **theme** must say where its motion lives. If it puts anything moving in
+  the centre of the road, there has to be a variant that does not - the way
+  `openRoad` is the variant for `neonHighway`.
+- A new **camera profile** must be checked with reduced motion both on and off.
+  The cinematic profile raises the eye and pitches down, which changes how much
+  of the frame the road fills and therefore how much optic flow there is.
+- Never make the comfortable option the boring one. `openRoad` loses the strips
+  and pays for it with more pylons, because the strips are the cheapest speed
+  cue in the project and a comfort option nobody picks helps nobody.
+
+Measured, with the bike pinned so only the camera moves: reduced motion takes
+the vertical swing from 0.0568 to 0.0134 units, the lateral from 0.0360 to
+0.0057, the roll from 0.0262 to 0.0068 rad, and the strip scroll rate to an
+eighth.
 
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k

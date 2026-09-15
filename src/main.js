@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { config } from './config.js';
 import { Device } from './core/Device.js';
+import { Comfort } from './core/Comfort.js';
+import { PatchSelector } from './utils/patch.js';
 import { Engine } from './core/Engine.js';
 import { Framing } from './core/Framing.js';
 import { Hotkeys, KeySequence } from './core/Hotkeys.js';
@@ -37,6 +39,23 @@ const container = document.getElementById('app');
 // field allocates from the counts, the traffic pools size themselves on
 // creation.
 const device = new Device();
+
+// The road theme, laid over config BEFORE anything is built, the same way a
+// quality preset is and for the same reason: a strip count is a shader define
+// and a pylon spacing sizes an instance buffer, so neither can be changed after
+// the fact. `?theme=openRoad` picks one for a session without an edit.
+//
+// The library, the selector and the rebuild are one generic thing - see
+// utils/patch.js - because bikes and maps are the same shape and writing it
+// three times would be three chances to forget the undo.
+const themes = new PatchSelector(config, config.themes, config.theme);
+themes.select(new URLSearchParams(location.search).get('theme') || config.theme);
+
+// Motion comfort. NOT a theme: it has to work mid-run, from a toggle somebody
+// reaches for because they have started to feel unwell, so every value it
+// scales is read live by its consumer. Starts from the operating system's own
+// preference when this person has not chosen for themselves yet.
+const comfort = new Comfort();
 
 const engine = new Engine(container);
 
@@ -169,6 +188,20 @@ const hotkeys = new Hotkeys(
       console.info('[audio]', audio.toggleMute() ? 'muted' : 'unmuted');
     },
     pause: () => session.togglePause(),
+    comfort: () => {
+      console.info('[comfort] reduced motion:', comfort.toggle() ? 'on' : 'off');
+    },
+    theme: () => {
+      // Reloads rather than rebuilding in place. Most of what a theme changes
+      // is read once at construction - the strip count is a shader define - so
+      // a live switch would mean tearing down the road, the roadside and the
+      // sky and handing new references to everything holding the old ones.
+      // A testing aid, and honest about what it costs.
+      const next = themes.names[(themes.names.indexOf(themes.name) + 1) % themes.names.length];
+      const url = new URL(location.href);
+      url.searchParams.set('theme', next);
+      location.href = url.toString();
+    },
     quality: () => {
       // Only the settings that can be changed live are re-applied: the pixel
       // ratio and the bloom buffer size. Anything allocated at construction -
@@ -227,7 +260,7 @@ window.neonRide = { god: setAutopilot };
 const audio = new Audio();
 const session = new Session();
 const hud = new Hud(document.body, session);
-const panels = new Panels(document.body, session);
+const panels = new Panels(document.body, session, comfort);
 
 // After traffic, which is what publishes the hit and near miss totals the run
 // is scored and ended from, and after audio so a crash is heard on the frame it
@@ -258,7 +291,7 @@ const start = new StartScreen(document.body, () => {
   audio.start(traffic);
   if (wantsGod) setAutopilot(true);
   else session.begin(loop.state);
-});
+}, comfort);
 
 /**
  * What a press means, decided from the phase and nowhere else.
@@ -291,7 +324,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -299,6 +332,7 @@ function disposeAll() {
   loop.dispose();
   hotkeys.dispose();
   audio.dispose();
+  comfort.dispose();
   start.dispose();
   hud.dispose();
   panels.dispose();

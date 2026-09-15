@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Input } from '../../core/Input.js';
+import { motionScale } from '../../core/Comfort.js';
 
 /**
  * response - how the bike answers a steering input, beyond where it goes.
@@ -38,7 +39,13 @@ export function updateLean(rig, dt, input, bike, yaw) {
 export function updateFov(rig, dt, cam, speedRatio) {
   const base = rig.framing.fov;
   const top = rig.framing.fovMax;
-  rig.fov = Input.damp(rig.fov, base + (top - base) * speedRatio, cam.fovTau, dt);
+  // A field of view that opens up under acceleration is one of the strongest
+  // speed cues there is and one of the strongest nausea triggers, and it is the
+  // one almost nobody thinks to name when they say a game made them unwell. The
+  // comfort setting keeps the ramp rather than removing it: at rest the framing
+  // is unchanged either way, and it is the CHANGE that does the damage.
+  const ramp = speedRatio * motionScale('fovRamp');
+  rig.fov = Input.damp(rig.fov, base + (top - base) * ramp, cam.fovTau, dt);
 
   if (Math.abs(rig.fov - rig._appliedFov) > 0.02) {
     rig._appliedFov = rig.fov;

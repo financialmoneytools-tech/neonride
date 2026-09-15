@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { ComfortToggle } from './ComfortToggle.js';
 
 /**
  * StartScreen - the title card, and the one user gesture the whole build needs.
@@ -27,8 +28,10 @@ export class StartScreen {
    * @param {HTMLElement} parent
    * @param {() => void} onStart called once, from inside the gesture handler,
    *   so anything that needs the gesture's authority still has it
+   * @param {import('../core/Comfort.js').Comfort} [comfort] adds the reduced
+   *   motion switch to the card when given
    */
-  constructor(parent, onStart) {
+  constructor(parent, onStart, comfort = null) {
     const ui = config.ui.start;
 
     this.el = document.createElement('div');
@@ -46,6 +49,12 @@ export class StartScreen {
     prompt.textContent = matchMedia('(hover: none)').matches ? ui.promptTouch : ui.promptKey;
 
     this.el.append(title, prompt);
+
+    // The switch goes ON the card rather than in a menu behind it. Somebody who
+    // needs it needs it before they start, not after they have been made ill by
+    // finding out they needed it.
+    this.toggle = comfort ? new ComfortToggle(this.el, comfort) : null;
+
     parent.appendChild(this.el);
 
     this._onStart = onStart;
@@ -92,6 +101,7 @@ export class StartScreen {
   }
 
   dispose() {
+    if (this.toggle) { this.toggle.dispose(); this.toggle = null; }
     window.removeEventListener('pointerdown', this._start);
     window.removeEventListener('keydown', this._start);
     clearTimeout(this._fallback);

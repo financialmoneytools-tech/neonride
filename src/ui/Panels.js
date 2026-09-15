@@ -1,6 +1,7 @@
 import { config } from '../config.js';
 import { PHASE } from '../game/Session.js';
 import { format } from './Hud.js';
+import { ComfortToggle } from './ComfortToggle.js';
 
 /**
  * Panels - the pause card and the game over card.
@@ -23,8 +24,9 @@ export class Panels {
   /**
    * @param {HTMLElement} parent
    * @param {import('../game/Session.js').Session} session
+   * @param {import('../core/Comfort.js').Comfort} [comfort]
    */
-  constructor(parent, session) {
+  constructor(parent, session, comfort = null) {
     this.session = session;
 
     this.el = document.createElement('div');
@@ -44,6 +46,12 @@ export class Panels {
     this.promptEl.className = 'panel-prompt';
 
     this.el.append(this.titleEl, this.scoreEl, this.bestEl, this.promptEl);
+
+    // Pause is the other place somebody reaches for this, and it is the one
+    // that matters most: by then they are already feeling it. Hidden on the
+    // game over card, where the run is finished and the offer is noise.
+    this.toggle = comfort ? new ComfortToggle(this.el, comfort) : null;
+
     parent.appendChild(this.el);
 
     this._shown = null;
@@ -84,6 +92,7 @@ export class Panels {
       this.promptEl.textContent = touch ? text.restartTouch : text.restartKey;
     }
 
+    if (this.toggle) this.toggle.el.hidden = shown !== PHASE.PAUSED;
     this.el.classList.toggle('panel-record', shown === PHASE.OVER && session.isRecord);
     this.el.hidden = false;
     // Forces a reflow so the transition runs from the hidden state rather than
@@ -93,6 +102,7 @@ export class Panels {
   }
 
   dispose() {
+    if (this.toggle) { this.toggle.dispose(); this.toggle = null; }
     if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
     this.el = null;
   }
