@@ -79,15 +79,22 @@ export const paint = {
 
 // --- Fairing -----------------------------------------------------------
 //
-// A cluster surround, and nothing more.
+// A cluster surround, and wings that sweep out from it toward the hands.
 //
 // It was four panels a side reaching from the centreline out to the grips and
 // down past the bars - measured, 20.5 per cent of a 16:9 frame and 41 per cent
 // of its lower half, with its top edge 62 per cent down the frame and its
 // lowest point at y -0.320 against a bar line at about -0.03. That is not what
 // a fairing looks like from a saddle; it is what a wall looks like. The `flank`
-// and `shoulder` panels are gone entirely and the wing is a third of its former
-// height.
+// and `shoulder` panels are gone entirely and the wing is roughly half its
+// former height.
+//
+// The first cut at this went too far the other way - 2.3 per cent of a 16:9
+// frame and 4.4 of its lower half, which is not a fairing either, it is a chip
+// of red under the cluster. Between a wall and nothing there is a fairing, and
+// it is the one the references show: wings sweeping out from beside the screen
+// toward the hands, and stopping there. Measured target for this pass was 5 to
+// 6 per cent of the frame and 11 to 13 of its lower half.
 //
 // The rule that replaced the tuning: NOTHING below the bar line. The triple
 // clamp bottoms out at y -0.083, so every panel here stops above roughly -0.09,
@@ -113,9 +120,9 @@ export const fairing = {
     // every facet on it compressed into a few pixels. A fairing top seen from
     // the saddle is the opposite: wide across the frame, shallow, and only as
     // long as it needs to reach the screen.
-    radii: [0.098, 0.034, 0.118],
-    offset: [0.120, -0.030, -0.098],
-    rotation: [0.12, -0.34, -0.14],
+    radii: [0.135, 0.066, 0.155],
+    offset: [0.148, -0.018, -0.090],
+    rotation: [0.12, -0.34, -0.16],
     stations: [
       { z: 1.00, offset: [-0.08, -0.06], scale: [0.40, 0.44], roll: 0.14 },
       { z: 0.46, offset: [-0.02, -0.02], scale: [0.90, 0.92], roll: 0.06 },
@@ -130,13 +137,13 @@ export const fairing = {
     // a real bike, points away and measured zero pixels of the frame.
     // depth is in rider units, along the panel's own normal.
     vents: [
-      { edgeFrom: 7, edgeTo: 8, stationFrom: 1, stationTo: 2, depth: 0.010 },
+      { edgeFrom: 7, edgeTo: 8, stationFrom: 1, stationTo: 2, depth: 0.017 },
     ],
     // A bright line laid along a crease, the same trick the tank seam uses: a
     // dark panel against a dark road needs a line on it to be seen. The index
     // is a section point, so the strip is on the edge by construction and
     // cannot drift off it when either one is tuned.
-    trim: { crease: 0, radius: 0.0055, radialSegments: 6 },
+    trim: { crease: 0, radius: 0.0062, radialSegments: 6 },
   },
 
   // The centre section, under the screen and carrying the cluster. Built once
