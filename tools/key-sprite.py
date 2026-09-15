@@ -70,7 +70,21 @@ MAX_SIDE = 1024
 # The forearm is the one thing that genuinely does leave the picture: it runs
 # off the bottom because the arm continues past the frame. Faded, it reads as an
 # arm going into shadow, which at night is what an arm does.
-BOTTOM_FADE = 0.10
+#
+# Long, and it has to be. Measured on the right glove, the outer edge of the
+# forearm is drawn all but straight - it moves 100 px across 440 rows - and the
+# sprite is a billboard, so a near vertical line in the artwork is an exactly
+# vertical line on screen. With the arm running off the bottom of the frame as
+# well, the two together read as the corner of a rectangle, which is what was
+# being seen as the plane's boundary. It is not: the plane is wider than that,
+# and the alpha has a clean transparent border on every side. It is the arm.
+#
+# The left glove does not do it because its arm sweeps inward - the same edge
+# travels 529 px - and a diagonal reads as an arm rather than as a cut.
+#
+# Fading from a third of the way up dissolves the straight run before it is long
+# enough to register as an edge.
+BOTTOM_FADE = 0.32
 
 
 def flood_background(rgb):

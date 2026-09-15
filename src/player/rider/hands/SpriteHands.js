@@ -76,8 +76,15 @@ export function createSpriteHands(anchor, rig) {
       // The plane is sized from the image it ended up carrying, so a redrawn
       // sprite of a different shape needs no config change and cannot be
       // stretched by one that was not updated with it.
+      //
+      // And the mesh stays HIDDEN until this runs. Defaulting the aspect to 1
+      // and correcting it here meant the first frames after load drew a square
+      // hand that then snapped to its real shape - a fraction of a second on a
+      // real machine, long enough to see, and long enough to make every
+      // measurement taken in that window disagree with the next one.
       const image = loaded.image;
       hand.aspect = image.width / image.height;
+      hand.mesh.visible = true;
     });
     texture.name = 'glove-' + key;
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -106,6 +113,7 @@ export function createSpriteHands(anchor, rig) {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'Rider_glove';
     mesh.frustumCulled = false;
+    mesh.visible = false; // until the texture arrives and its aspect is known
     mesh.renderOrder = cfg.renderOrder;
 
     // Placed at a point on the grip, in the frame the grip itself defines, so
@@ -177,6 +185,15 @@ export function createSpriteHands(anchor, rig) {
         hand.mesh.quaternion.copy(_inverse);
         hand.mesh.scale.set(width, width / hand.aspect, 1);
 
+        // Pulled toward the centreline by however much this aspect asks for.
+        // rest.x carries the side's sign, so subtracting the inset times the
+        // side moves both hands inward rather than both the same way.
+        hand.mesh.position.set(
+          hand.rest.x - rig.framing.handInset * hand.side,
+          hand.rest.y,
+          hand.rest.z,
+        );
+
         if (hand.side !== SIDE_RIGHT) continue;
 
         // Only the right wrist turns a throttle, so only the right hand rolls
@@ -184,11 +201,9 @@ export function createSpriteHands(anchor, rig) {
         // the RIG's space, not in the plane's own.
         hand.mesh.quaternion.premultiply(_roll);
         const shift = live.throttle.offset;
-        hand.mesh.position.set(
-          hand.rest.x + shift[0] * throttle,
-          hand.rest.y + shift[1] * throttle,
-          hand.rest.z + shift[2] * throttle,
-        );
+        hand.mesh.position.x += shift[0] * throttle;
+        hand.mesh.position.y += shift[1] * throttle;
+        hand.mesh.position.z += shift[2] * throttle;
 
         // Two thresholds rather than one, so an input resting on the boundary
         // cannot flicker the hand between frames.

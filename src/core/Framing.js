@@ -40,6 +40,8 @@ export class Framing {
     this.riderOrigin = { x: 0, y: 0, z: -1 };
     /** Extra size for the hand sprites, which are sized to read rather than to scale. */
     this.handScale = 1;
+    /** How far the hands are pulled toward the centreline, in rider units. */
+    this.handInset = 0;
 
     /** Name of the nearer profile, for tooling and the overlay. */
     this.name = '';
@@ -111,6 +113,7 @@ export class Framing {
     this.fovMax = lower.fovMax + (upper.fovMax - lower.fovMax) * t;
     this.pitch = lower.pitch + (upper.pitch - lower.pitch) * t;
     this.handScale = lower.handScale + (upper.handScale - lower.handScale) * t;
+    this.handInset = lower.handInset + (upper.handInset - lower.handInset) * t;
 
     this.riderOrigin.x = lower.riderOrigin.x + (upper.riderOrigin.x - lower.riderOrigin.x) * t;
     this.riderOrigin.y = lower.riderOrigin.y + (upper.riderOrigin.y - lower.riderOrigin.y) * t;
@@ -145,6 +148,7 @@ export class Framing {
         profile.riderOrigin.y,
         profile.riderOrigin.z,
         profile.handScale,
+        profile.handInset,
       );
     }
   }

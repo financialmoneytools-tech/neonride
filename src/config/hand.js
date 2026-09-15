@@ -44,12 +44,7 @@ export const hand = {
     // this is what slides the DRAWN hand onto the grip rather than the plane's
     // centre. Per side, because the two drawings are framed differently.
     offset: {
-      // Pulled further inboard than the left. The right drawing reaches closer
-      // to the edge of the frame, so more of it was being clipped away at 16:9
-      // than at 9:16 - that hand measured 4.4 per cent of a wide frame against
-      // 5.7 of a tall one, where the left sat at 5.1 in both. Moving it in
-      // recovers the difference without making the hand a different size.
-      right: [-0.034, 0.012, 0.012],
+      right: [-0.020, 0.012, 0.012],
       left: [-0.020, 0.012, 0.012],
     },
 

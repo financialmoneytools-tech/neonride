@@ -55,7 +55,16 @@ export const framing = {
       // of it at once; this is the one part that is sized for legibility
       // instead, and a tall frame needs it larger to hold the same share of the
       // picture as a wide one does.
-      handScale: 1.313,
+      handScale: 1.10,
+
+      // And pulled toward the centreline. The hands sit at a fixed place on the
+      // bars, but a tall frame's horizontal field of view is half a wide one's
+      // - 29 degrees against 54 - so the same world position lands much further
+      // out in it. Measured, the hands ran off both edges of a 9:16 frame with
+      // an 11 per cent gap left between them in the middle, where at 16:9 they
+      // frame the cluster with margins of 7 and 11 per cent and almost meet.
+      // This is in rider units, applied inboard on each side.
+      handInset: 0.049,
     },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
@@ -82,6 +91,7 @@ export const framing = {
       // the least road to spare.
       riderOrigin: { x: 0, y: -0.196, z: -0.375 },
       handScale: 1.0,
+      handInset: 0,
     },
   ],
 };
