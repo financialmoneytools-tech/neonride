@@ -191,30 +191,64 @@ function buildKnuckleTrim(neon, root) {
 }
 
 /**
- * The thumb, lying across the top of the grip.
+ * The thumb, crossing the back of the hand and away over the crest.
  *
- * The one lobe a gripping hand really does have, and it starts INSIDE the fist
- * - the offset is closer to the grip axis than the section is - so it emerges
- * from the mass instead of floating beside it.
+ * A path rather than a direction and a length, because a straight tube between
+ * the two ends it wants cuts the corner: measured, a chord from the back face
+ * to the front one passes 0.0165 from the grip axis, which is inside the tube.
+ * A thumb goes AROUND a bar, so it is built the way it bends.
+ *
+ * It starts and ends sunk into the shell, so it grows out of the mass at the
+ * web and dies back into it at the tip rather than stopping in mid air.
  */
 function buildThumb(glove, root) {
   const cfg = config.player.rider.hand.thumb;
-  _from.fromArray(cfg.offset);
-  _to.fromArray(cfg.direction).normalize().multiplyScalar(cfg.length).add(_from);
+  const path = cfg.path;
 
-  segment(glove, root, _from, _to, cfg.radius, cfg.radius * cfg.taper, cfg.segments);
-  glove.add(
-    new THREE.SphereGeometry(cfg.radius * cfg.taper, 10, 8),
-    _matrix.multiplyMatrices(root, _local.makeTranslation(_to.x, _to.y, _to.z)),
-  );
+  for (let i = 0; i < path.length - 1; i++) {
+    const from = i / (path.length - 1);
+    const to = (i + 1) / (path.length - 1);
+    _from.fromArray(path[i]);
+    _to.fromArray(path[i + 1]);
+    segment(
+      glove,
+      root,
+      _from,
+      _to,
+      cfg.radius * (1 - from * (1 - cfg.taper)),
+      cfg.radius * (1 - to * (1 - cfg.taper)),
+      cfg.segments,
+    );
+
+    // A bead at every bend, so two segments read as a joint rather than as a
+    // break, and a cap at the tip so it does not end on a flat disc.
+    const radius = cfg.radius * (1 - to * (1 - cfg.taper));
+    glove.add(
+      new THREE.SphereGeometry(radius, cfg.segments, 8),
+      _matrix.multiplyMatrices(root, _local.makeTranslation(_to.x, _to.y, _to.z)),
+    );
+  }
 }
 
-/** Forearm, running back and down out of the bottom of the frame. */
+/**
+ * Forearm, running back and down out of the bottom of the frame.
+ *
+ * Rounded off at the far end. A cylinder cap is flat, and flat is what an arm
+ * leaving frame must not be: the rim term caught it as a hard ellipse in the
+ * bottom corner, which read as one more loose lobe rather than as an arm
+ * continuing past the edge of the picture.
+ */
 function buildForearm(glove, root) {
   const cfg = config.player.rider.hand.forearm;
   _from.fromArray(cfg.offset);
   _to.fromArray(cfg.direction).normalize().multiplyScalar(cfg.length).add(_from);
-  segment(glove, root, _from, _to, cfg.radius, cfg.radius * cfg.flare, cfg.segments);
+
+  const endRadius = cfg.radius * cfg.flare;
+  segment(glove, root, _from, _to, cfg.radius, endRadius, cfg.segments);
+  glove.add(
+    new THREE.SphereGeometry(endRadius, cfg.segments, 10),
+    _matrix.multiplyMatrices(root, _local.makeTranslation(_to.x, _to.y, _to.z)),
+  );
 }
 
 /** The lit band that ends the glove at the wrist. */

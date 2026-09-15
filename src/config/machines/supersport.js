@@ -169,16 +169,11 @@ export const supersport = {
       radius: 0.0135,
       radialSegments: 12,
     },
-    // The levers themselves stay in ./handlebar's section - this file does not
-    // build two of them - but the perch that carries each one was missing, and
-    // a lever starting in mid air beside the glove is exactly the sort of thing
-    // that reads as a prototype.
-    perch: { size: [0.030, 0.026, 0.034], offset: [0.258, -0.082, 0.014] },
-    // Switch blocks, inboard of the grips.
-    switchgear: { size: [0.034, 0.030, 0.052], offset: [0.245, -0.090, 0.050] },
+    // The switch block, the lever perch and the brake master cylinder were
+    // here. All three sat below the bar line, and once the bodywork behind them
+    // was cut back they read as grey crates floating in open road. See the note
+    // in bike/Controls.js. The lever keeps its own perch, up at bar level.
     // Bar end weight, closing the outer end of the grip.
     barEnd: { radius: 0.019, length: 0.022, offset: [0.408, -0.0345, 0.0905] },
-    // Front brake master cylinder and its reservoir, right side only.
-    master: { size: [0.030, 0.034, 0.042], offset: [0.228, -0.062, 0.030] },
   },
 };

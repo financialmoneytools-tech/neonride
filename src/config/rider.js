@@ -39,7 +39,14 @@ const rightGrip = {
   from: [0.272, 0.024, 0.037],
   to: [0.398, 0.0345, 0.0885],
   radius: 0.0245,
-  along: 0.5, // where along the grip the hand sits: 0 inner end, 1 outer end
+  // Where along the grip the hand sits: 0 inner end, 1 outer end. Moved in from
+  // 0.5 because the fist is 0.125 wide on a 0.137 grip and centring it left
+  // 6 mm of tube at each end - and at the INBOARD end that showed as the grip's
+  // flat cap disc, lit cyan, sitting in the middle of the fist's own cap. At
+  // 0.44 the hand covers the inner end outright and what is left over shows
+  // outboard, where the bar end weight already closes it and where a hand not
+  // quite reaching the end of a grip is what a hand looks like.
+  along: 0.44,
   offset: [0, 0, 0],
   rotation: [0, 0, 0],
   scale: 1,

@@ -15,6 +15,15 @@ import { addTube, partMatrix } from '../../../utils/geometry.js';
  * available at this camera. They end exactly where the grips already are,
  * because the grip anchor may not move - the hands are posed against it and
  * baked, so bars come to the hands rather than the other way round.
+ *
+ * The switch block, the lever perch and the brake master cylinder used to be
+ * here too, and are gone. All three sat BELOW the bar line - y -0.062 to -0.090
+ * against a clamp that bottoms out at -0.083 - where the fairing and the tank
+ * used to be behind them. With those cut back they stood against open road as
+ * three grey crates with nothing holding them up, and at this camera they were
+ * the most broken-looking thing in the frame. The lever still has its perch;
+ * that one is up at bar level where a perch belongs, and Handlebar.js builds
+ * it.
  */
 
 const _matrix = new THREE.Matrix4();
@@ -29,7 +38,6 @@ function side(point, sign) {
 export function buildControls(builders) {
   const cfg = config.player.rider.machine.controls;
   const frame = builders.frame;
-  const dark = builders.mirror;
 
   for (let s = 0; s < 2; s++) {
     const sign = s === 0 ? 1 : -1;
@@ -37,32 +45,24 @@ export function buildControls(builders) {
     const clipOn = cfg.clipOn;
     addTube(frame, side(clipOn.from, sign), side(clipOn.to, sign), clipOn.radius, clipOn.radialSegments);
 
-    // The perch the lever is carried on. The lever itself belongs to the
-    // handlebar section and is built there; what was missing is the thing it
-    // comes out of, without which it starts in mid air beside the glove.
-    const perch = cfg.perch;
-    frame.add(
-      new THREE.BoxGeometry(perch.size[0], perch.size[1], perch.size[2]),
-      partMatrix(sign, perch.offset, null, _matrix),
-    );
-
-    const sw = cfg.switchgear;
-    frame.add(
-      new THREE.BoxGeometry(sw.size[0], sw.size[1], sw.size[2]),
-      partMatrix(sign, sw.offset, null, _matrix),
-    );
-
     // Closes the outer end of the grip, which otherwise stops dead.
+    //
+    // In the FRAME material, not the dark one it used to share with the screen
+    // and the mirror glass. That preset carries a rim at 0.75 and a power of
+    // 1.7 - deliberately hot, because it is lighting glass - and on a disc this
+    // size sitting at the very corner of the frame it produced a bright violet
+    // ellipse hanging in the dark, which was the last thing in the cockpit
+    // still reading as a loose floating lobe. Graphite with the same cyan rim
+    // as the clip-ons it caps is what it should have been.
     const end = cfg.barEnd;
     const weight = new THREE.CylinderGeometry(end.radius, end.radius, end.length, 14);
     weight.rotateZ(Math.PI * 0.5);
-    dark.add(weight, partMatrix(sign, end.offset, null, _matrix));
+    frame.add(weight, partMatrix(sign, end.offset, null, _matrix));
+    // Domed off, so what shows past the hand is the end of a bar rather than a
+    // disc seen face on.
+    frame.add(
+      new THREE.SphereGeometry(end.radius, 14, 8),
+      partMatrix(sign, [end.offset[0] + end.length * 0.5, end.offset[1], end.offset[2]], null, _matrix),
+    );
   }
-
-  // Right side only, the way a bike has it: the front brake master cylinder.
-  const master = cfg.master;
-  frame.add(
-    new THREE.BoxGeometry(master.size[0], master.size[1], master.size[2]),
-    partMatrix(1, master.offset, null, _matrix),
-  );
 }
