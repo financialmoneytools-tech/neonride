@@ -38,6 +38,8 @@ export class Framing {
     this.pitch = 0;
     /** Cockpit placement in camera space. */
     this.riderOrigin = { x: 0, y: 0, z: -1 };
+    /** Extra size for the hand sprites, which are sized to read rather than to scale. */
+    this.handScale = 1;
 
     /** Name of the nearer profile, for tooling and the overlay. */
     this.name = '';
@@ -108,6 +110,7 @@ export class Framing {
     this.fov = lower.fov + (upper.fov - lower.fov) * t;
     this.fovMax = lower.fovMax + (upper.fovMax - lower.fovMax) * t;
     this.pitch = lower.pitch + (upper.pitch - lower.pitch) * t;
+    this.handScale = lower.handScale + (upper.handScale - lower.handScale) * t;
 
     this.riderOrigin.x = lower.riderOrigin.x + (upper.riderOrigin.x - lower.riderOrigin.x) * t;
     this.riderOrigin.y = lower.riderOrigin.y + (upper.riderOrigin.y - lower.riderOrigin.y) * t;
@@ -141,6 +144,7 @@ export class Framing {
         profile.riderOrigin.x,
         profile.riderOrigin.y,
         profile.riderOrigin.z,
+        profile.handScale,
       );
     }
   }

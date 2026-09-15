@@ -1,6 +1,6 @@
-import { createGlovedFist } from './hands/GlovedFist.js';
+import { createSpriteHands } from './hands/SpriteHands.js';
 
-export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anchors.js';
+export { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './hands/anchors.js';
 
 /**
  * Hands - the one door between the rig and whatever supplies its hands.
@@ -10,18 +10,11 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  * what the hands are made of. That is the whole point of this file, and it is
  * what made replacing them cheap when they had to be replaced.
  *
- * There used to be two implementations behind here and a config switch to
- * choose between them: these, and a rigged GLB posed onto the grip by our own
- * IK. The model is gone. It was a 1,200 triangle first person SHOOTER arms
- * pack, authored around a rifle, and closing its fingers on a 26 mm tube needed
- * per finger IK against a cylinder plus edge loops at the knuckles that it did
- * not have. Rendered side by side it sat beside the bar gripping nothing, which
- * was further from the reference than the primitives it was meant to replace.
- * The one thing it offered over a well shaped fist is finger separation on an
- * OPEN hand, and this hand is never open.
- *
- * The seam stays, because the next thing that wants to supply hands should not
- * have to touch Rider either.
+ * Three implementations have been behind this door: primitives, a rigged GLB
+ * posed by our own IK, and a single lofted fist. None of them read as a hand,
+ * and the fourth - two camera facing planes carrying a drawn image - is the one
+ * that does. The seam is why swapping them cost nothing outside this file each
+ * time, and it is why it stays.
  *
  * The contract a hand set must satisfy:
  *
@@ -30,8 +23,8 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
  *            immediately and fills it in when the load resolves, so nothing
  *            upstream has to wait or re-parent.
  *   meshes   the meshes inside it, for tooling that measures the rig.
- *   update   called every frame with (dt, state). The fist ignores it; anything
- *            that poses itself would read state.steer and the brake here.
+ *   update   called every frame with (dt, state). The sprites turn themselves
+ *            back to face the camera here.
  *   dispose  releases everything the set created. Whatever a set allocates, it
  *            frees; Rider never reaches inside.
  *
@@ -46,8 +39,10 @@ export { gripAnchorFrame, gripLength, SIDE_LEFT, SIDE_RIGHT } from './hands/anch
 
 /**
  * @param {object} anchor config.player.rider.anchors.rightGrip
+ * @param {{steering: import('three').Group,
+ *          framing: import('../../core/Framing.js').Framing}} rig
  * @returns {HandSet}
  */
-export function createHands(anchor) {
-  return createGlovedFist(anchor);
+export function createHands(anchor, rig) {
+  return createSpriteHands(anchor, rig);
 }

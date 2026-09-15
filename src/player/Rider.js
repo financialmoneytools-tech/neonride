@@ -144,7 +144,10 @@ export class Rider {
     }
 
     // The hands align themselves to the anchor; this file never places them.
-    this.hands = createHands(cfg.anchors.rightGrip);
+    this.hands = createHands(cfg.anchors.rightGrip, {
+      steering: this.steering,
+      framing: this.framing,
+    });
     this.hardware.add(this.hands.group);
 
     this._steer = 0;

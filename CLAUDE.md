@@ -24,12 +24,16 @@ This means:
 - three (npm paketi, CDN değil)
 - three/examples/jsm: EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, GLTFLoader
 - Harici asset YOK. Tüm doku/gürültü/parçacık dokuları runtime'da canvas veya shader ile üretilecek.
-  - **Exception**: external models are permitted for character and vehicle
-    geometry only; road, sky and effects stay procedural. Every external file
-    must be CC0 or CC-BY, must live under `public/models/`, and must be recorded
-    in `ASSETS.md` with its source, licence and retrieval date. Bundled textures
-    and materials are not used - loaded geometry is re-materialled with the
-    project's own shaders so it matches the world.
+  - **Exception**: the rider's hands. They are a sprite - one drawn image under
+    `public/sprites/`, recorded in `ASSETS.md` with its source and date. Six
+    attempts at generating them (primitives, a rigged GLB, a lofted fist, a
+    canvas painting) are in the history and none read as a hand; a first person
+    hand barely rotates, so the projection is the only thing that matters and a
+    sprite IS the projection. Road, sky, effects and every other texture stay
+    procedural.
+  - Any external image is committed together with the script that prepares it,
+    so the step from source to shipped file is repeatable rather than a
+    remembered manual edit. See `tools/key-sprite.py`.
 - Node 18+
 
 > Not: Bu proje Next.js DEĞİL. Supabase / API route / `force-dynamic` kuralları burada geçersiz.

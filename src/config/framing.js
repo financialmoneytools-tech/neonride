@@ -49,6 +49,13 @@ export const framing = {
       // bottom faster than the bodywork grows, which is why coverage fell the
       // first time this was tried at a fixed height.
       riderOrigin: { x: 0, y: -0.33, z: -0.70 },
+
+      // The hands are sprites and do not have to shrink with the rest of the
+      // cockpit. Everything else here is a camera decision and applies to all
+      // of it at once; this is the one part that is sized for legibility
+      // instead, and a tall frame needs it larger to hold the same share of the
+      // picture as a wide one does.
+      handScale: 1.075,
     },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
@@ -70,6 +77,7 @@ export const framing = {
       // way round: growing the tall profile would eat road, and vertical has
       // the least road to spare.
       riderOrigin: { x: 0, y: -0.226, z: -0.435 },
+      handScale: 1.0,
     },
   ],
 };

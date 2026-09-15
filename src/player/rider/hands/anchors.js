@@ -64,13 +64,3 @@ export function gripAnchorFrame(anchor, side, target = new THREE.Matrix4()) {
   if (side === SIDE_LEFT) target.premultiply(_mirror);
   return target;
 }
-
-/**
- * Length of the grip the anchor sits on, in rig units. A loaded model is scaled
- * against this and the anchor radius rather than against a magic number.
- * @param {object} anchor
- * @returns {number}
- */
-export function gripLength(anchor) {
-  return _from.fromArray(anchor.from).distanceTo(_to.fromArray(anchor.to));
-}

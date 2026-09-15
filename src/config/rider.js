@@ -105,39 +105,10 @@ export const rider = {
     clampCap: { radius: 0.021, length: 0.05, spacing: 0.038 },
   },
 
-  grip: {
-    from: rightGrip.from,
-    to: rightGrip.to,
-    radius: rightGrip.radius,
-    radialSegments: 14,
-    ribs: 5, // shallow rings along the grip, purely to catch the rim light
-    ribRadius: 0.0265,
-    ribWidth: 0.006,
-    // Flared bar end, built as a lathe profile of [radius, distance] pairs.
-    // Lathe profiles must be listed with the distance increasing, which is
-    // what gives outward facing normals; both ends close at radius 0 so the
-    // cap is solid from every angle.
-    capProfile: [
-      [0.0, 0.0],
-      [0.019, 0.001],
-      [0.026, 0.006],
-      [0.028, 0.016],
-      [0.024, 0.021],
-      [0.0, 0.024],
-    ],
-    capSegments: 14,
-  },
-
-  lever: {
-    pivot: [0.258, 0.019, 0.016],
-    length: 0.125,
-    // Direction the blade runs: outward along the bar and forward past it.
-    direction: [0.72, 0.04, -0.69],
-    thickness: 0.0075,
-    width: 0.021,
-    perch: { width: 0.03, height: 0.036, depth: 0.034 },
-  },
-
+  // The grip tube and the brake lever used to be described here. Both are drawn
+  // into the hand sprite now, with the bar end and the switch block, so that
+  // there is no seam between a 2D hand and a 3D bar. The grip ANCHOR above
+  // stays: it is what the sprite is placed from.
   mirror: {
     // The stalk must RISE, not reach out: mostly outward plants the head over
     // the hand, where it blocks the road. Up and back puts the heads at 50 to
