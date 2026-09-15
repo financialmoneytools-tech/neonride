@@ -153,7 +153,12 @@ function buildScreen(cfg, dark, neon) {
   shell.scale(cfg.radii[0], cfg.radii[1], cfg.radii[2]);
   dark.add(shell, partMatrix(1, cfg.offset, cfg.rotation, _matrix));
 
+  // Built as a unit circle and scaled to the screen's own radii. A torus has
+  // one radius and the screen is an ellipse, so a fixed ring either cuts
+  // through the panel or floats outside it - and the taller the screen, the
+  // further out it floats.
   const edge = cfg.edge;
-  const ring = new THREE.TorusGeometry(edge.radius, edge.tube, edge.segments[1], edge.segments[0]);
+  const ring = new THREE.TorusGeometry(1, edge.tube, edge.segments[1], edge.segments[0]);
+  ring.scale(cfg.radii[0], cfg.radii[1], 1);
   neon.add(ring, partMatrix(1, edge.offset, edge.rotation, _matrix));
 }

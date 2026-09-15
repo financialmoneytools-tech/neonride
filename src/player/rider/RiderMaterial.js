@@ -41,6 +41,7 @@ const FRAGMENT_SHADER = `
   uniform vec3 uRimColor;
   uniform float uRimStrength;
   uniform float uRimPower;
+  uniform float uOpacity;
 
   varying vec3 vNormalView;
   varying vec3 vViewDir;
@@ -68,7 +69,7 @@ const FRAGMENT_SHADER = `
     float rim = pow(1.0 - clamp(dot(normal, view), 0.0, 1.0), uRimPower);
     color += uRimColor * rim * uRimStrength;
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, uOpacity);
 
     #include <colorspace_fragment>
     #include <dithering_fragment>
@@ -93,6 +94,10 @@ export function createRiderMaterial(preset, name) {
       uRimColor: { value: new THREE.Color(preset.rim) },
       uRimStrength: { value: preset.rimStrength },
       uRimPower: { value: preset.rimPower },
+      // Glass. A windscreen is the one part of a motorcycle you are meant to
+      // see THROUGH, and at this framing it sits across the middle of the
+      // frame - opaque, it is a slab over the road in every shot.
+      uOpacity: { value: preset.opacity === undefined ? 1 : preset.opacity },
     },
     vertexShader: VERTEX_SHADER,
     fragmentShader: FRAGMENT_SHADER,
@@ -100,6 +105,10 @@ export function createRiderMaterial(preset, name) {
     // but a needless uniform, and it would tint parts the rider is holding.
     fog: false,
     dithering: true,
+    transparent: preset.opacity !== undefined && preset.opacity < 1,
+    // Tested but not written, so the road behind the screen is not punched
+    // away by it and the parts behind it still sort correctly.
+    depthWrite: preset.opacity === undefined || preset.opacity >= 1,
   });
   material.name = name;
   return material;

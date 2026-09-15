@@ -57,7 +57,19 @@ export const framing = {
       // knobs: pulling the rig in without raising it sends the tank off the
       // bottom faster than the bodywork grows, which is why coverage fell the
       // first time this was tried at a fixed height.
-      riderOrigin: { x: 0, y: -0.284, z: -0.600 },
+      // Solved against the same targets as the wide profile, and it needs its
+      // own numbers: a 9:16 frame is half the horizontal field of view, so the
+      // same rig lands the hands 7 per cent further out and 13 per cent higher.
+      //
+      // It reaches the HAND and TANK targets and it cannot reach the mirror and
+      // screen ones, which is a property of the two frames rather than of these
+      // numbers. The geometry is shared and only the framing differs, so with
+      // the hands at 82 per cent down the mirrors land at 62 and the screen top
+      // at 48 - a 93 degree vertical field of view over a frame nearly twice as
+      // tall puts a fixed height much lower in it. The acceptance percentages
+      // are a 16:9 contract; 9:16 is held to looking right, not to matching
+      // them, and forcing it would mean a second set of mirrors and screens.
+      riderOrigin: { x: 0, y: -0.46, z: -0.686 },
 
       // The hands are sprites and do not have to shrink with the rest of the
       // cockpit. Everything else here is a camera decision and applies to all
@@ -107,7 +119,14 @@ export const framing = {
       // any one part of it. 16:9 comes down to meet 9:16 rather than the other
       // way round: growing the tall profile would eat road, and vertical has
       // the least road to spare.
-      riderOrigin: { x: 0, y: -0.196, z: -0.375 },
+      // Solved against the reference framing rather than chosen. The target
+      // is measured in percentages of the frame - hands at 20 and 80 per cent
+      // across and 85 per cent down - and these are the two numbers that put
+      // them there. NOT pitch and not camera height: the rig is a CHILD of the
+      // camera, so pitching the camera rotates the cockpit with it and moves it
+      // in frame by nothing at all. Measured, -0.12 rad of ride pitch moved the
+      // hands by one tenth of one per cent. Only riderOrigin moves the machine.
+      riderOrigin: { x: 0, y: -0.2245, z: -0.385 },
       handScale: 1.0,
       handInset: 0,
 

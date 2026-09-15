@@ -189,11 +189,19 @@ export const fairing = {
 // Bubble screen. Short and steeply raked, so it crosses the frame just above
 // the cluster without hiding the road.
 export const screen = {
-  radii: [0.105, 0.085, 0.012],
-  offset: [0, -0.012, -0.235],
+  // A real windscreen, not a wind deflector. The reference framing wants the
+  // top of it between 20 and 35 per cent down, well above the cluster, which
+  // means it is one of the largest things on the bike and the closest to the
+  // camera. Measured, this lands the top edge at 23 per cent.
+  radii: [0.112, 0.30, 0.012],
+  offset: [0, 0.24, -0.235],
   rotation: [-0.62, 0, 0],
   segments: [22, 12],
   // The lit edge is what actually reads at night; the panel behind it is
   // nearly black.
-  edge: { radius: 0.104, tube: 0.0045, segments: [36, 6], offset: [0, -0.012, -0.235], rotation: [-0.62, 0, 0] },
+  // The lit edge traces the screen's own outline. It is built as a unit circle
+  // and scaled to `radii`, because the screen is an ellipse and a torus is not:
+  // at a fixed radius the ring either cut through the panel or floated well
+  // outside it, and the taller the screen got the worse that was.
+  edge: { tube: 0.0045, segments: [36, 6], offset: [0, 0.24, -0.235], rotation: [-0.62, 0, 0] },
 };

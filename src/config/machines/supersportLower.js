@@ -88,7 +88,11 @@ export const lower = {
   // [x across, height above the arc radius, hard]
   fender: {
     centre: AXLE,
-    radius: 0.206,
+    // Wider and heavier than a race fender, which is what the reference has:
+    // at this camera the fender is one of the few parts read in silhouette
+    // against the road, and a thin blade over a fat tyre reads as a bicycle.
+    // It overhangs the tyre either side, the way a road fender does.
+    radius: 0.212,
     // Starts well up the back of the wheel, not down behind it. The rider's
     // eye is above and behind the front tyre and looks straight into whatever
     // opening the fender leaves, so the rear edge is tucked up where the fork
@@ -96,22 +100,22 @@ export const lower = {
     thetaStart: 0.78,
     thetaLength: 1.94,
     segments: 20,
-    thickness: 0.011,
+    thickness: 0.017,
     section: [
-      [-0.052, -0.020, 1], // lower edge, one side
-      [-0.046, 0.001, 1], // turn up onto the top plane
-      [-0.026, 0.010, 0],
-      [0.000, 0.015, 1], // spine, creased
-      [0.026, 0.010, 0],
-      [0.046, 0.001, 1],
-      [0.052, -0.020, 1], // lower edge, the other side
+      [-0.078, -0.030, 1], // lower edge, one side
+      [-0.070, 0.002, 1], // turn up onto the top plane
+      [-0.040, 0.014, 0],
+      [0.000, 0.021, 1], // spine, creased
+      [0.040, 0.014, 0],
+      [0.070, 0.002, 1],
+      [0.078, -0.030, 1], // lower edge, the other side
     ],
     // Neon seam laid along the spine crease, the same trim the tank carries.
-    seam: { width: 0.0075, lift: 0.0035 },
+    seam: { width: 0.010, lift: 0.0045 },
     // Stays from the slider down to the fender edge, one pair per side.
     stay: {
       from: [0.104, -0.404, -0.196],
-      to: [0.066, -0.408, -0.318],
+      to: [0.082, -0.404, -0.322],
       radius: 0.006,
       radialSegments: 8,
     },

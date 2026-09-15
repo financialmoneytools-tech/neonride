@@ -62,7 +62,9 @@ export const supersport = {
     offset: [0, -0.150, -0.030],
     rotation: [0.2, 0, 0], // nose down, so it recedes toward the bars
     section: TANK_SECTION,
-    radii: [0.170, 0.070, 0.245], // half extents the section and spine scale to
+    // Wide. The reference has the tank filling 30 to 70 per cent of the
+    // frame - it is the floor of the shot, not a spine down the middle.
+    radii: [0.250, 0.070, 0.245], // half extents the section and spine scale to
     // Stations run rear to front, z +1 nearest the rider. Widest just behind
     // the middle and pinched at the front, where it meets the steering head.
     stations: [
@@ -78,7 +80,11 @@ export const supersport = {
     seam: { size: [0.009, 0.005, 0.33], offset: [0, 0.032, 0.02] },
   },
 
-  tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, -0.062, -0.012] },
+  // Up at the bar line, which is where a top yoke actually is: the clip-ons
+  // bolt to the fork tops just under it. Measured, this puts it at 83 per
+  // cent down - between the tank's far edge at 77 and the hands at 85, which
+  // is the gap the reference shows it in.
+  tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, 0.003, -0.012] },
 
   // Everything below the bar line: fork sliders, headlight, cowl, fender, tyre.
   //
@@ -96,7 +102,7 @@ export const supersport = {
   // slider, seal, lug and axle - belongs to `lower` and only exists when
   // lowerFront is on, so `to` here is only reached when it is off.
   forkTop: {
-    from: [0.086, -0.078, -0.018],
+    from: [0.086, -0.013, -0.018],
     to: [0.097, -0.215, -0.092],
     radius: 0.019,
     radialSegments: 14,

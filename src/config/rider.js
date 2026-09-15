@@ -113,19 +113,26 @@ export const rider = {
     // The stalk must RISE, not reach out: mostly outward plants the head over
     // the hand, where it blocks the road. Up and back puts the heads at 50 to
     // 57 per cent down while the hands stay at 63 and below, clear of them.
+    // Tall. The reference framing puts the heads at 35 per cent down while the
+    // hands are at 85, which is half the height of the frame between them, and
+    // a stalk that only just clears the bars cannot do that. This one reaches
+    // up 0.31 rider units - measured, it lands the head at 36.6 per cent.
     stalkFrom: [0.205, 0.014, 0.014],
-    stalkTo: [0.262, 0.158, 0.056],
+    stalkTo: [0.245, 0.326, 0.056],
     // Thin, and thinner still at the top. Once the bodywork moved in around
     // them these read as paddles: a stalk of a constant 0.0095 is nearly as
     // thick as a finger, and at this camera the eye reads thickness against
     // the hand right beside it. A real stalk is a stem, so it tapers.
-    stalkRadius: 0.0072,
-    stalkTipRadius: 0.0042,
+    // Thicker than they were. The stalk has to reach 0.31 units up to put the
+    // head where the reference framing wants it, and at the old 0.0072 that
+    // came out as a wire with a lollipop on the end of it.
+    stalkRadius: 0.014,
+    stalkTipRadius: 0.0095,
     // Small heads, set further outboard, which is what the references have -
     // the head is a chip of glass on the end of a stem, not a plate. Dropping
     // the radius from 0.036 takes roughly half the area off each one.
-    headRadius: 0.019,
-    headDepth: 0.0055,
+    headRadius: 0.038,
+    headDepth: 0.009,
     headSegments: 16,
     // The rider's eye is above the head, so the face tips up as well as back.
     // Turned further outboard than the old value: a head angled out shows the
@@ -133,7 +140,7 @@ export const rider = {
     // references look like and less of the road blocked.
     headRotation: { x: -0.35, y: -0.52, z: 0 },
     glassInset: 0.0018,
-    glassRadius: 0.0155,
+    glassRadius: 0.032,
   },
 
   hand,
@@ -205,14 +212,20 @@ export const rider = {
       rimStrength: 0.26,
       rimPower: 4.0,
     },
+    // Glass: the mirror faces and the windscreen. Transparent, because the
+    // screen is the one part of the bike the rider is meant to see through and
+    // at this framing it stands across the middle of the frame. Opaque, it was
+    // a slab over the road - measured on target for size and completely wrong
+    // to look at.
     mirror: {
-      color: 0x070a14,
+      color: 0x0a0f1e,
       ambient: 0x121a30,
       key: 0xb9c6e8,
       keyStrength: 1.15,
       rim: 0x9a6cff,
-      rimStrength: 0.75,
-      rimPower: 1.7,
+      rimStrength: 0.9,
+      rimPower: 1.5,
+      opacity: 0.3,
     },
     // The inside of a vent. Unpainted, and much darker than the panel around
     // it - a recess that shades like its own bodywork is not a recess, it is a
