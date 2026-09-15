@@ -16,6 +16,8 @@ import { capture } from './config/capture.js';
 import { framing } from './config/framing.js';
 import { player } from './config/player.js';
 import { postprocess } from './config/postprocess.js';
+import { ui } from './config/ui.js';
+import { audio } from './config/audio.js';
 
 export const config = {
   renderer,
@@ -33,6 +35,8 @@ export const config = {
   world,
   player,
   postprocess,
+  ui,
+  audio,
 };
 
 export default config;

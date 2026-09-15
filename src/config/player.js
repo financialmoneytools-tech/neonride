@@ -24,7 +24,32 @@ export const player = {
     // Throttle applied when the rider is not touching anything, so the ride
     // never stalls while the cockpit is being tuned. Set to 0 for a real stop.
     throttleFloor: 0.42,
-    gears: 6, // fake gear count, only the rev counter uses it
+    // The fake gearbox. There is no clutch and no torque curve; this exists so
+    // the tachometer and the engine note read like a motorcycle, and the note
+    // is what makes the numbers matter - see player/bike/gearbox.js.
+    //
+    // GEOMETRIC, not six equal bands. Each gear reaches `step` of the speed the
+    // next one reaches, so first is short and top is long, the way anything is
+    // geared. Equal bands survive on a dial nobody stares at and do not survive
+    // being the engine note: every pull is the same length and the ear has the
+    // pattern inside two shifts.
+    //
+    // `topSpeed` is over 1 on purpose. A bike is geared for a speed its drag
+    // will not let it reach, so top speed falls short of the redline in top -
+    // which here also leaves the note somewhere it can still move at full
+    // throttle instead of sitting against the limiter for a whole clip. At the
+    // bike's real top speed these values put it at 80 per cent of the redline.
+    //
+    // The band that is actually ridden is 0.62 to 1.0: the autopilot holds full
+    // throttle and will not brake below 62 per cent of top speed. These ratios
+    // put two upshifts inside that band, so its rare brake costs two downshifts
+    // and two upshifts coming back rather than a slow slide inside one gear.
+    gearbox: {
+      count: 6,
+      topSpeed: 1.06, // fraction of maxSpeed at the redline in top gear
+      step: 0.78, // each gear reaches this fraction of the next one's speed
+      bottomRpm: 0.24, // where an upshift lands; 0 would be a stall
+    },
 
     lateralLimit: 5.4, // how far off the centre line the bike may drift
     lateralSpeed: 13, // units per second of drift at full steer and full speed

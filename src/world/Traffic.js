@@ -98,6 +98,16 @@ export class Traffic {
    * @param {number} dt
    * @param {object} state shared loop state; reads distance, speed, lateral
    */
+  /**
+   * Phase of the roof beacons, in seconds. Public so the siren can alternate
+   * off the same clock the lights flash on rather than keeping a second one
+   * that would drift against it.
+   * @returns {number}
+   */
+  get beaconPhase() {
+    return this._beaconPhase;
+  }
+
   update(dt, state) {
     const cfg = config.world.traffic;
 

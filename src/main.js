@@ -8,6 +8,8 @@ import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
+import { StartScreen } from './ui/StartScreen.js';
+import { Audio } from './audio/Audio.js';
 import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
 import { Roadside } from './world/Roadside.js';
@@ -130,6 +132,9 @@ loop.add((dt, state) => traffic.update(dt, state));
 loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
 loop.add((dt, state) => post.update(dt, state));
+// After everything that writes to state, because every voice in it is driven
+// by what the frame ended up being rather than by what it started as.
+loop.add((dt, state) => audio.update(dt, state));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
 
 /** Applies capture mode: overlay off, pixel ratio pinned, chain resized. */
@@ -157,6 +162,9 @@ const hotkeys = new Hotkeys(
       if (stats) stats.setVisible(!stats.visible);
     },
     fullscreen: () => Fullscreen.toggle(),
+    mute: () => {
+      console.info('[audio]', audio.toggleMute() ? 'muted' : 'unmuted');
+    },
     quality: () => {
       // Only the settings that can be changed live are re-applied: the pixel
       // ratio and the bloom buffer size. Anything allocated at construction -
@@ -203,6 +211,24 @@ const reveal = new KeySequence(
 // not announced anywhere the player can see.
 window.neonRide = { god: setAutopilot };
 
+const audio = new Audio();
+
+// The title card is the audio entry point, not decoration. A browser will not
+// start an AudioContext outside a user gesture, and one started without a
+// gesture does not fail - it comes up suspended and silently plays nothing. So
+// the graph is built inside the handler rather than resumed from somewhere
+// later, and the card is dismissed before anyone starts recording, which is why
+// it never appears in footage.
+//
+// `?god=1` arms the autopilot and capture mode before the card goes up, so one
+// press drops straight into a clean recording run: overlay off, pixel ratio
+// pinned, sound already live.
+const wantsGod = new URLSearchParams(location.search).get('god') === '1';
+const start = new StartScreen(document.body, () => {
+  audio.start(traffic);
+  if (wantsGod) setAutopilot(true);
+});
+
 applyCapture();
 loop.start();
 
@@ -211,13 +237,15 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio };
 }
 
 /** Releases every resource in order (the loop stops first). */
 function disposeAll() {
   loop.dispose();
   hotkeys.dispose();
+  audio.dispose();
+  start.dispose();
   reveal.dispose();
   viewport.dispose();
   post.dispose();

@@ -54,6 +54,7 @@ export const input = {
     cameraProfile: 'KeyV', // cycle ride / cinematic
     overlay: 'KeyH', // show and hide the stats overlay on its own
     fullscreen: 'KeyF', // enter and leave fullscreen
+    mute: 'KeyM', // master mute
     quality: 'KeyQ', // cycle the quality preset, for testing a phone tier
   },
 };

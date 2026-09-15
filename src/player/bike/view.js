@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { updateFov, updateLean } from './response.js';
+import { resolveGear } from './gearbox.js';
 
 /**
  * view - turns where the bike is into where the camera is.
@@ -26,6 +27,7 @@ const _direction = new THREE.Vector3();
 
 const TWO_PI = Math.PI * 2;
 const NEUTRAL = { steer: 0, throttle: 0, brake: 0 };
+const _drive = { gear: 0, rpm: 0 };
 
 /**
  * @param {import('../BikePhysics.js').BikePhysics} rig
@@ -103,33 +105,11 @@ export function placeView(rig, dt, state) {
   state.lean = rig.lean;
   state.lateral = rig.lateral;
   state.bob = bobVertical;
-  state.rpm = revs(speedRatio, bike.gears);
-  state.gear = gearAt(speedRatio, bike.gears);
+  // One call for both, so the needle dropping and the number going up cannot
+  // disagree - they used to be two functions splitting the speed range the
+  // same way, which is two chances to split it differently.
+  resolveGear(speedRatio, bike.gearbox, _drive);
+  state.rpm = _drive.rpm;
+  state.gear = _drive.gear;
 }
 
-/**
- * Fake rev counter: the speed range is cut into gears, and the needle sweeps
- * across each one, so accelerating reads as a series of pulls rather than one
- * slow climb.
- * @param {number} speedRatio
- * @param {number} gears
- * @returns {number} 0..1
- */
-function revs(speedRatio, gears) {
-  const span = 1 / gears;
-  const withinGear = (speedRatio % span) / span;
-  return 0.25 + 0.75 * withinGear;
-}
-
-/**
- * Which gear the fake box is in. Comes from the same split of the speed range
- * that revs() sweeps across, so the needle dropping and the number going up
- * happen on the same frame - which is the whole reason the cluster shows both.
- * @param {number} speedRatio
- * @param {number} gears
- * @returns {number} 0 for neutral, else 1..gears
- */
-function gearAt(speedRatio, gears) {
-  if (speedRatio <= 0.002) return 0;
-  return Math.min(gears, Math.floor(speedRatio * gears) + 1);
-}

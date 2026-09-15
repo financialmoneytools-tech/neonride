@@ -91,6 +91,8 @@ export class BikePhysics {
     state.speed = this.speed;
     state.speedRatio = speedRatio;
     state.lateral = this.lateral;
+    // The throttle applied, not the one requested - see _updateSpeed.
+    state.drive = this.drive;
   }
 
   /**
@@ -193,6 +195,13 @@ export class BikePhysics {
   /** Throttle against brake and drag. Drag is what actually caps the speed. */
   _updateSpeed(dt, input, bike) {
     const throttle = Math.max(input.throttle, bike.throttleFloor);
+
+    // Kept, because the throttle the bike is ACTUALLY given is not the throttle
+    // the rider asked for and anything downstream that cares needs the real
+    // one. `throttleFloor` means a hands-off bike is pulling 42 per cent, and
+    // the engine note read the raw input instead: with nothing held it sounded
+    // like a permanent overrun while the bike accelerated underneath it.
+    this.drive = throttle;
 
     const drive = throttle * bike.acceleration;
     const braking = input.brake * bike.brakeForce;
