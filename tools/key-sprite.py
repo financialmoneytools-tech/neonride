@@ -1,21 +1,31 @@
 """Key a flat white background out of a sprite and write a trimmed RGBA PNG.
 
-Run once per source image; the game loads only the PNG this produces.
+Run once per source image; the game loads only the PNGs this produces.
 
-    python tools/key-sprite.py art/sprites/glove-right.png public/sprites/glove-right.png
+    python tools/key-sprite.py art/sprites/glove-left.png public/sprites/glove-left.png
+
+Frames that have to stay registered with each other - the neutral and braking
+right hand, which swap in place - are keyed as a GROUP, so they share one crop
+and one size:
+
+    python tools/key-sprite.py --group \\
+        art/sprites/glove-right.png public/sprites/glove-right.png \\
+        art/sprites/glove-right-brake.png public/sprites/glove-right-brake.png
+
+Cropped separately the two would each shrink to their own content, come out
+different sizes, and the hand would jump sideways the instant the brake came on.
 
 Sources live in art/ and are not shipped; only the keyed PNG under public/ is
-fetched at runtime. Keeping them apart matters more than it looks - the source
-is a PNG too now, and writing the result beside it under a derived name would
+fetched at runtime. Keeping them apart matters more than it looks - the sources
+are PNGs too, and writing the result beside one under a derived name would
 overwrite the thing it was derived from the second time anyone ran this.
 
-Why a script and not a shader or a load-time canvas pass: the source is a JPEG,
-so its edges carry ringing, and getting clean alpha needs a flood fill from the
-borders rather than a per-pixel threshold. A threshold alone punches holes in
-every light thing INSIDE the drawing - the carbon knuckle armour here is full of
-white highlights - and leaves a white halo everywhere the artwork is dark. Doing
-it once, offline, also means the runtime pays nothing and the result can be
-looked at before it ships.
+Why a script and not a shader or a load-time canvas pass: getting clean alpha
+needs a flood fill from the borders rather than a per-pixel threshold. A
+threshold alone punches holes in every light thing INSIDE the drawing - the
+carbon knuckle armour is full of white highlights - and leaves a white halo
+everywhere the artwork is dark. Doing it once, offline, also means the runtime
+pays nothing and the result can be looked at before it ships.
 """
 
 import sys
@@ -28,7 +38,7 @@ from PIL import Image
 # border. Loose enough for JPEG noise, tight enough to keep the artwork's own
 # highlights.
 WHITE = 236
-# Background does not have to touch the border. The gap between the brake lever
+# Background does not have to touch the border. The gap between a brake lever
 # and the fingers is enclosed by the drawing, and the border fill cannot reach
 # it - it came out as a white patch hanging in the middle of the sprite. An
 # enclosed pocket is treated as background when it is PURE white over an area
@@ -36,22 +46,30 @@ WHITE = 236
 # comparison and much smaller.
 ENCLOSED_WHITE = 249
 ENCLOSED_AREA = 400
-# Alpha inside this band is taken from luminance, which recovers the anti
-# aliased edge the artist drew instead of leaving a stair-stepped cut.
+# Alpha inside this band of the edge is taken from luminance, which recovers the
+# anti aliased edge the artist drew instead of leaving a stair-stepped cut.
 FEATHER = 3
+
+# White added around the source before anything else happens.
+#
+# The drawings run off their own canvas - the switch block at one side, the bar
+# end at the other - and a flood fill that starts at the border cannot get round
+# them, so those sides came out with no silhouette at all: the alpha simply
+# stopped where the image did. Fading the edge hid it and cost a visible
+# gradient band. Padding fixes the cause instead. The fill goes all the way
+# round, every side gets a real outline, and the only fade left is the one that
+# should be there.
+PAD = 0.05
+# Transparent border on the finished PNG, so sampling at the very edge of the
+# plane never smears the last opaque row across it.
+MARGIN = 8
+
 # Longest side of the written PNG. The sprite covers a few per cent of a 1080p
 # frame, so anything past this is bytes nobody sees.
 MAX_SIDE = 1024
-# Artwork that runs off the edge of its own canvas - the forearm at the bottom,
-# the switch block at the side - leaves a dead straight cut that reads as a
-# rectangle pasted over the scene, because that is what it is. Faded over a band
-# it reads as the part going into shadow, which at night is what it would do.
-#
-# Applied to all four sides unconditionally. Where the drawing does not reach an
-# edge the pixels there are already transparent and the fade changes nothing, so
-# there is no side to remember to switch on. The bottom gets more because the
-# arm is the longest run of solid colour into an edge.
-EDGE_FADE = 0.05
+# The forearm is the one thing that genuinely does leave the picture: it runs
+# off the bottom because the arm continues past the frame. Faded, it reads as an
+# arm going into shadow, which at night is what an arm does.
 BOTTOM_FADE = 0.10
 
 
@@ -123,35 +141,16 @@ def dilate(mask, steps):
     return out
 
 
-def fade_edges(image):
-    """Ramp alpha to zero at every border, so nothing ends on a straight cut."""
-    alpha = image.getchannel('A').load()
-    w, h = image.size
-
-    for depth, span, read, write in (
-        (round(h * BOTTOM_FADE), h, lambda i: h - 1 - i, 'row'),
-        (round(h * EDGE_FADE), h, lambda i: i, 'row'),
-        (round(w * EDGE_FADE), w, lambda i: i, 'col'),
-        (round(w * EDGE_FADE), w, lambda i: w - 1 - i, 'col'),
-    ):
-        if depth < 2:
-            continue
-        for i in range(depth):
-            scale = (i + 1) / depth
-            at = read(i)
-            if write == 'row':
-                for x in range(w):
-                    alpha[x, at] = int(alpha[x, at] * scale)
-            else:
-                for y in range(h):
-                    alpha[at, y] = int(alpha[at, y] * scale)
-
-
-def main(path, target):
+def keyed(path):
+    """One source, padded and keyed, still at full size and uncropped."""
     source = Image.open(path).convert('RGB')
-    rgb = np.asarray(source).astype(np.float32)
+    pad = round(max(source.size) * PAD)
+    padded = Image.new('RGB', (source.width + pad * 2, source.height + pad * 2), (255, 255, 255))
+    padded.paste(source, (pad, pad))
 
-    raw = np.asarray(source)
+    raw = np.asarray(padded)
+    rgb = raw.astype(np.float32)
+
     bg = flood_background(raw)
     bg |= enclosed_background(raw, bg)
     alpha = np.where(bg, 0.0, 1.0)
@@ -170,27 +169,64 @@ def main(path, target):
     rgb = np.where(band[..., None], np.clip(unpremultiplied, 0, 255), rgb)
 
     out = np.dstack([rgb, alpha * 255.0]).astype(np.uint8)
-    image = Image.fromarray(out, 'RGBA')
+    return Image.fromarray(out, 'RGBA'), source.size
 
-    # Trim to what is actually drawn, so the plane is not mostly empty.
-    box = image.getbbox()
-    image = image.crop(box)
 
-    if max(image.size) > MAX_SIDE:
-        scale = MAX_SIDE / max(image.size)
-        image = image.resize(
-            (round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
+def fade_bottom(image):
+    """The forearm leaves the picture; it should not leave it on a straight cut."""
+    depth = round(image.height * BOTTOM_FADE)
+    if depth < 2:
+        return
+    alpha = image.getchannel('A').load()
+    for i in range(depth):
+        y = image.height - 1 - i
+        scale = (i + 1) / depth
+        for x in range(image.width):
+            alpha[x, y] = int(alpha[x, y] * scale)
 
-    fade_edges(image)
 
-    image.save(target, optimize=True)
-    print('%s -> %s' % (path, target))
-    print('  cropped from %s to %s at %s' % (source.size, box, image.size))
-    print('  opaque %.1f%%, partial %.1f%%' % (
-        100.0 * (alpha == 1).mean(), 100.0 * ((alpha > 0) & (alpha < 1)).mean()))
+def union(boxes):
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+def main(pairs, group):
+    images = [keyed(src) for src, _ in pairs]
+    boxes = [image.getbbox() for image, _ in images]
+    # A registered set shares one crop, so every frame in it comes out the same
+    # size and nothing shifts when they swap.
+    crop = union(boxes) if group else None
+
+    for (src, target), (image, original), own in zip(pairs, images, boxes):
+        box = crop or own
+        image = image.crop(box)
+
+        bordered = Image.new('RGBA', (image.width + MARGIN * 2, image.height + MARGIN * 2))
+        bordered.paste(image, (MARGIN, MARGIN))
+        image = bordered
+
+        if max(image.size) > MAX_SIDE:
+            scale = MAX_SIDE / max(image.size)
+            image = image.resize(
+                (round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
+
+        fade_bottom(image)
+        image.save(target, optimize=True)
+
+        alpha = np.asarray(image)[..., 3]
+        print('%s -> %s' % (src, target))
+        print('  %s padded, cropped %s, written %s' % (original, box, image.size))
+        print('  clear %.1f%%, solid %.1f%%, edge %.1f%%' % (
+            100.0 * (alpha == 0).mean(), 100.0 * (alpha == 255).mean(),
+            100.0 * ((alpha > 0) & (alpha < 255)).mean()))
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        raise SystemExit('usage: key-sprite.py <source> <target>')
-    main(sys.argv[1], sys.argv[2])
+    args = sys.argv[1:]
+    grouped = False
+    if args and args[0] == '--group':
+        grouped = True
+        args = args[1:]
+    if not args or len(args) % 2:
+        raise SystemExit('usage: key-sprite.py [--group] <source> <target> [<source> <target>...]')
+    main(list(zip(args[0::2], args[1::2])), grouped)

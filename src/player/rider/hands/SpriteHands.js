@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../../../config.js';
+import { Input } from '../../../core/Input.js';
 import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
 
 /**
@@ -28,6 +29,13 @@ import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
  * written down beside an image is a number that can disagree with it, and the
  * cost of disagreeing is a stretched hand nobody thinks to check.
  *
+ * THROTTLE AND BRAKE are answered differently on purpose. Braking moves the
+ * FINGERS - they leave the grip and pull the lever - and no transform does
+ * that, so it is a second drawing swapped in. Throttle only rolls the wrist
+ * about the bar, which is a rotation, and the sprite is a plane in 3D rather
+ * than a picture in 2D, so it can turn about the real grip axis. Asking for a
+ * drawn frame for it would have been asking for something already available.
+ *
  * ATTACHMENT. The plane hangs off the same group the geometry hands did, so it
  * TRANSLATES with the bars for free and there is nothing to keep in sync. Only
  * its orientation is computed, and only against one rotation: the rig is bolted
@@ -40,6 +48,10 @@ import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
 
 const _identity = new THREE.Quaternion();
 const _inverse = new THREE.Quaternion();
+const _roll = new THREE.Quaternion();
+const _axis = new THREE.Vector3();
+const _from = new THREE.Vector3();
+const _to = new THREE.Vector3();
 
 /**
  * @param {object} anchor config.player.rider.anchors.rightGrip
@@ -107,12 +119,33 @@ export function createSpriteHands(anchor, rig) {
     mesh.position.y += offset[1];
     mesh.position.z += offset[2];
 
-    const hand = { mesh, material, texture, key, aspect: 1 };
+    const hand = { mesh, material, texture, key, aspect: 1, side, rest: mesh.position.clone() };
     hands.push(hand);
     group.add(mesh);
+
+    // The right hand has a second frame for braking. Loaded up front rather
+    // than on first use: a texture arriving mid-corner would show as a blank
+    // hand for however long the fetch took.
+    if (side === SIDE_RIGHT) {
+      hand.neutralMap = texture;
+      hand.brakeMap = loader.load(cfg.url.rightBrake);
+      hand.brakeMap.name = 'glove-right-brake';
+      hand.brakeMap.colorSpace = THREE.SRGBColorSpace;
+      hand.brakeMap.anisotropy = 4;
+      hand.brakeMap.wrapS = THREE.ClampToEdgeWrapping;
+      hand.brakeMap.wrapT = THREE.ClampToEdgeWrapping;
+      hand.braking = false;
+    }
   }
 
   const meshes = hands.map((h) => h.mesh);
+
+  // The grip's own axis, pointing outboard. Throttle turns the hand about this
+  // and nothing else does, so it is worked out once.
+  _from.fromArray(anchor.from);
+  _to.fromArray(anchor.to);
+  const gripAxis = _to.sub(_from).normalize().clone();
+  let throttle = 0;
 
   return {
     group,
@@ -122,20 +155,49 @@ export function createSpriteHands(anchor, rig) {
      * Turns the planes back to face the camera, less whatever share of the bar
      * they are asked to follow.
      */
-    update() {
+    update(dt, state) {
       const live = config.player.rider.hand.sprite;
+      const input = state && state.input;
+
       _inverse.copy(rig.steering.quaternion).invert();
       _inverse.slerp(_identity, live.followSteer);
 
-      // Size is resolved per frame rather than once, because it is per aspect:
-      // the hands are the one part of the cockpit sized to READ rather than to
-      // scale with the camera, and a tall frame needs them bigger to hold the
-      // same share of the picture.
+      // Damped, so a stab at the throttle rolls the wrist rather than snapping
+      // it, and so the hand keeps moving for a moment after the input stops.
+      throttle = Input.damp(throttle, input ? input.throttle : 0, live.throttle.tau, dt || 0);
+      const roll = throttle * live.throttle.roll;
+      _roll.setFromAxisAngle(gripAxis, roll);
+
+      const brake = input ? input.brake : 0;
+
       for (let i = 0; i < hands.length; i++) {
         const hand = hands[i];
         const width = live.width[hand.key] * rig.framing.handScale;
+
         hand.mesh.quaternion.copy(_inverse);
         hand.mesh.scale.set(width, width / hand.aspect, 1);
+
+        if (hand.side !== SIDE_RIGHT) continue;
+
+        // Only the right wrist turns a throttle, so only the right hand rolls
+        // and shifts. Premultiplied, because the roll happens about an axis in
+        // the RIG's space, not in the plane's own.
+        hand.mesh.quaternion.premultiply(_roll);
+        const shift = live.throttle.offset;
+        hand.mesh.position.set(
+          hand.rest.x + shift[0] * throttle,
+          hand.rest.y + shift[1] * throttle,
+          hand.rest.z + shift[2] * throttle,
+        );
+
+        // Two thresholds rather than one, so an input resting on the boundary
+        // cannot flicker the hand between frames.
+        const bars = live.brake;
+        if (hand.braking ? brake < bars.off : brake > bars.on) {
+          hand.braking = !hand.braking;
+          hand.material.map = hand.braking ? hand.brakeMap : hand.neutralMap;
+          hand.material.needsUpdate = true;
+        }
       }
     },
 
@@ -144,6 +206,7 @@ export function createSpriteHands(anchor, rig) {
       for (let i = 0; i < hands.length; i++) {
         hands[i].material.dispose();
         hands[i].texture.dispose();
+        if (hands[i].brakeMap) hands[i].brakeMap.dispose();
       }
       group.clear();
     },

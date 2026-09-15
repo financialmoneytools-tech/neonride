@@ -10,8 +10,8 @@ the file lives, and nothing goes in `public/` without a row.
 
 | | |
 |---|---|
-| Files | `public/sprites/glove-right.png`, `public/sprites/glove-left.png` |
-| Sources | `art/sprites/glove-right.png`, `art/sprites/glove-left.png` |
+| Files | `public/sprites/glove-right.png`, `glove-right-brake.png`, `glove-left.png` |
+| Sources | the same three names under `art/sprites/` |
 | Retrieved | 15 September 2026 |
 | Used by | `src/player/rider/hands/SpriteHands.js` |
 
@@ -30,8 +30,13 @@ so each gets its own texture.
 Sources live in `art/` and are not shipped. `tools/key-sprite.py` turns each one
 into the RGBA PNG the game loads:
 
-    python tools/key-sprite.py art/sprites/glove-right.png public/sprites/glove-right.png
     python tools/key-sprite.py art/sprites/glove-left.png public/sprites/glove-left.png
+    python tools/key-sprite.py --group         art/sprites/glove-right.png public/sprites/glove-right.png         art/sprites/glove-right-brake.png public/sprites/glove-right-brake.png
+
+The two right hand frames are keyed as a GROUP because they swap in place when
+the brake comes on. Cropped separately they would each shrink to their own
+content, come out different sizes, and the hand would jump the instant it
+changed.
 
 Keeping source and target apart matters more than it looks now that both are
 PNGs: a script that derived its own output name would have overwritten the
@@ -44,10 +49,16 @@ So it floods from the borders, finds enclosed pockets separately (the gap
 between a lever and the fingers is background the border fill cannot reach, and
 came out as a white patch hanging in the middle of the sprite), recovers the
 anti aliased edge from luminance and unpremultiplies it, crops to what is drawn,
-resizes to 1024 on the long side, and fades all four borders. That last one is
-not optional: artwork that runs off its own canvas - the forearm at the bottom,
-the switch block at the side - otherwise leaves a dead straight cut that reads
-as a rectangle pasted over the scene, because that is what it is.
+and resizes to 1024 on the long side.
+
+It also PADS each source with white before doing any of that. The drawings run
+off their own canvas - the switch block at one side, the bar end at the other -
+and a fill starting at the border cannot get round them, so those sides came out
+with no silhouette at all: the alpha simply stopped where the image did. Fading
+the edge hid it and cost a visible gradient band. Padding fixes the cause. The
+fill goes all the way round, every side gets a real outline, and the only fade
+left is the one that belongs - the forearm at the bottom, which genuinely does
+leave the picture and should go into shadow rather than stop on a cut.
 
 ## Removed
 
