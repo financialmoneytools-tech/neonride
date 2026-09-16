@@ -82,14 +82,6 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 ## Open issues
 
-- **Cockpit art is 1.79:1 and needs to be about 2.6:1.** The size fix sizes the
-  plane from the frame's height, which is correct and is what makes it stable
-  across aspects - but it means the drawing no longer reaches the frame's sides.
-  Measured, the arms stop 9.9 per cent from each edge at 16:9, 14.6 at 2:1 and
-  19.5 at 21:9, leaving empty corners along the bottom. To cover the width at
-  21:9 at the correct cockpit size the source needs an aspect of about 2.62:1,
-  with the same composition and the arms reaching the new corners. Nothing else
-  fixes it: widening the plane on its own stretches the drawing.
 - **Dash screen** - `cut-cockpit.py` reports `CONFIG_DISAGREES` if the punched
   hole and `screen` in `config/cockpit.js` drift. Re-run after any art change.
 - **Sway lifts the cut bottom edge** at full lock. With the plane now sitting
@@ -98,6 +90,23 @@ that chose a source by frame shape, and the second (tall) framing profile.
   horizontal cut.
 
 ### Closed since the last note
+
+- ~~Empty bottom corners at wide aspects~~. ACCEPTED after play-testing, 16
+  September 2026. Sizing the plane from the frame's height keeps the cockpit the
+  same size at every landscape aspect, and the cost is that a 1.79:1 drawing
+  stops short of the frame's sides: measured, the sleeves end 9.9 per cent from
+  each edge at 16:9, 14.6 at 2:1 and 19.5 at 21:9. The sleeves run off the
+  BOTTOM edge, which is where they read as continuing past the frame; they only
+  clip the side edges in the last 4 per cent of the image (y 1473-1535 of 1536),
+  so what is exposed at the corners is small and low. It plays and records
+  fine, so it stays.
+
+  A widening plan was written and cancelled: `pad-cockpit-source.py` padded the
+  canvas to 2.8:1 for an external outpaint, and both are deleted. Recorded
+  because the option is real if a future aspect makes the corners matter - the
+  drawing would need about 2.62:1 to reach the sides at 21:9 at this cockpit
+  size, and the padding tool is one command to write again. What does NOT work
+  is widening the plane on its own; that stretches the art.
 
 - ~~Cockpit too large in landscape~~. It was sized from the frame WIDTH, so
   every window wider than 16:9 grew it. Now sized from height. Note that this
