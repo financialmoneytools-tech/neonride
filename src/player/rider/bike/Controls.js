@@ -1,6 +1,3 @@
-import * as THREE from 'three';
-import { config } from '../../../config.js';
-import { addTube, partMatrix } from '../../../utils/geometry.js';
 
 /**
  * Controls - everything within reach of the hands.
@@ -11,10 +8,19 @@ import { addTube, partMatrix } from '../../../utils/geometry.js';
  * the bodywork behind it is.
  *
  * Clip-ons replace the straight bar: short stubs from the fork tops out to the
- * grips, angled down and back, which is the single clearest "supersport" cue
- * available at this camera. They end exactly where the grips are, because the
- * hands are built from the grip anchor's own frame: move the anchor and the
- * bars, the grips and the hands all follow it together.
+ * grips, which is the single clearest "supersport" cue available at this
+ * camera.
+ *
+ * They end INSIDE THE SPRITE, not at the grip. The grip is drawn, so the stub's
+ * job is to reach the artwork and disappear behind it, and the join then
+ * happens where no one can see it. That is the bargain the drawn bar was for.
+ * For a long time it was not kept: the stub stopped 0.188 short of the drawn
+ * grip and 18 per cent of the frame below it, which read as two handlebars, one
+ * painted and one metal, running side by side.
+ *
+ * What makes it work is that the anchor now IS the drawn bar - see the note on
+ * rightGrip in config/rider.js - so aiming the stub at the anchor and aiming it
+ * at the drawing are finally the same instruction.
  *
  * The bar end weight is drawn into the hand sprite now, along with the grip it
  * caps and the lever beside it.
@@ -29,24 +35,16 @@ import { addTube, partMatrix } from '../../../utils/geometry.js';
  * it.
  */
 
-const _matrix = new THREE.Matrix4();
-
-function side(point, sign) {
-  return [point[0] * sign, point[1], point[2]];
-}
-
 /**
  * @param {Object<string, import('../../../utils/geometry.js').GeometryBuilder>} builders
  */
 export function buildControls(builders) {
-  const cfg = config.player.rider.machine.controls;
-  const frame = builders.frame;
 
-  for (let s = 0; s < 2; s++) {
-    const sign = s === 0 ? 1 : -1;
-
-    const clipOn = cfg.clipOn;
-    addTube(frame, side(clipOn.from, sign), side(clipOn.to, sign), clipOn.radius, clipOn.radialSegments);
-
-  }
+  // NOTHING. The clip-on stubs were here, and they are gone: the handlebar is
+  // one continuous tube from grip to grip now (Handlebar.js), and a pair of
+  // stubs reaching in from the fork tops alongside it would be a second,
+  // shorter handlebar running parallel to the first.
+  //
+  // The file stays because the switch block, the lever perch and the master
+  // cylinder belong in it, and because the note above is worth keeping.
 }

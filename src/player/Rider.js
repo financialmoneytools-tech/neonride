@@ -106,6 +106,18 @@ export class Rider {
       // be parented to one group.
       lowerPaint: new GeometryBuilder(),
       lowerNeon: new GeometryBuilder(),
+      // The windscreen panel, for the same reason and in the other direction.
+      // It shared the mirrors' builder, which put it on the BARS: a screen that
+      // swung with the steering while its own lit edge - built into neonLeft,
+      // on the chassis - stayed put, and drew 8 per cent larger than the panel
+      // besides, because the bars carry hardwareScale and the chassis does not.
+      // Nothing showed it while the screen was a small dark egg. Widening it to
+      // fill the mirror gap would have made both halves of that obvious.
+      screenPanel: new GeometryBuilder(),
+      // Mirror stalks and housings. Same material as the frame, different
+      // PARENT: a mirror is bolted to the fairing, so it must not turn with the
+      // bars, and a merged mesh can only be parented once.
+      mirrorMount: new GeometryBuilder(),
     };
 
     // Which group each merged mesh belongs to. The tank and the bodywork are
@@ -117,6 +129,13 @@ export class Rider {
       paint: this.chassis,
       vent: this.chassis,
       neonLeft: this.chassis,
+      // With its lit edge, which lives in neonLeft. A windscreen is bolted to
+      // the fairing, not to the bars.
+      screenPanel: this.chassis,
+      // And the mirrors beside it, for the same reason. `mirror` is the glass,
+      // `mirrorMount` the stalk and housing; both are fairing furniture.
+      mirror: this.chassis,
+      mirrorMount: this.chassis,
     };
 
     buildHandlebar(builders);
@@ -141,6 +160,9 @@ export class Rider {
       rubber: createRiderMaterial(presets.rubber, 'RiderTyre'),
       lowerPaint: createRiderMaterial(cfg.machine.paint, 'RiderLowerPaint'),
       lowerNeon: createNeonMaterial(presets.neonLeft, 'RiderFenderTrim'),
+      // The same glass preset the mirror faces use; only the parent differs.
+      screenPanel: createRiderMaterial(presets.mirror, 'RiderScreen'),
+      mirrorMount: createRiderMaterial(presets.frame, 'RiderMirrorStalk'),
     };
 
     this.meshes = [];

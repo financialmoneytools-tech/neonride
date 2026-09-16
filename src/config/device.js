@@ -93,6 +93,13 @@ export const touch = {
   // particular - was a steering input. Holding a phone in landscape puts both
   // thumbs in the bottom corners, and that is the only place a control can be
   // without the hand covering the road.
+  //
+  // These were authored for landscape when portrait was still supported, and
+  // they are now the only case: a wide frame held in two hands, thumbs resting
+  // at the bottom outside corners, everything above the band inert so that
+  // gripping the phone to steady it does nothing. The band reaches well up the
+  // frame because a thumb pivots from the corner in an arc rather than sliding
+  // along the very edge.
   band: {
     // Share of the frame height, measured up from the bottom, that steers.
     // Above it, touches still drive but do not steer, so grabbing the top of
@@ -142,7 +149,11 @@ export const viewport = {
     // fullscreen because someone clicked the page is hostile.
     onFirstTouchWhenCoarse: true,
     // Also try to lock the orientation once fullscreen. Widely unsupported and
-    // allowed to fail silently; the game plays in both orientations anyway.
+    // allowed to fail silently - and it is NOT the reason the game ends up
+    // landscape. It used to say the game plays in both orientations anyway;
+    // it does not any more. config/orientation.js holds the prompt that
+    // actually enforces it, for the large majority of browsers that refuse
+    // this.
     lockOrientation: 'landscape',
   },
 };

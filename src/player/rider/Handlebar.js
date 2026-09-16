@@ -36,12 +36,20 @@ export function buildHandlebar(builders) {
 
   for (let s = 0; s < 2; s++) {
     const sign = s === 0 ? 1 : -1;
-    // A supersport has clip-ons, built in bike/Controls.js, and no crossbar.
-    if (cfg.bar.style !== 'clipOn') buildBar(builders.frame, cfg.bar, sign);
+    // ONE BAR, grip to grip. It was two clip-on stubs reaching in from the fork
+    // tops, and from the saddle that is not a handlebar, it is two short tubes
+    // with a hole between them: the path starts at x 0 now, so the two halves
+    // meet on the centreline and the clamp closes over the join.
+    buildBar(builders.frame, cfg.bar, sign);
     // The grip and the brake lever are drawn into the hand sprite along with
     // the hand itself, so there is no seam between a 2D hand and a 3D bar. They
     // are not built here any more - see hands/SpriteHands.js.
-    buildMirror(builders.frame, builders.mirror, cfg.mirror, sign);
+    //
+    // The mirrors do NOT go in with the bars. They are bolted to the fairing,
+    // beside the screen, and they were going into `frame` - which hangs off the
+    // steering group - so they swung with the bars while the fairing they are
+    // supposed to be bolted to stayed put.
+    buildMirror(builders.mirrorMount, builders.mirror, cfg.mirror, sign);
   }
 }
 
@@ -83,7 +91,13 @@ function buildBar(frame, bar, sign) {
 
 
 
-/** Stalk, housing and glass. Only the glass goes to the mirror builder. */
+/**
+ * Stalk, housing and glass. Only the glass goes to the mirror builder.
+ *
+ * Both builders are parented to the CHASSIS - see Rider.js. Coordinates here
+ * are therefore chassis space and carry no hardwareScale, which is why they do
+ * not look like the numbers that were here when this hung off the bars.
+ */
 function buildMirror(frame, mirrorBuilder, cfg, sign) {
   const from = side(cfg.stalkFrom, sign);
   const to = side(cfg.stalkTo, sign);

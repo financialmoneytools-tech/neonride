@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { config } from '../../../config.js';
-import { Input } from '../../../core/Input.js';
 import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
 
 /**
@@ -39,12 +38,22 @@ import { gripAnchorFrame, SIDE_LEFT, SIDE_RIGHT } from './anchors.js';
  * written down beside an image is a number that can disagree with it, and the
  * cost of disagreeing is a stretched hand nobody thinks to check.
  *
- * THROTTLE AND BRAKE are answered differently on purpose. Braking moves the
- * FINGERS - they leave the grip and pull the lever - and no transform does
- * that, so it is a second drawing swapped in. Throttle only rolls the wrist
- * about the bar, which is a rotation, and the sprite is a plane in 3D rather
- * than a picture in 2D, so it can turn about the real grip axis. Asking for a
- * drawn frame for it would have been asking for something already available.
+ * THROTTLE AND BRAKE MOVE NOTHING. Braking swaps in a second drawing with the
+ * fingers on the lever, and that is the only answer either input gets.
+ *
+ * Throttle used to roll the plane about the grip axis, which is what a wrist
+ * does and is not what this object is. The sprite is ONE RIGID PLANE carrying
+ * the hand and the whole forearm, so a transform that turns the hand turns the
+ * arm with it - and a forearm swinging while the bike sits still is read as
+ * wrong immediately. It was tried about the plane's centre and then about a
+ * pivot on the drawn grip axis; the pivot fixed the hand and made the sleeve
+ * worse, because a pivot only chooses WHICH end swings. Moving one part of a
+ * limb needs the parts to be separate objects, which for this sprite means
+ * another drawn frame, the way braking already works.
+ *
+ * Steering is the exception and stays: see followSteer below. The bars really
+ * do rotate when the rider steers, so the arms turning with them as one piece
+ * is not an artefact of the sprite being rigid - it is what is happening.
  *
  * ATTACHMENT. The plane hangs off the same group the geometry hands did, so it
  * TRANSLATES with the bars for free and there is nothing to keep in sync. Only
@@ -69,10 +78,6 @@ function prepare(texture, name) {
 
 const _identity = new THREE.Quaternion();
 const _inverse = new THREE.Quaternion();
-const _roll = new THREE.Quaternion();
-const _axis = new THREE.Vector3();
-const _from = new THREE.Vector3();
-const _to = new THREE.Vector3();
 
 /**
  * @param {object} anchor config.player.rider.anchors.rightGrip
@@ -172,12 +177,6 @@ export function createSpriteHands(anchor, rig) {
 
   const meshes = hands.map((h) => h.mesh);
 
-  // The grip's own axis, pointing outboard. Throttle turns the hand about this
-  // and nothing else does, so it is worked out once.
-  _from.fromArray(anchor.from);
-  _to.fromArray(anchor.to);
-  const gripAxis = _to.sub(_from).normalize().clone();
-  let throttle = 0;
 
   return {
     group,
@@ -193,12 +192,6 @@ export function createSpriteHands(anchor, rig) {
 
       _inverse.copy(rig.steering.quaternion).invert();
       _inverse.slerp(_identity, live.followSteer);
-
-      // Damped, so a stab at the throttle rolls the wrist rather than snapping
-      // it, and so the hand keeps moving for a moment after the input stops.
-      throttle = Input.damp(throttle, input ? input.throttle : 0, live.throttle.tau, dt || 0);
-      const roll = throttle * live.throttle.roll;
-      _roll.setFromAxisAngle(gripAxis, roll);
 
       const brake = input ? input.brake : 0;
 
@@ -224,14 +217,27 @@ export function createSpriteHands(anchor, rig) {
 
         if (hand.side !== SIDE_RIGHT) continue;
 
-        // Only the right wrist turns a throttle, so only the right hand rolls
-        // and shifts. Premultiplied, because the roll happens about an axis in
-        // the RIG's space, not in the plane's own.
-        hand.mesh.quaternion.premultiply(_roll);
-        const shift = live.throttle.offset;
-        hand.mesh.position.x += shift[0] * throttle;
-        hand.mesh.position.y += shift[1] * throttle;
-        hand.mesh.position.z += shift[2] * throttle;
+        // NOTHING MOVES THE SPRITE FOR THROTTLE OR BRAKE. There was a wrist
+        // roll here, about a pivot on the drawn grip axis, and before that the
+        // same roll about the plane's centre plus a small translation.
+        //
+        // Both were wrong for the same reason, and it is not the pivot. A real
+        // throttle rolls a WRIST: the hand turns and the forearm stays where it
+        // is. This sprite is one rigid plane carrying the hand and the whole
+        // forearm together, so any transform that turns the hand turns the arm
+        // with it, and an arm swinging against a bike that is not moving is
+        // read as wrong instantly. Measured at full throttle, the best version
+        // of it still moved the sleeve 28 per cent of the frame.
+        //
+        // No pivot fixes that, because the problem is that the hand and the arm
+        // are the same rigid object. Moving the hand alone needs them to be
+        // separate things - a second drawn frame, the way braking is done.
+        //
+        // So the plane is FROZEN against throttle and brake, and braking stays
+        // a texture swap, which moves nothing. Steering still turns both hands,
+        // through followSteer above: the bars really do rotate then, and the
+        // arms going with them is the one case where this whole sprite moving
+        // as one piece is correct.
 
         // Two thresholds rather than one, so an input resting on the boundary
         // cannot flicker the hand between frames.

@@ -76,7 +76,10 @@ export function buildFairing(builders) {
   const cfg = config.player.rider.machine;
 
   buildPanels(cfg.fairing, builders);
-  buildScreen(cfg.screen, builders.mirror, builders.neonLeft);
+  // The panel gets its own builder rather than sharing the mirrors'. A merged
+  // mesh can only be parented to one group, the mirrors turn with the bars and
+  // a windscreen does not - see Rider.js.
+  buildScreen(cfg.screen, builders.screenPanel, builders.neonLeft);
 }
 
 /** A wing either side, and the nose between them. That is the whole fairing. */
@@ -160,5 +163,8 @@ function buildScreen(cfg, dark, neon) {
   const edge = cfg.edge;
   const ring = new THREE.TorusGeometry(1, edge.tube, edge.segments[1], edge.segments[0]);
   ring.scale(cfg.radii[0], cfg.radii[1], 1);
-  neon.add(ring, partMatrix(1, edge.offset, edge.rotation, _matrix));
+  // The SCREEN's placement, not a second copy of it. The ring used to be posed
+  // from edge.offset and edge.rotation, which duplicated the panel's own and
+  // therefore had to be kept equal to it by hand.
+  neon.add(ring, partMatrix(1, cfg.offset, cfg.rotation, _matrix));
 }

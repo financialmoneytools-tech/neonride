@@ -13,7 +13,11 @@ Neon Ride is both a playable game and a footage generator. Two equal goals:
 This means:
 
 - Speed sensation is a core feature, not polish.
-- The game must run and compose correctly in 9:16 vertical, not only 16:9.
+- The game is LANDSCAPE ONLY. It was going to be both, and 9:16 was dropped
+  once the cockpit became one drawn image: the sprite, the road framing and the
+  touch controls are all built for a wide frame, and a portrait version is a
+  different composition rather than a narrower one. Portrait gets a "turn the
+  phone" gate - see config/orientation.js.
 - There must be a clean capture mode: HUD off, debug off, stable 60 fps,
   optional cinematic camera.
 - Visual quality outranks feature count. A shot that looks spectacular is
@@ -81,8 +85,12 @@ src/
 10. Tüm sayısal ayarlar (hız, bobbing genliği, bloom strength, fog yoğunluğu) `src/config.js` içinde tek yerde toplanır.
 
 ## Mobil
-- Hem yatay hem dikey desteklenir; yatay birincil, dikey 9:16 kayit icin zaten
-  `config.framing` profilinde tanimli.
+- YALNIZCA YATAY. Dikey tamamen birakildi: kokpit tek bir cizim ve 16:9 icin
+  yapildi, yol cerceveleme ve dokunmatik kontroller de oyle. Dikeyde oyun
+  baslamaz, "telefonu yan cevir" karti cikar ve kosu duraklatilir -
+  `config/orientation.js` ve `core/Orientation.js`.
+- Tam ekran ilk dokunusta istenir, ekran yonu kilidi de onunla birlikte -
+  cogu tarayici kilidi reddeder, karti asil uygulayan sey odur.
 - Dokunmatik kontrol ekranin ALT SERIDINDE: sol alt kose sola, sag alt kose
   saga, ikisi birden fren. Ust yariya dokunmak gaz verir ama direksiyon
   cevirmez - telefonu tutan el yanlislikla yon vermesin diye.

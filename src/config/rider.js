@@ -35,18 +35,37 @@ import { bike, machine, machines } from './machine.js';
  * whose own origin, orientation or units are not ours; the primitive hands
  * need none of it and leave them neutral.
  */
+// THIS IS THE GRIP THE ARTWORK DRAWS. It is not an independent opinion about
+// where a grip ought to be, and it used to be one: the anchor described a tube
+// running up and outboard while the sprite drew a bar lying dead flat, 0.0620
+// away and 22.6 degrees off. Nothing rendered the anchor, so nothing contested
+// it, and the bike was built around a bar nobody could see while the rider
+// looked at a different one. Two handlebars, and the drawn one always won,
+// because the drawn one is the one on screen.
+//
+// So it is re-authored onto the drawing, measured off public/sprites/
+// glove-right.png at 1024x908 and carried into rig space by the sprite's own
+// placement: the exposed tube's centre at image (130, 201), the bar end cap's
+// at (517, 200) - less than a pixel of slope over 387 - and the fist covering
+// that axis from x 155 to 460.
+//
+// What reads this: the hand sprite takes the POSITION only, and Controls.js
+// aims the clip-on stub at `from`. Nothing reads the direction any more - the
+// throttle roll that used to is gone - but it is still authored truthfully,
+// because the next bike definition will be written against this and an anchor
+// that lies propagates.
 const rightGrip = {
-  from: [0.272, 0.024, 0.037],
-  to: [0.398, 0.0345, 0.0885],
-  radius: 0.0245,
-  // Where along the grip the hand sits: 0 inner end, 1 outer end. Moved in from
-  // 0.5 because the fist is 0.125 wide on a 0.137 grip and centring it left
-  // 6 mm of tube at each end - and at the INBOARD end that showed as the grip's
-  // flat cap disc, lit cyan, sitting in the middle of the fist's own cap. At
-  // 0.44 the hand covers the inner end outright and what is left over shows
-  // outboard, where the bar end weight already closes it and where a hand not
-  // quite reaching the end of a grip is what a hand looks like.
-  along: 0.44,
+  from: [0.2163, 0.0895, 0.0717],
+  to: [0.3927, 0.0895, 0.0717],
+  // Half the drawn tube's thickness at the inboard end, where the glove does
+  // not cover it: it spans image y 160 to 242, so 41 px of a 908 px image
+  // across a plane 0.4138 tall.
+  radius: 0.0187,
+  // Where along the grip the hand sits: 0 inner end, 1 outer end. The middle of
+  // the fist's own coverage of the drawn bar - image x 155 to 460, midpoint
+  // 307, against an axis running 130 to 517. It was 0.44, reasoned about a 3D
+  // grip tube that is no longer built; this is measured off the hand that is.
+  along: 0.4587,
   offset: [0, 0, 0],
   rotation: [0, 0, 0],
   scale: 1,
@@ -89,19 +108,35 @@ export const rider = {
   // Handlebar centreline for the right half, mirrored for the left.
   // Points are joined by tubes with a sphere at every bend.
   bar: {
-    // 'clipOn' drops the crossbar entirely and bike/Controls.js builds the
-    // stubs from the fork tops out to the grips instead, which is what a
-    // supersport has and the clearest cue available at this camera.
-    style: 'clipOn',
+    // ONE CONTINUOUS TUBE, grip to grip, clamped in the middle.
+    //
+    // It was 'clipOn': no crossbar at all, and two stubs reaching in from the
+    // fork tops instead. That is what a supersport has and it is not what the
+    // camera sees. From the saddle the two stubs read as two disconnected
+    // pieces of metal with a gap between them, because that is what they are -
+    // there was never anything spanning the centre.
+    //
+    // The path now STARTS AT x 0. Built mirrored, the two halves meet exactly
+    // on the centreline and the clamp closes over the join, so the bar is one
+    // unbroken tube from the left grip to the right one.
+    //
+    // It ends on the grip anchor, [0.2163, 0.0895, 0.0717], which is the grip
+    // the hand sprite draws - so the tube runs into the artwork and stops
+    // inside it. The sweep is back and very slightly up: 0.057 of rise and
+    // 0.057 of reach toward the rider across the half span, which is a bar with
+    // a little pullback rather than a straight pipe.
     radius: 0.0155,
     radialSegments: 10,
     path: [
-      [0.05, 0.0, 0.0],
-      [0.17, 0.008, 0.006],
-      [0.29, 0.026, 0.04],
-      [0.395, 0.034, 0.086],
+      [0.000, 0.0755, 0.0150],
+      [0.090, 0.0805, 0.0310],
+      [0.160, 0.0865, 0.0540],
+      [0.2163, 0.0895, 0.0717],
     ],
-    clamp: { width: 0.115, height: 0.048, depth: 0.062, y: 0.004 },
+    // Raised to sit on the bar rather than under it. It was at y 0.004, which
+    // was where the bar used to be before the grip anchor was re-authored onto
+    // the drawn one and the whole bar line moved up 0.072.
+    clamp: { width: 0.115, height: 0.048, depth: 0.062, y: 0.0755 },
     clampCap: { radius: 0.021, length: 0.05, spacing: 0.038 },
   },
 
@@ -110,37 +145,34 @@ export const rider = {
   // there is no seam between a 2D hand and a 3D bar. The grip ANCHOR above
   // stays: it is what the sprite is placed from.
   mirror: {
-    // The stalk must RISE, not reach out: mostly outward plants the head over
-    // the hand, where it blocks the road. Up and back puts the heads at 50 to
-    // 57 per cent down while the hands stay at 63 and below, clear of them.
-    // Tall. The reference framing puts the heads at 35 per cent down while the
-    // hands are at 85, which is half the height of the frame between them, and
-    // a stalk that only just clears the bars cannot do that. This one reaches
-    // up 0.31 rider units - measured, it lands the head at 36.6 per cent.
-    stalkFrom: [0.205, 0.014, 0.014],
-    stalkTo: [0.245, 0.326, 0.056],
-    // Thin, and thinner still at the top. Once the bodywork moved in around
-    // them these read as paddles: a stalk of a constant 0.0095 is nearly as
-    // thick as a finger, and at this camera the eye reads thickness against
-    // the hand right beside it. A real stalk is a stem, so it tapers.
-    // Thicker than they were. The stalk has to reach 0.31 units up to put the
-    // head where the reference framing wants it, and at the old 0.0072 that
-    // came out as a wire with a lollipop on the end of it.
-    stalkRadius: 0.014,
-    stalkTipRadius: 0.0095,
-    // Small heads, set further outboard, which is what the references have -
-    // the head is a chip of glass on the end of a stem, not a plate. Dropping
-    // the radius from 0.036 takes roughly half the area off each one.
-    headRadius: 0.038,
-    headDepth: 0.009,
+    // BESIDE THE SCREEN, ON SHORT STALKS. These numbers are CHASSIS space -
+    // unscaled, bolted to the fairing - and not the bar space they used to be
+    // in, so they are not comparable with what was here before.
+    //
+    // What was here before reached 0.31 units straight up and put the heads at
+    // 35 per cent down the frame, above everything, on stalks longer than the
+    // mirrors were wide. That came from a reading of the reference framing that
+    // treated the mirror heads as a composition element to be placed. They are
+    // not: they are the thing a rider looks in to see behind, they live either
+    // side of the screen, and at this distance they are small.
+    //
+    // The stalk is 0.086 long now against 0.316, and it reaches OUT and forward
+    // from the fairing shoulder rather than up from the bars.
+    stalkFrom: [0.126, 0.150, -0.246],
+    stalkTo: [0.201, 0.166, -0.300],
+    stalkRadius: 0.011,
+    stalkTipRadius: 0.008,
+    // Smaller, because they are further away than they have ever been: they sit
+    // at the screen's own depth now, not at the bars'.
+    headRadius: 0.030,
+    headDepth: 0.008,
     headSegments: 16,
-    // The rider's eye is above the head, so the face tips up as well as back.
-    // Turned further outboard than the old value: a head angled out shows the
-    // rider its edge rather than its full face, which is both what the
-    // references look like and less of the road blocked.
-    headRotation: { x: -0.35, y: -0.52, z: 0 },
+    // Angled outward and slightly back, which is where a mirror has to point to
+    // show the rider anything, and which also turns its edge to the camera
+    // instead of its full face - less of the road covered.
+    headRotation: { x: -0.30, y: -0.62, z: 0 },
     glassInset: 0.0018,
-    glassRadius: 0.032,
+    glassRadius: 0.025,
   },
 
   hand,

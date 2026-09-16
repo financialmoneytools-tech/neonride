@@ -59,7 +59,7 @@ export const supersport = {
     // hid the other two: with the gate reading undefined the builder never
     // ran, so the missing offset never reached partMatrix, which would have
     // thrown on it immediately. Two bugs cancelling into silence.
-    offset: [0, -0.150, -0.030],
+    offset: [0, -0.030, -0.03],
     rotation: [0.2, 0, 0], // nose down, so it recedes toward the bars
     section: TANK_SECTION,
     // Wide. The reference has the tank filling 30 to 70 per cent of the
@@ -75,7 +75,7 @@ export const supersport = {
       { z: -1.00, offset: [0, -0.02], scale: [0.48, 0.46] },
     ],
     // Filler cap, the one piece of detail that says fuel tank rather than panel
-    cap: { radius: 0.026, height: 0.009, offset: [0, 0.03, 0.12], segments: 18 },
+    cap: { radius: 0.030, height: 0.012, offset: [0, 0.072, 0.095], segments: 18 },
     // Neon seam down the spine of the tank, matching the glove trim
     seam: { size: [0.009, 0.005, 0.33], offset: [0, 0.032, 0.02] },
   },
@@ -84,7 +84,13 @@ export const supersport = {
   // bolt to the fork tops just under it. Measured, this puts it at 83 per
   // cent down - between the tank's far edge at 77 and the hands at 85, which
   // is the gap the reference shows it in.
-  tripleClamp: { size: [0.205, 0.042, 0.08], offset: [0, 0.003, -0.012] },
+  tripleClamp: {
+    size: [0.150, 0.034, 0.068],
+    // Raised from y 0.003 to sit directly under the bar. It stayed at the old
+    // bar height when the bar moved up 0.072, which left it reading as a grey
+    // plate lying on the tank with the handlebar floating above it.
+    offset: [0, 0.045, -0.012],
+  },
 
   // Everything below the bar line: fork sliders, headlight, cowl, fender, tyre.
   //
@@ -102,7 +108,14 @@ export const supersport = {
   // slider, seal, lug and axle - belongs to `lower` and only exists when
   // lowerFront is on, so `to` here is only reached when it is off.
   forkTop: {
-    from: [0.086, -0.013, -0.018],
+    // Extended 0.091 up its own axis, from [0.086, -0.013, -0.018], when the
+    // grip anchor was re-authored onto the drawn bar. The bar moved up 0.0608
+    // and the clip-on had to follow it; left where it was, the fork stopped
+    // short and the stub hung in the air above it. A fork tube protruding past
+    // the clip-ons is what a supersport front end looks like anyway - measured,
+    // the top now shows 1.8 per cent of frame height above the bar line at
+    // 16:9, which is the protrusion and not an error.
+    from: [0.0812, 0.075, 0.0142],
     to: [0.097, -0.215, -0.092],
     radius: 0.019,
     radialSegments: 14,
@@ -166,8 +179,31 @@ export const supersport = {
     // and back. They REPLACE the straight bar; the grip anchors do not move,
     // because the hands are posed and baked against them.
     clipOn: {
-      from: [0.088, -0.072, -0.02],
-      to: [0.268, -0.086, 0.028],
+      // AIMED AT THE DRAWN BAR, and ending inside the sprite rather than beside
+      // it. It used to run to [0.268, -0.086, 0.028], which was 0.188 from the
+      // drawn grip's inner end - twelve times its own radius - and projected 18
+      // to 26 per cent of frame height below the drawn bar. That is the second
+      // handlebar: one tube painted on the sprite and another one in the metal,
+      // side by side and not touching.
+      //
+      // Both ends now project onto the drawn bar's own line: measured, 0.0 and
+      // 0.0 per cent off it at 16:9, 0.3 and 0.6 at 9:16. It holds at both
+      // aspects because the correction is very nearly along the view direction,
+      // which the two cameras almost share.
+      //
+      // The outer end stops at x 0.19, SHORT of the drawn tube's inner end at
+      // 0.2163, and that is the point. It does not have to reach the drawn
+      // tube; it has to reach the artwork, whose alpha starts at x 0.158. The
+      // stub hands over to the drawn switch block, which hands over to the
+      // drawn tube, and the seam is inside the picture where nothing can see
+      // it - which is the whole reason the bar was drawn into the sprite.
+      //
+      // z 0.0517 against the sprite plane's 0.0717 keeps the tube BEHIND the
+      // artwork by 0.0065 at its closest. Ending it level with the plane would
+      // have let the near half of the tube, a radius deep, win the depth test
+      // and draw a bright sliver straight across the glove.
+      from: [0.088, 0.0664, 0.020],
+      to: [0.19, 0.0806, 0.0517],
       radius: 0.0135,
       radialSegments: 12,
     },

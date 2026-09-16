@@ -4,14 +4,18 @@ import { config } from '../config.js';
  * Framing - resolves the aspect aware framing profile for the current frame
  * shape, and hands the result to whoever needs it.
  *
- * Everything that has to change between 16:9 and 9:16 is resolved in one place:
- * the field of view and its speed ramp, the downward pitch that trades sky for
- * road, and where the cockpit sits. BikePhysics and Rider read the result and
- * neither of them knows what shape the window is.
+ * Everything aspect dependent is resolved in one place: the field of view and
+ * its speed ramp, the downward pitch that trades sky for road, and where the
+ * cockpit sits. BikePhysics and Rider read the result and neither of them knows
+ * what shape the window is.
  *
- * Profiles are interpolated rather than switched. Dragging a browser window
- * between shapes passes through every aspect in between, and a hard switch
- * would pop the cockpit and the horizon on the way.
+ * THERE IS ONE PROFILE NOW. The game is landscape only, so there is nothing to
+ * choose between - config/framing.js carries a single entry and portrait is
+ * refused outright by core/Orientation.js rather than framed for.
+ *
+ * The blending below is kept anyway. It costs one pass over a one element list,
+ * it is how a second shape would come back if one ever does, and it is what
+ * makes a window dragged between shapes move continuously rather than pop.
  *
  * WHEN it resolves is the other half of the job, and it used to be wrong. The
  * only trigger was a window resize, so a resolved value outlived every input it

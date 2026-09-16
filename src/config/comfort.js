@@ -56,5 +56,13 @@ export const comfort = {
     // a strong sensation cue and a strong nausea trigger, and it is the one
     // most people never think to name.
     fovRamp: 0.35,
+    // The photographic cockpit's roll and shift with lean and steer. It is a
+    // large object low in the frame rather than something in the middle of
+    // vision, so it is not the worst offender here - but it is rotation, it is
+    // new, and CLAUDE.md is explicit that anything new which moves the camera
+    // goes through motionScale rather than reading its own amplitude. Left with
+    // enough to still answer the bars, because a cockpit that does not move at
+    // all is the thing this was added to fix.
+    cockpitSway: 0.3,
   },
 };

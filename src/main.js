@@ -23,7 +23,9 @@ import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Autopilot } from './player/Autopilot.js';
 import { Guard } from './player/autopilot/Guard.js';
+import { Orientation } from './core/Orientation.js';
 import { Rider } from './player/Rider.js';
+import { Cockpit } from './player/Cockpit.js';
 import { Postprocess } from './fx/Postprocess.js';
 
 /**
@@ -74,7 +76,13 @@ const road = new Road(engine.scene);
 const roadside = new Roadside(engine.scene, road);
 const mountains = new Mountains(engine.scene);
 const bike = new BikePhysics(engine.camera, road.path, framing);
-const rider = new Rider(engine.camera, framing);
+// THE COCKPIT, either photographed or built. Both present the same three
+// things - a group on the camera, update(dt, state) and dispose() - so nothing
+// downstream knows which one it got, and config.player.cockpit.source picks.
+// The primitive rig is not deleted: the photoreal style is being tried here.
+const rider = config.player.cockpit.source === 'sprite'
+  ? new Cockpit(engine.camera, framing)
+  : new Rider(engine.camera, framing);
 const traffic = new Traffic(engine.scene, road, bike);
 
 // Drives for recording. It produces steer, throttle and brake and nothing else,
@@ -107,8 +115,23 @@ const viewport = new Viewport((width, height) => engine.resize(width, height));
 // arrives. Offered, never forced, and allowed to be refused - iOS phones
 // refuse outright and the game plays the same either way.
 if (config.viewport.fullscreen.onFirstTouchWhenCoarse && device.coarsePointer) {
-  input.onFirstTouch = () => Fullscreen.request();
+  input.onFirstTouch = () => {
+    Fullscreen.request();
+    // Asked alongside, not instead: the lock is only honoured from inside a
+    // fullscreen document on the browsers that have it at all, so the request
+    // has to follow the one that gets us there. It is expected to fail on iOS
+    // and the gate below covers every case where it does.
+    Orientation.request();
+  };
 }
+
+// LANDSCAPE ONLY. The lock above is asked for and usually refused, so this is
+// what actually enforces it: a prompt over everything while the frame is
+// portrait shaped, and the run held behind it. It measures the VIEWPORT rather
+// than screen.orientation, so a narrow desktop window gets the same treatment -
+// what matters is the shape the game has to draw into, not how the device is
+// being held.
+const orientation = new Orientation(document.body, () => viewport);
 
 const loop = new Loop(engine.renderer, {
   onRender: (dt) => post.render(dt),
@@ -287,6 +310,20 @@ loop.add((dt, state) => {
 // press drops straight into a clean recording run: overlay off, pixel ratio
 // pinned, sound already live.
 const wantsGod = new URLSearchParams(location.search).get('god') === '1';
+// Held while the phone is the wrong way round. A RUNNING session is paused, and
+// resumed on the way back out only if this is what paused it - somebody who
+// paused deliberately and then rotated should still be paused when they rotate
+// back.
+orientation.onChange = (portrait) => {
+  if (portrait) {
+    orientation.resumeOnReturn = session.phase === PHASE.RUNNING;
+    if (orientation.resumeOnReturn) session.togglePause();
+  } else if (orientation.resumeOnReturn && session.phase === PHASE.PAUSED) {
+    orientation.resumeOnReturn = false;
+    session.togglePause();
+  }
+};
+
 const start = new StartScreen(document.body, () => {
   audio.start(traffic);
   if (wantsGod) setAutopilot(true);
@@ -324,7 +361,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -339,6 +376,7 @@ function disposeAll() {
   window.removeEventListener('pointerdown', onPress);
   window.removeEventListener('keydown', onPress);
   reveal.dispose();
+  orientation.dispose();
   viewport.dispose();
   post.dispose();
   rider.dispose();

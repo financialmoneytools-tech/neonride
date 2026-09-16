@@ -1,31 +1,27 @@
 /**
- * NEON RIDE - aspect aware framing.
+ * NEON RIDE - framing.
  * Part of the single configuration surface; import from ../config.js, never
  * from this file directly.
  *
- * A PerspectiveCamera's fov is VERTICAL, so a fixed fov means the horizontal
- * view collapses as the frame gets narrower: 114 degrees at 16:9 becomes 52 at
- * 9:16, which throws the handlebars 37 per cent of the frame width off each
- * edge. Widening the vertical fov alone cannot recover that - the ratios are
- * too far apart - so each aspect also gets its own cockpit placement.
+ * ONE PROFILE. This file used to carry two - 9:16 and 16:9 - with everything
+ * that differs between them resolved by blending on aspect: field of view, the
+ * downward pitch that trades sky for road, where the cockpit sits, and a hand
+ * scale and inset to keep the gloves in frame at both shapes. The game is
+ * landscape only now, so there is nothing to blend and nothing to choose.
  *
- * The knob that resizes the cockpit is riderOrigin.z, NOT a scale. The rig is
- * scaled and moved together by the field of view compensation in Rider, and
- * scaling a thing and its distance by the same factor leaves its angular size
- * exactly where it was. Pushing it further from the camera is the only way to
- * make it occupy less of the frame.
+ * The LIST stays a list, and Framing still blends across it, because that costs
+ * nothing with one entry and is how a second shape would come back if one ever
+ * does. What has gone is the second set of numbers, which had to be kept in
+ * step with this one by hand and was a standing invitation to fix a thing in
+ * one profile and not the other.
  *
- * Profiles are interpolated on aspect rather than switched, so dragging a
- * browser window between shapes blends instead of popping.
+ * handScale and handInset are kept at their neutral 1 and 0. They exist for the
+ * primitive cockpit's sprite hands - config.player.cockpit.source 'geometry' -
+ * which still reads them; with one profile they are constants rather than a
+ * per aspect correction.
  *
- * THE CAMERA PROFILES LIVE HERE TOO, one set per aspect, and they have to. They
- * were a single set of offsets applied on top of whichever framing profile was
- * resolved, which quietly meant the SAME push in world units at both shapes -
- * and the two shapes do not start from the same place. The tall profile already
- * sits the cockpit at z -0.600 against the wide one's -0.375, so a shared
- * cinematic push of -0.30 took it to -0.90 and left a 9:16 frame two thirds
- * empty with a small bike floating in the middle of it. Which profile is
- * SELECTED is still one global switch; only the numbers are per aspect.
+ * THE CAMERA PROFILES live here too: one set of offsets for the riding view and
+ * one for the cinematic one, selected by config.player.camera.profile.
  */
 
 // --- Aspect aware framing ---
@@ -33,69 +29,6 @@ export const framing = {
   // Must stay sorted by aspect, ascending. Anything narrower than the first or
   // wider than the last clamps to that profile.
   profiles: [
-    {
-      name: 'tall', // 9:16, the short form video shape
-      aspect: 0.5625,
-
-      // Wider than the wide profile on purpose: it buys back some of the
-      // horizontal view the aspect takes away. Past about 100 the distortion
-      // at the top and bottom of a tall frame starts to read as a fisheye.
-      fov: 90,
-      fovMax: 106, // at full speed
-
-      // Radians of downward pitch added to the road following aim. A tall frame
-      // with a level camera is half empty sky; this trades sky for road.
-      // Negative is down.
-      pitch: -0.24,
-
-      // Close in, the way the reference shots frame it: bodywork fills the
-      // bottom of the picture and the arms are simply outside it.
-      //
-      // Measured on the rendered frame - cockpit drawn, cockpit hidden, the two
-      // differenced in one frozen frame - this covers 90 per cent of the lower
-      // third and 65 per cent of the lower half. Both numbers move with BOTH
-      // knobs: pulling the rig in without raising it sends the tank off the
-      // bottom faster than the bodywork grows, which is why coverage fell the
-      // first time this was tried at a fixed height.
-      // Solved against the same targets as the wide profile, and it needs its
-      // own numbers: a 9:16 frame is half the horizontal field of view, so the
-      // same rig lands the hands 7 per cent further out and 13 per cent higher.
-      //
-      // It reaches the HAND and TANK targets and it cannot reach the mirror and
-      // screen ones, which is a property of the two frames rather than of these
-      // numbers. The geometry is shared and only the framing differs, so with
-      // the hands at 82 per cent down the mirrors land at 62 and the screen top
-      // at 48 - a 93 degree vertical field of view over a frame nearly twice as
-      // tall puts a fixed height much lower in it. The acceptance percentages
-      // are a 16:9 contract; 9:16 is held to looking right, not to matching
-      // them, and forcing it would mean a second set of mirrors and screens.
-      riderOrigin: { x: 0, y: -0.46, z: -0.686 },
-
-      // The hands are sprites and do not have to shrink with the rest of the
-      // cockpit. Everything else here is a camera decision and applies to all
-      // of it at once; this is the one part that is sized for legibility
-      // instead, and a tall frame needs it larger to hold the same share of the
-      // picture as a wide one does.
-      handScale: 1.10,
-
-      // And pulled toward the centreline. The hands sit at a fixed place on the
-      // bars, but a tall frame's horizontal field of view is half a wide one's
-      // - 29 degrees against 54 - so the same world position lands much further
-      // out in it. Measured, the hands ran off both edges of a 9:16 frame with
-      // an 11 per cent gap left between them in the middle, where at 16:9 they
-      // frame the cluster with margins of 7 and 11 per cent and almost meet.
-      // This is in rider units, applied inboard on each side.
-      handInset: 0.049,
-
-      // A tall frame needs far less of a push than a wide one. It is already
-      // the further of the two, and it has the least road to give away: every
-      // unit the machine recedes is answered by black at the bottom of the
-      // picture rather than by more scenery.
-      cameras: {
-        ride: { height: 0, pitch: 0, rider: { x: 0, y: 0, z: 0 } },
-        cinematic: { height: 0.22, pitch: -0.05, rider: { x: 0, y: 0.03, z: -0.05 } },
-      },
-    },
     {
       name: 'wide', // 16:9, the values phase 4 was tuned against
       aspect: 1.7778,

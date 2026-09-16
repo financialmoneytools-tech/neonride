@@ -17,7 +17,12 @@
 // head. The two are kept at the same ratio (0.180 / 0.101 against 512 / 288)
 // so nothing is stretched.
 export const instruments = {
-  offset: [0, 0.052, -0.012],
+  // BEHIND THE BAR AND ABOVE IT. It was [0, 0.052, -0.012], which put it level
+  // with the old bar line and only 0.012 beyond it - close enough that the two
+  // fought for the same band of the frame. The bar is one tube now, its centre
+  // crosses at 77 per cent down, and the cluster sits above and behind that so
+  // it is read over the top of the bar rather than through it.
+  offset: [0, 0.112, -0.075],
   rotation: [-0.95, 0, 0], // tipped back toward the rider
   // Grown from 0.165 x 0.092 with the dash redesign, and again when the
   // fairing was cut back. An arc needs the height a segment bar did not, and

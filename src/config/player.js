@@ -1,4 +1,5 @@
 import { rider } from './rider.js';
+import { cockpit } from './cockpit.js';
 
 /**
  * NEON RIDE - bike behaviour and the riding camera.
@@ -102,4 +103,8 @@ export const player = {
   },
 
   rider,
+
+  // The photographic cockpit overlay, and the switch between it and the
+  // primitive rig above.
+  cockpit,
 };

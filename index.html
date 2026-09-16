@@ -124,6 +124,69 @@
 
       /* Score during a run. Bottom left: the cluster owns the middle of the
          frame and the stats overlay owns the top left. */
+      /* Landscape gate. Above everything, including the start card and the
+         pause panel: while the phone is the wrong way round there is nothing
+         underneath worth interacting with. */
+      .rotate-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        box-sizing: border-box;
+        text-align: center;
+        background: #05060c;
+        color: #d8e6ff;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      .rotate-gate-on {
+        display: flex;
+      }
+
+      .rotate-icon svg {
+        width: 84px;
+        height: 84px;
+        fill: none;
+        stroke: #37e6ff;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        /* Turning, because the instruction is a movement. Slow and finite in
+           feel rather than a spinner: this is a prompt, not a loading state. */
+        animation: rotate-hint 2.4s ease-in-out infinite;
+      }
+
+      @keyframes rotate-hint {
+        0%, 45% { transform: rotate(0deg); }
+        65%, 100% { transform: rotate(-90deg); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .rotate-icon svg {
+          animation: none;
+          transform: rotate(-90deg);
+        }
+      }
+
+      .rotate-title {
+        font-size: clamp(18px, 5vw, 28px);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: #ff4fd8;
+      }
+
+      .rotate-body {
+        font-size: clamp(13px, 3.4vw, 16px);
+        opacity: 0.75;
+        max-width: 22em;
+        line-height: 1.5;
+      }
+
       .hud {
         position: fixed;
         left: 18px;

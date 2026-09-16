@@ -144,7 +144,12 @@ export const fairing = {
     // as a side effect, and this puts it back. Move hardwareScale or the 16:9
     // riderOrigin and this has to move with them.
     radii: [0.167, 0.067, 0.210],
-    offset: [0.158, -0.009, -0.095],
+    // Pushed forward from -0.095. The wings reached back to z +0.115, which is
+    // level with the rider's knees and exactly where the tank has to be seen -
+    // so the bottom of every frame was fairing, and the tank, which is the
+    // nearest part of the bike, was behind it. A fairing surrounds the cluster
+    // and stops; it does not come back to the saddle.
+    offset: [0.158, -0.009, -0.190],
     rotation: [0.12, -0.34, -0.16],
     stations: [
       { z: 1.00, offset: [-0.08, -0.06], scale: [0.40, 0.44], roll: 0.14 },
@@ -186,22 +191,40 @@ export const fairing = {
   },
 };
 
-// Bubble screen. Short and steeply raked, so it crosses the frame just above
-// the cluster without hiding the road.
+// Bubble screen. THE FURTHEST FORWARD PART OF THE COCKPIT, and therefore the
+// smallest thing in it.
+//
+// It has been wrong in both directions. It began as a narrow egg hiding between
+// the mirrors; the correction widened it AND pulled it in from 0.62 to 0.47 of
+// the eye, which fixed the width by making the screen the nearest object on the
+// bike. It then covered the cluster, the bars and the road - 43 per cent of the
+// frame across and 53 down, a yellow wall with the whole cockpit behind it.
+//
+// Both mistakes were the same mistake: sizing the screen against other parts of
+// the FRAME instead of placing it in DEPTH. A windscreen is bolted to the nose,
+// ahead of everything, and a thing that far away is small. So it is placed
+// first - 0.315 ahead of the rig origin, the furthest part of the cockpit - and
+// its size follows from the distance rather than from what it ought to cover.
+//
+// Measured, it spans 42 to 58 per cent across and 45 to 58 down, which clears
+// the top of the cluster at 60 and is nowhere near the bars or the hands.
 export const screen = {
-  // A real windscreen, not a wind deflector. The reference framing wants the
-  // top of it between 20 and 35 per cent down, well above the cluster, which
-  // means it is one of the largest things on the bike and the closest to the
-  // camera. Measured, this lands the top edge at 23 per cent.
-  radii: [0.112, 0.30, 0.012],
-  offset: [0, 0.24, -0.235],
+  radii: [0.153, 0.086, 0.015],
+  offset: [0, 0.208, -0.315],
   rotation: [-0.62, 0, 0],
   segments: [22, 12],
   // The lit edge is what actually reads at night; the panel behind it is
   // nearly black.
-  // The lit edge traces the screen's own outline. It is built as a unit circle
-  // and scaled to `radii`, because the screen is an ellipse and a torus is not:
-  // at a fixed radius the ring either cut through the panel or floated well
-  // outside it, and the taller the screen got the worse that was.
-  edge: { tube: 0.0045, segments: [36, 6], offset: [0, 0.24, -0.235], rotation: [-0.62, 0, 0] },
+  //
+  // It traces the screen's own outline. Built as a unit circle and scaled to
+  // `radii`, because the screen is an ellipse and a torus is not: at a fixed
+  // radius the ring either cut through the panel or floated well outside it,
+  // and the taller the screen got the worse that was.
+  //
+  // It no longer carries its own copy of offset and rotation. The two copies
+  // were identical and had to stay identical - a ring placed anywhere but on
+  // the panel is not an edge - so every change to the screen was a change that
+  // had to be made twice, correctly, or the lit outline came adrift from the
+  // glass. buildScreen reads the screen's own placement instead.
+  edge: { tube: 0.0045, segments: [36, 6] },
 };
