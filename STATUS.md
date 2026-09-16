@@ -152,6 +152,28 @@ rather than with a number.
 | `config/cockpit.js` -> `sway` | roll and shift with lean and steer; goes through `motionScale('cockpitSway')` |
 | hands `width` / `offset` / `handInset` | the primitive fallback only. `handInset` is 0 and dead - it was a per-aspect correction for the tall framing profile, which no longer exists. |
 
+### URL parameters
+
+For testing on a phone, where there is no keyboard and none of the hotkeys can
+be reached. They set state at LOAD only; every key still does what it did.
+
+| Parameter | What it does |
+|---|---|
+| `?theme=openRoad` | picks a theme for the session |
+| `?stats=1` | shows the stats overlay, `?stats=0` hides it. Applied last, after capture and god mode have had their say. |
+| `?god=1` | self-driving plus capture mode, and no title card |
+
+Two things worth knowing rather than discovering:
+
+- **The stats overlay is already on by default**, so `?stats=1` on its own
+  changes nothing. It is for combining with `?god=1`, which turns capture mode
+  on and takes the overlay away with it.
+- **`?god=1` drops the title card, and the card is the build's only user
+  gesture.** No browser will start an AudioContext without one, so the run
+  starts silent and the first touch anywhere brings the sound up. Everything
+  else - autopilot, capture mode, the world - is already running before the
+  phone is picked up.
+
 ### The cockpit contract
 
 Asserted by `tools/measure-cockpit.mjs` at 16:9, 2:1 and 21:9. All three give

@@ -95,9 +95,26 @@ export class StartScreen {
     this._fallback = setTimeout(remove, config.ui.start.fadeMs + 120);
   }
 
-  /** @returns {boolean} true once the gesture has happened. */
+  /** @returns {boolean} true once the card is gone, by gesture or by skip. */
   get started() {
     return this._done;
+  }
+
+  /**
+   * Takes the card away without a gesture, for `?god=1`.
+   *
+   * It sets `started` as well as disposing, and both halves matter: main.js
+   * gates every later press on `started`, so a card that was merely disposed
+   * would leave the game unable to be paused or restarted for the rest of the
+   * session - dismissed, and deaf.
+   *
+   * What it CANNOT do is start the audio. No gesture has happened, so there is
+   * nothing to start an AudioContext with; the caller takes the first touch
+   * that arrives and starts it then.
+   */
+  skip() {
+    this._done = true;
+    this.dispose();
   }
 
   dispose() {

@@ -50,8 +50,19 @@ const device = new Device();
 // The library, the selector and the rebuild are one generic thing - see
 // utils/patch.js - because bikes and maps are the same shape and writing it
 // three times would be three chances to forget the undo.
+// URL PARAMETERS, all read here. They exist for testing on a PHONE, where
+// there is no keyboard and so none of the hotkeys below can be reached:
+//
+//   ?theme=openRoad   picks a theme for the session
+//   ?stats=1          shows the stats overlay, ?stats=0 hides it
+//   ?god=1            self-driving, capture mode, and no title card
+//
+// They only set the state at LOAD. Every key still does what it did - the
+// parameter is a starting position, not a lock.
+const params = new URLSearchParams(location.search);
+
 const themes = new PatchSelector(config, config.themes, config.theme);
-themes.select(new URLSearchParams(location.search).get('theme') || config.theme);
+themes.select(params.get('theme') || config.theme);
 
 // Motion comfort. NOT a theme: it has to work mid-run, from a toggle somebody
 // reaches for because they have started to feel unwell, so every value it
@@ -309,7 +320,7 @@ loop.add((dt, state) => {
 // `?god=1` arms the autopilot and capture mode before the card goes up, so one
 // press drops straight into a clean recording run: overlay off, pixel ratio
 // pinned, sound already live.
-const wantsGod = new URLSearchParams(location.search).get('god') === '1';
+const wantsGod = params.get('god') === '1';
 // Held while the phone is the wrong way round. A RUNNING session is paused, and
 // resumed on the way back out only if this is what paused it - somebody who
 // paused deliberately and then rotated should still be paused when they rotate
@@ -354,6 +365,36 @@ window.addEventListener('pointerdown', onPress);
 window.addEventListener('keydown', onPress);
 
 applyCapture();
+
+// ?god=1 also drops the title card, because the point of it is a phone with no
+// keyboard: the run should be going before it is picked up.
+//
+// The card is the one user gesture the build has, and an AudioContext cannot be
+// started without one - so dismissing it costs the sound, not the run. Rather
+// than lose it, the gesture is simply accepted whenever it turns up: the first
+// touch anywhere starts the audio, and everything else is already running.
+if (wantsGod) {
+  setAutopilot(true);
+  start.skip();
+  const wake = () => {
+    audio.start(traffic);
+    window.removeEventListener('pointerdown', wake);
+    window.removeEventListener('keydown', wake);
+  };
+  window.addEventListener('pointerdown', wake);
+  window.addEventListener('keydown', wake);
+}
+
+// ?stats=1 / ?stats=0. LAST, because both of the things above set the overlay:
+// applyCapture sets the baseline, and setAutopilot turns capture on and takes
+// the overlay away with it. Applied before the god block, `?god=1&stats=1` came
+// out hidden - which is the one combination the parameter exists for, since the
+// overlay is already on by default and stats=1 alone changes nothing.
+//
+// H still toggles from wherever this leaves it.
+const wantsStats = params.get('stats');
+if (stats && wantsStats !== null) stats.setVisible(wantsStats !== '0');
+
 loop.start();
 
 // Development only: every elimination test in the notes assumes config can be
