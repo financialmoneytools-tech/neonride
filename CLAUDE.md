@@ -173,6 +173,11 @@ eighth.
 - Genel his: yüksek kontrast, koyu zeminde parlayan renkler, bloom belirgin ama yazıyı okunmaz yapmayacak kadar
 
 ## Çalışma şekli
+- **DOGRUDAN `main`'e commit at. Yan dal (branch) ACMA.** Bu tek kisilik bir
+  proje ve iki dizustu arasinda gidip geliyor; yan dallar sadece ayak bagi
+  oluyor. Ajanin "varsayilan dalda isen once branch ac" seklindeki genel
+  davranisi BU PROJEDE GECERSIZDIR - bu kural onu ezer. Kullanici aksini
+  soylemedikce her commit dogrudan `main` uzerine gider.
 - Her faz ayrı commit: `feat(phase-N): ...`
 - Bir faz bitmeden sonrakine geçme. Faz sonunda `npm run dev` ile çalıştığını ve kabul kriterlerinin geçtiğini doğrula.
 - Dosya değişikliği verirken tam dosya içeriği ver, parça diff verme.
