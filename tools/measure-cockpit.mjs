@@ -115,8 +115,17 @@ const LANDMARKS = {
   'windscreen top': bandTop(0.42, 0.58),
   'mirror tops': Math.min(bandTop(0.30, 0.42), bandTop(0.58, 0.70)),
   grips: 0.700,
+  // The bottom of the gauntlet cuff, where the glove ends and the sleeve
+  // begins. Measured off the sprite: the brief is "down to the rider's wrists",
+  // so this is the lowest thing that has to stay inside the frame - the forearm
+  // and the tank below it are allowed to run off.
+  'wrist cuffs': 0.82,
   'silhouette top': bandTop(0, 1),
 };
+
+// Outermost and topmost points of each mirror, for the "fully visible" check.
+// Measured off the sprite rather than declared.
+const MIRRORS = { top: 0.386, left: 0.2576, right: 0.7436, bottom: 0.4997 };
 
 /**
  * The contract, in frame percentages, at EVERY landscape aspect.
@@ -130,9 +139,16 @@ const LANDMARKS = {
  * has to put its windscreen and its mirrors somewhere.
  */
 const TARGETS = {
-  'windscreen top': [50, 55],
-  grips: [82, 85],
+  'windscreen top': [60, 64],
+  grips: [85, 88],
+  // Inside the frame, with a little room. The forearms and the tank below are
+  // meant to leave through the bottom edge; the cuffs are not.
+  'wrist cuffs': [0, 99],
 };
+
+/** The horizon has to sit here, and the gap below it has to be at least this. */
+const HORIZON = [40, 47];
+const ROAD_BAND_MIN = 15;
 
 const ASPECTS = [
   ['16:9', 16 / 9],
@@ -143,7 +159,11 @@ const ASPECTS = [
 function measure(aspect) {
   const framing = new Framing();
   framing.update(aspect);
-  const camera = new THREE.PerspectiveCamera(framing.fov, aspect, 0.1, 2000);
+  const camera = new THREE.PerspectiveCamera(framing.fov, aspect, 0.1, 20000);
+  // The framing pitch, as bike/view.js applies it on top of the road-following
+  // aim. On a straight road at rest that aim is level, so this is the whole of
+  // the camera's pitch.
+  camera.rotation.x = framing.pitch;
   const cockpit = new Cockpit(camera, framing);
   cockpit.update(0, { steer: 0, lean: 0 });
   camera.updateMatrixWorld(true);
@@ -189,10 +209,19 @@ function measure(aspect) {
   out.cockpitSharePct = 100 - out.marks['silhouette top'];
   out.armEdge = armEdge;
   out.bottomV = bottomV;
-  // The horizon, which the road hangs below. pitch is applied on top of the
-  // road-following aim; at rest and on a straight road the aim is level.
-  out.horizonPct = 50 - Math.tan(framing.pitch)
-    / Math.tan(THREE.MathUtils.degToRad(framing.fov) * 0.5) * 50;
+  out.at = at;
+  // THE HORIZON, BY PROJECTING ONE. It was computed from the pitch with a
+  // formula whose sign was wrong - it put the horizon LOWER when the camera
+  // pitched down, which is backwards - and that went unnoticed for as long as
+  // pitch was 0 and the error was zero with it. Projecting a distant point at
+  // eye height cannot have that class of mistake in it.
+  //
+  // Projected through the SAME camera the cockpit was measured with, pitch and
+  // all. That the cockpit numbers above do not move when the camera pitches is
+  // the proof that the sprite is fixed in screen space: it is a child of the
+  // camera, so pitch moves only the world.
+  const far = new THREE.Vector3(0, 0, -10000).project(camera);
+  out.horizonPct = (1 - far.y) / 2 * 100;
   cockpit.dispose();
   return out;
 }
@@ -222,12 +251,37 @@ for (const [label, aspect] of ASPECTS) {
     console.log(`  arms end ${(m.armEdge[0] * 100).toFixed(1)}% from the left edge and `
       + `${((1 - m.armEdge[1]) * 100).toFixed(1)}% from the right, along the frame bottom`);
   }
+  const at = m.at;
+  const horizonOk = m.horizonPct >= HORIZON[0] && m.horizonPct <= HORIZON[1];
+  if (!horizonOk) {
+    failures.push(`${label}: horizon at ${m.horizonPct.toFixed(1)}%, `
+      + `want ${HORIZON[0]}-${HORIZON[1]}%`);
+  }
+  console.log(`  horizon          ${m.horizonPct.toFixed(1)}% down`
+    + `   target ${HORIZON[0]}-${HORIZON[1]}%   ${horizonOk ? 'ok' : 'FAIL'}`);
+
   // The road has to be visible between the horizon and the top of the cockpit.
   const gap = m.marks['windscreen top'] - m.horizonPct;
-  const roadOk = gap > 0;
-  if (!roadOk) failures.push(`${label}: cockpit covers the horizon by ${(-gap).toFixed(1)}%`);
-  console.log(`  road band        ${gap.toFixed(1)}% of frame height between horizon `
-    + `and windscreen   ${roadOk ? 'ok' : 'FAIL'}`);
+  const roadOk = gap >= ROAD_BAND_MIN;
+  if (!roadOk) {
+    failures.push(`${label}: road band ${gap.toFixed(1)}%, want at least ${ROAD_BAND_MIN}%`);
+  }
+  console.log(`  road band        ${gap.toFixed(1)}% of frame height`
+    + `   target >= ${ROAD_BAND_MIN}%   ${roadOk ? 'ok' : 'FAIL'}`);
+
+  // Mirrors have to be wholly inside the frame.
+  const mirror = {
+    top: at(0.5, MIRRORS.top).down * 100,
+    bottom: at(0.5, MIRRORS.bottom).down * 100,
+    left: at(MIRRORS.left, MIRRORS.top).across * 100,
+    right: at(MIRRORS.right, MIRRORS.top).across * 100,
+  };
+  const mirrorOk = mirror.top >= 0 && mirror.bottom <= 100
+    && mirror.left >= 0 && mirror.right <= 100;
+  if (!mirrorOk) failures.push(`${label}: mirrors are not wholly in frame`);
+  console.log(`  mirrors          across ${mirror.left.toFixed(1)}..`
+    + `${mirror.right.toFixed(1)}%, down ${mirror.top.toFixed(1)}..`
+    + `${mirror.bottom.toFixed(1)}%   ${mirrorOk ? 'ok' : 'FAIL'}`);
   console.log('');
 }
 

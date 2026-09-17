@@ -37,7 +37,20 @@ export const framing = {
       // the ramp above it is new.
       fov: 75,
       fovMax: 104,
-      pitch: 0,
+      // Radians of downward pitch added to the road-following aim. Negative is
+      // down, and pitching down raises the HORIZON in frame - which is the only
+      // way to open a road band between the horizon and the top of the cockpit.
+      //
+      // 0 before, which put the horizon at exactly 50 per cent, level with the
+      // middle of the frame and 2.5 per cent above a cockpit that started at
+      // 52.5. Solved: the horizon sits where tan(pitch) / tan(fov/2) puts it,
+      // so 43.5 per cent down wants tan(pitch) = 0.13 * tan(37.5 deg).
+      //
+      // It moves ONLY the world. The cockpit sprite is a child of the camera,
+      // so it pitches with it and stays exactly where it was in screen space -
+      // which is why this is a separate knob from the two above and not a third
+      // way of moving the bike.
+      pitch: -0.0994,
       // The eye. Pulled back in to -0.375 after a spell at -0.435: pushing it
       // out fixed a cockpit that was too big, and then left the frame with
       // nothing under the cluster but road. Closer is what the references have,

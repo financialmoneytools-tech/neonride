@@ -34,19 +34,23 @@ export const cockpit = {
   // it. Sizing from the height makes the cockpit the same size at every
   // landscape aspect, which is what a cockpit bolted to a bike does.
   //
-  // 0.890 is solved, not chosen: it is the only value that puts the windscreen
-  // top and the grips inside their targets at once. The two landmarks are
-  // 0.3483 of the image apart and have to span 82.5 - 52.5 = 31 per cent of the
-  // frame, so the plane is 31 / 34.83 of the frame tall. See
-  // tools/measure-cockpit.mjs, which asserts both.
-  heightScale: 0.890,
+  // Solved, not chosen: the windscreen top and the grips are 0.3483 of the
+  // image apart and have to span 86.5 - 62 = 24.5 per cent of the frame, so the
+  // plane is 24.5 / 34.83 of the frame tall. See tools/measure-cockpit.mjs,
+  // which asserts both.
+  //
+  // 0.890 before, which put the windscreen at 52.5 per cent down and left a
+  // road band of 2.5 per cent - the cockpit covered the road and did not read
+  // as a motorcycle. Smaller and lower shows the bike down to the wrists, with
+  // the forearms and the tank running off the bottom edge where they belong.
+  heightScale: 0.7034,
 
   // Nudge, in half-frames: [across, up]. The plane is anchored to the BOTTOM of
-  // the frame, so -0.2042 drops it until the windscreen top lands at 52.5 per
-  // cent. That also puts the plane's bottom 10.2 per cent of the frame below
-  // the bottom edge, which is where the cut edge has to be for the sway not to
-  // lift it into shot.
-  offset: [0, -0.2042],
+  // the frame, so this drops it until the windscreen top lands at 62 per cent.
+  // That also puts the plane's bottom 7.6 per cent of the frame below the
+  // bottom edge, which is where the cut edge has to be for the sway not to lift
+  // it into shot.
+  offset: [0, -0.1521],
 
   // SWAY - how the sprite answers the bike, and the only reason it is not a
   // dead picture. Steering used to move nothing at all: the camera already

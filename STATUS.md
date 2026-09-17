@@ -87,18 +87,37 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 - **Dash screen** - `cut-cockpit.py` reports `CONFIG_DISAGREES` if the punched
   hole and `screen` in `config/cockpit.js` drift. Re-run after any art change.
-- **Sway lifts the cut bottom edge** at full lock. With the plane now sitting
-  10.2 per cent of the frame below the bottom edge this has headroom, but it is
-  geometry rather than a fix: a big enough roll will always lift one end of a
-  horizontal cut.
+- **Sway lifts the cut bottom edge** at full lock. The plane sits 7.6 per cent
+  of the frame below the bottom edge, down from 10.2 before the framing change,
+  so there is less headroom than there was. Still headroom, but it is geometry
+  rather than a fix: a big enough roll will always lift one end of a horizontal
+  cut, and any further drop of the cockpit spends what is left.
 
 ### Closed since the last note
+
+- ~~The pause button never hid~~. `.pause-button` sets `display: flex`, an
+  author rule, which beats the browser's own `[hidden] { display: none }` - so
+  `setVisible(false)` did nothing and the button sat in the middle of the top
+  edge of every frame, including god-mode footage and every desktop window that
+  has no use for it. The same trap as the stray FREN label, in a second file.
+  Fixed with a `.pause-button[hidden]` rule in `index.html`.
+- ~~The smoke test was testing the title screen~~. It tapped the centre of the
+  frame, which is where the title card's reduced-motion toggle sits, and that
+  toggle stops the pointerdown reaching the window listener on purpose so the
+  setting can be changed without starting the run. So the card never dismissed,
+  the run never began, and the test flipped reduced motion in storage on every
+  pass. Everything under it still passed, because the world renders behind the
+  card and the loop ticks behind it. Two bugs cancelling out: the one check that
+  would have caught it - the pause button - was the vacuous one above. The tap
+  moved to the top right, and a card still on screen is now a failure.
 
 - ~~Empty bottom corners at wide aspects~~. ACCEPTED after play-testing, 16
   September 2026. Sizing the plane from the frame's height keeps the cockpit the
   same size at every landscape aspect, and the cost is that a 1.79:1 drawing
-  stops short of the frame's sides: measured, the sleeves end 9.9 per cent from
-  each edge at 16:9, 14.6 at 2:1 and 19.5 at 21:9. The sleeves run off the
+  stops short of the frame's sides: measured, the sleeves end 18.0 per cent from
+  each edge at 16:9, 21.7 at 2:1 and 25.7 at 21:9 - wider than the 9.9 / 14.6 /
+  19.5 this was accepted at, because the new framing makes the plane smaller.
+  Re-checked on screen after the change and still kept. The sleeves run off the
   BOTTOM edge, which is where they read as continuing past the frame; they only
   clip the side edges in the last 4 per cent of the image (y 1473-1535 of 1536),
   so what is exposed at the corners is small and low. It plays and records
@@ -150,8 +169,9 @@ rather than with a number.
 |---|---|
 | `config.player.cockpit.source` | sprite cockpit vs primitive fallback |
 | `config/cockpit.js` -> `screen` | dash placement; must match the punched hole |
-| `config/cockpit.js` -> `heightScale` | **0.890** - the plane's height as a fraction of the FRAME's height. The size knob. Solved, not chosen: the only value that puts the windscreen top and the grips inside their targets at once. |
-| `config/cockpit.js` -> `offset` | **[0, -0.2042]** - half-frames [across, up]. Drops the bottom-anchored plane until the windscreen top lands at 52.5% down. |
+| `config/cockpit.js` -> `heightScale` | **0.7034** - the plane's height as a fraction of the FRAME's height. The size knob. Solved, not chosen: the windscreen and grip landmarks are 0.3483 of the sprite apart and have to span 86.5 - 62.0 = 24.5% of the frame, so 0.245 / 0.3483. |
+| `config/cockpit.js` -> `offset` | **[0, -0.1521]** - half-frames [across, up]. Drops the bottom-anchored plane until the windscreen top lands at 62.0% down. |
+| `config/framing.js` -> `pitch` | **-0.0994** rad - the ride camera's own downward tilt. The cockpit is parented to the camera, so this moves only the world: it is what opens the road band without moving the bike. |
 | `config/cockpit.js` -> `sway` | roll and shift with lean and steer; goes through `motionScale('cockpitSway')` |
 | hands `width` / `offset` / `handInset` | the primitive fallback only. `handInset` is 0 and dead - it was a per-aspect correction for the tall framing profile, which no longer exists. |
 
@@ -305,10 +325,34 @@ identical numbers, which is the point of sizing from height:
 
 | | target | actual |
 |---|---|---|
-| windscreen top | 50-55% down | **52.5%** |
-| grips | 82-85% down | **83.5%** |
-| road band, horizon to windscreen | > 0 | **2.5%** of frame height |
-| cockpit share of frame height | - | 47.5% |
+| windscreen top | 60-64% down | **62.0%** |
+| grips | 85-88% down | **86.5%** |
+| wrist cuffs, both gloves | inside the frame | **94.9%** down |
+| horizon / road vanishing point | 40-47% down | **43.5%** |
+| road band, horizon to windscreen | >= 15% | **18.5%** of frame height |
+| both mirrors fully visible | yes | across 33.1-67.0%, down 57.7-65.4% at 16:9 |
+| cockpit share of frame height | - | 38.0% |
+| arms to the side edge | report only | 18.0% at 16:9, 21.7% at 2:1, 25.7% at 21:9 |
+
+The forearms and the tank run off the bottom edge by design; only the cuffs
+have to be in frame. Arm-to-edge is reported and never asserted - it is a
+consequence of the plane's width at each aspect, not something worth failing a
+build over, and the bottom corners it leaves empty were play-tested and kept.
+
+The tool measures at the base fov of 75. The fov ramps to 104 at speed, and
+that moves the horizon but not the cockpit: `_place()` runs every frame off the
+current fov, so the sprite holds its screen position while the world opens up
+around it. At full ramp the horizon sits at 46.1 per cent and the road band
+narrows to 15.9 per cent - inside both targets, but that is the worst case and
+it is close, so a wider fovMax would have to be re-measured.
+
+Two knobs and a camera angle put it there: `heightScale` 0.7034 and `offset`
+[0, -0.1521] in `config/cockpit.js` size and drop the plane, and `pitch`
+-0.0994 rad in `config/framing.js` tilts the CAMERA down. They do different
+jobs and both are needed. The cockpit is parented to the camera
+(`camera.add(group)` in `player/Cockpit.js`) and `_place()` reads only the fov,
+so pitch moves the world underneath a cockpit that does not move - which is how
+the road band was opened up without the cockpit climbing back into it.
 
 This REPLACES the old hand contract of 20 / 80 per cent across and 85 per cent
 down. That was written when the hands were two separate sprites which could be
@@ -321,3 +365,8 @@ exits non-zero when a target is missed. Also `tools/cut-cockpit.py --debug`,
 `tools/cockpit.mjs` (`--depths`, `--parts`, `--render`, `--overlay`),
 `tools/measure-hands.mjs` and `tools/preview-hands.py` (primitive cockpit),
 `tools/key-sprite.py --group`.
+**`tools/shot.mjs`** takes one screenshot of the running game at a given size
+(`node tools/shot.mjs tools/out/x.png 1280 720 god=1`) - it starts its own dev
+server and reads back the port that server actually bound. `?god=1` in the
+query is usually what you want: it drops the title card, which is otherwise
+what you photograph. Output lands in `tools/out/`, which is not committed.

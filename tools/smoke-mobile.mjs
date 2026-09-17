@@ -15,6 +15,7 @@
  *
  *   - a console error or a page exception
  *   - a canvas that is still a single flat colour after five seconds
+ *   - a title card still on screen, which means the run never started
  *   - a stats overlay still reading "measuring...", which means the loop
  *     never completed a tick
  *   - a pause button that does not open the pause card
@@ -212,10 +213,26 @@ async function main() {
     console.log(early);
   }
 
-  // `force` for the same reason: whatever else is wrong, the tap itself should
-  // not be the thing that gets reported.
-  await page.tap('body', { position: { x: 450, y: 200 }, force: true }).catch(() => {});
+  // TOP RIGHT, AND NOT THE MIDDLE. The title card carries the reduced-motion
+  // toggle at its centre, and that toggle stops the pointerdown from reaching
+  // the window listener on purpose, so that changing the setting does not also
+  // start the run. A tap at the centre of the frame therefore landed on the
+  // toggle every single time: the card stayed up, the run never began, and this
+  // test spent five seconds measuring the title screen while flipping reduced
+  // motion on and off in storage. Everything below it passed anyway, because
+  // the world renders behind the card and the loop ticks behind it too.
+  //
+  // `force` for a different reason: whatever else is wrong, the tap itself
+  // should not be the thing that gets reported.
+  await page.tap('body', { position: { x: 750, y: 90 }, force: true }).catch(() => {});
   await page.waitForTimeout(5000);
+
+  // The check that would have caught the above. Everything after this point
+  // assumes a running game, so a card still on screen has to fail here rather
+  // than as a confusing symptom further down.
+  if (await page.isVisible('.start-screen').catch(() => false)) {
+    failures.push('title card still up after the tap - the run never started');
+  }
 
   const fault = await pictureFault(page);
   if (fault) failures.push(fault);

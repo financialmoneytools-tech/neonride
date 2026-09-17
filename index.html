@@ -184,6 +184,15 @@
         background: rgba(20, 60, 85, 0.85);
       }
 
+      /* Same trap as `.hint[hidden]` below: `.pause-button` sets display flex,
+         an author rule, which beats the browser's `[hidden] { display: none }`.
+         Without this the button never hides, so it sat in the middle of the top
+         edge of every god-mode frame - in footage, on a desktop that has no use
+         for it, and on top of the pause card it had just opened. */
+      .pause-button[hidden] {
+        display: none;
+      }
+
       /* Uncaught errors, readable on a phone. Above everything, including the
          rotate gate: a crash outranks a prompt. */
       .error-panel {
