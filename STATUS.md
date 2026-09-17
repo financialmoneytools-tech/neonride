@@ -229,6 +229,13 @@ arrive - no error, no prompt, nothing - and tilt looks like a bug in the game.
 The certificate is self-signed, so the phone warns once and has to be told to
 continue. `npm run dev` is unchanged.
 
+**The port is pinned with `strictPort`.** Vite's default is to hop to the next
+free port and print it, which is fine until that URL is also typed into a second
+command: a stale server on 5173 sent the dev server to 5174 while
+`cloudflared --url http://localhost:5173` went on addressing the stale one, and
+the tunnel answered 404 from a server nobody meant to run. It now fails to start
+rather than moving. If it says the port is in use, kill the old server.
+
 A separate config rather than an env var on one script: `PHONE=1 vite` is not
 something the Windows shell understands, and this project lives on two Windows
 laptops.
@@ -244,6 +251,30 @@ APIs - use a real one through a tunnel:
 tunnel's host is random per run and Vite answers an unrecognised Host header
 with a blocked-host error and nothing else. cloudflared terminates TLS with a
 trusted certificate, so the phone gets real HTTPS and no warning.
+
+### Checks before saying anything works
+
+    npm run smoke
+
+`tools/smoke-mobile.mjs` drives real Chromium in a phone profile - landscape
+viewport, `hasTouch`, `isMobile` - taps through the title card, waits five
+seconds and fails on a console error or page exception, a flat picture, a stats
+overlay still reading "measuring...", or a pause button that does not open the
+card. It starts its own dev server and reads the URL out of that server's own
+output rather than assuming a port.
+
+It exists because a one-line scope mistake shipped and the only symptom on the
+device was a black screen: the loop threw on its first tick, no frame was drawn,
+and every readout that would have explained it never updated. `npm run build`
+passed, both measure tools passed, and nothing in the repo could see it.
+
+Verified by reintroducing that bug: the run fails and prints the error panel's
+text. A check that has never failed is not a check.
+
+**The on-screen error panel** (`ui/ErrorPanel.js`) is installed first in
+main.js, before anything it might have to catch, and prints `window.onerror` and
+`unhandledrejection` with the stack. There is no console on a phone and no
+keyboard to open one with.
 
 ### URL parameters
 

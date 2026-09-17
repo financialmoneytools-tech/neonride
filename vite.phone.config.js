@@ -22,5 +22,12 @@ export default mergeConfig(base, {
   plugins: [basicSsl()],
   // --host is also passed on the command line; this makes the intent explicit
   // for anyone reading the config rather than the script.
-  server: { host: true },
+  server: {
+    // PINNED, and it fails rather than moving. Vite's default is to hop to the
+    // next free port and print it, which is fine until the URL is also written
+    // into a second command: a stale server on 5173 sent this one to 5174 while
+    // `cloudflared --url http://localhost:5173` went on addressing the stale
+    // one, and the tunnel answered 404 from a server nobody meant to run.
+    port: 5173,
+    strictPort: true, host: true },
 });

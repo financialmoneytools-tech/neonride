@@ -81,7 +81,7 @@ export class BikePhysics {
     const input = this._effectiveInput(state.input || NEUTRAL, state);
     this._input = input;
 
-    this._updateSpeed(dt, input, bike);
+    this._updateSpeed(dt, input, bike, state);
     const speedRatio = this.speed / bike.maxSpeed;
 
     this.distance += this.speed * dt;
@@ -192,13 +192,17 @@ export class BikePhysics {
     this._lateralTarget = placed;
   }
 
-  /** Throttle against brake and drag. Drag is what actually caps the speed. */
-  _updateSpeed(dt, input, bike) {
+  /**
+   * Throttle against brake and drag. Drag is what actually caps the speed.
+   * @param {object} state the shared frame state; read for controlMode
+   */
+  _updateSpeed(dt, input, bike, state) {
     // THE FLOOR IS FOR THE KEYBOARD ONLY. It exists so a desktop ride never
     // stalls while the cockpit is being tuned, and on a phone it is the
     // opposite of what is wanted: letting go of the gas has to slow the bike,
     // or the throttle half of a touch control scheme means nothing.
-    const floor = config.controls.floorByMode[state.controlMode] ?? bike.throttleFloor;
+    const floor = config.controls.floorByMode[state && state.controlMode]
+      ?? bike.throttleFloor;
     const throttle = Math.max(input.throttle, floor);
 
     // Kept, because the throttle the bike is ACTUALLY given is not the throttle

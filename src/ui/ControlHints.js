@@ -34,7 +34,13 @@ export class ControlHints {
     this.brake.className = 'hint hint-brake';
     this.brake.textContent = 'FREN';
 
-    this.el.append(this.left, this.right, this.brake);
+    // The brake is attached and detached, not hidden. `.hint` sets display
+    // flex, which is an author rule and beats the browser's own
+    // `[hidden] { display: none }` - so setting .hidden on it did nothing at
+    // all, and the touch brake rendered in tilt mode with none of its
+    // positioning applied, which put a clipped FREN in the top left corner.
+    // Out of the DOM cannot be styled back in.
+    this.el.append(this.left, this.right);
     parent.appendChild(this.el);
 
     this.noticeEl = document.createElement('div');
@@ -58,8 +64,10 @@ export class ControlHints {
 
     // The brake is a button only in touch mode; in tilt mode the whole left
     // half is the brake, so drawing a small box would be a lie.
-    this.brake.hidden = tilt;
-    if (!tilt) {
+    if (tilt) {
+      this.brake.remove();
+    } else {
+      if (!this.brake.parentNode) this.el.appendChild(this.brake);
       const b = config.controls.touch.brake;
       this.brake.style.left = `${b.x * 100}%`;
       this.brake.style.top = `${b.y * 100}%`;

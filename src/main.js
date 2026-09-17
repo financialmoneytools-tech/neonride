@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from './config.js';
+import { ErrorPanel } from './ui/ErrorPanel.js';
 import { Device } from './core/Device.js';
 import { Comfort } from './core/Comfort.js';
 import { PatchSelector } from './utils/patch.js';
@@ -36,6 +37,11 @@ import { Postprocess } from './fx/Postprocess.js';
  * Builds the modules, wires them into the single animation loop and
  * handles HMR cleanup. No game logic belongs here.
  */
+
+// FIRST. An exception thrown while the rest of this file is still building is
+// a black screen on a phone and nothing else - no console, no keyboard to open
+// one with, and every readout that would explain it never updates.
+const errors = new ErrorPanel(document.body);
 
 const container = document.getElementById('app');
 
@@ -475,6 +481,7 @@ function disposeAll() {
   sky.dispose();
   input.dispose();
   if (stats) stats.dispose();
+  errors.dispose();
   hints.dispose();
   pauseButton.dispose();
   controls.dispose();

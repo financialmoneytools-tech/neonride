@@ -184,6 +184,25 @@
         background: rgba(20, 60, 85, 0.85);
       }
 
+      /* Uncaught errors, readable on a phone. Above everything, including the
+         rotate gate: a crash outranks a prompt. */
+      .error-panel {
+        position: fixed;
+        inset: 8px;
+        z-index: 200;
+        overflow: auto;
+        padding: 12px 14px;
+        border: 1px solid #ff4f7d;
+        border-radius: 8px;
+        background: rgba(18, 4, 10, 0.96);
+        color: #ffd2dd;
+        font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
       /* Thumb hints. POINTER-EVENTS NONE everywhere: every touch is read from
          coordinates in core/Input.js, and an element that could be pressed
          would break multi-touch the moment a thumb rested on it. */
@@ -197,6 +216,13 @@
 
       .hints-faded {
         opacity: 0;
+      }
+
+      /* `.hint` sets display flex below, which as an author rule beats the
+         browser's own `[hidden] { display: none }`. Without this, hiding any
+         hint does nothing. */
+      .hint[hidden] {
+        display: none;
       }
 
       .hint {
