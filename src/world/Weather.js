@@ -6,12 +6,14 @@ import { motionScale } from '../core/Comfort.js';
 /**
  * Weather - snow, rain and dust, all out of one buffer.
  *
- * LINE SEGMENTS, NOT POINTS. A point sprite is an axis aligned square, so it
- * cannot streak, and a streak is most of what weather at speed looks like: the
- * same flake is a dot when the bike is stopped and a forty centimetre dash at
- * two hundred. Each particle is one segment from where it is to where it just
- * was, which tilts with the real velocity for free and costs two vertices.
- * One draw call for the whole sky.
+ * ROUND SOFT FLAKES THAT STRETCH, not line segments. The first version drew
+ * each particle as a segment from where it is to where it was, which tilts with
+ * the real velocity for free - and looked like a screen full of scratches,
+ * because a one pixel line is not a snowflake at any speed. These are points
+ * with a soft radial falloff, and the falloff is measured in a frame aligned
+ * with the particle's own screen space velocity: at rest it is a circle, and at
+ * two hundred it is a short dash lying the way the flake is actually moving.
+ * One draw call for the whole sky either way.
  *
  * NOTHING IS SPAWNED OR DESTROYED. The particles live in a box kept centred on
  * the camera and wrap when they leave it, the same trick the sky group uses to
@@ -32,26 +34,105 @@ import { motionScale } from '../core/Comfort.js';
 
 const _forward = new THREE.Vector3();
 const _flow = new THREE.Vector3();
+const _size = new THREE.Vector2();
+
+const VERTEX_SHADER = `
+  attribute vec3 aVelocity;
+
+  uniform float uSize;
+  uniform float uPixelsPerUnit;
+  uniform float uStreak;
+  uniform vec3 uFlow;
+
+  varying vec2 vDir;
+  varying float vStretch;
+
+  void main() {
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    float depth = max(0.1, -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+
+    // A flake's true motion through the world is its own fall plus the flow the
+    // bike drags it through. Both, or a stopped bike would still show streaks
+    // and a moving one would show them falling straight down.
+    vec3 motion = aVelocity + uFlow;
+
+    // Where that motion points ON SCREEN. Projecting the far end of it and
+    // taking the difference in clip space is the only way to get this right
+    // through a perspective divide.
+    vec4 tip = projectionMatrix * (mvPosition + viewMatrix * vec4(motion, 0.0));
+    vec2 here = gl_Position.xy / max(0.0001, abs(gl_Position.w));
+    vec2 there = tip.xy / max(0.0001, abs(tip.w));
+    vec2 delta = there - here;
+    float len = length(delta);
+    vDir = len > 0.0001 ? delta / len : vec2(0.0, 1.0);
+
+    // How far it smears. Bounded, because a streak longer than the sprite it
+    // is drawn in simply clips, and because a flake that becomes a line has
+    // stopped being a flake.
+    vStretch = 1.0 + uStreak;
+
+    gl_PointSize = uSize * uPixelsPerUnit * vStretch / depth;
+  }
+`;
+
+const FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+
+  varying vec2 vDir;
+  varying float vStretch;
+
+  void main() {
+    // Point coordinates run 0..1 with y DOWN, and the streak direction was
+    // computed in clip space with y up, so one of them has to be flipped or
+    // every flake leans the wrong way.
+    vec2 uv = gl_PointCoord * 2.0 - 1.0;
+    uv.y = -uv.y;
+
+    // Measure the distance in the flake's own frame: along its motion, and
+    // across it.
+    //
+    // THE SPRITE GROWS IN BOTH AXES AND THE FLAKE MUST NOT. gl_PointSize is a
+    // square, so stretching a streak means asking for a bigger square - and uv
+    // then spans that bigger square in both directions. Dividing the ALONG
+    // axis by the stretch made the ellipse long, and left it just as wide,
+    // which drew snow as fat white blocks. The across axis is MULTIPLIED
+    // instead: the sprite grew by vStretch, so the flake's width in uv has to
+    // shrink by the same factor to stay the width it was.
+    vec2 across = vec2(-vDir.y, vDir.x);
+    float a = dot(uv, vDir);
+    float b = dot(uv, across) * vStretch;
+    float d = length(vec2(a, b));
+
+    // Soft all the way out. A hard edge on a small sprite aliases into a
+    // sparkle, which reads as dust rather than as snow.
+    float alpha = 1.0 - smoothstep(0.15, 1.0, d);
+    if (alpha <= 0.002) discard;
+
+    gl_FragColor = vec4(uColor, alpha * uOpacity);
+  }
+`;
 
 export class Weather {
   /**
    * @param {THREE.Scene} scene
    * @param {THREE.Camera} camera
+   * @param {THREE.WebGLRenderer} renderer for the point size, which is in pixels
    */
-  constructor(scene, camera) {
+  constructor(scene, camera, renderer) {
     const cfg = config.world.weather;
 
     this.scene = scene;
     this.camera = camera;
+    this.renderer = renderer;
     this.rng = createRng(cfg.seed);
 
     this.count = cfg.count;
     this.box = cfg.box;
 
-    // Two vertices per particle: the head, and the tail it is dragging.
     this._points = new Float32Array(this.count * 3);
     this._velocity = new Float32Array(this.count * 3);
-    this._vertices = new Float32Array(this.count * 6);
 
     const half = { x: this.box[0] * 0.5, y: this.box[1] * 0.5, z: this.box[2] * 0.5 };
     this._half = half;
@@ -63,35 +144,42 @@ export class Weather {
     }
 
     this.geometry = new THREE.BufferGeometry();
-    const attribute = new THREE.BufferAttribute(this._vertices, 3);
-    attribute.setUsage(THREE.DynamicDrawUsage);
-    this.geometry.setAttribute('position', attribute);
+    const position = new THREE.BufferAttribute(this._points, 3);
+    position.setUsage(THREE.DynamicDrawUsage);
+    this.geometry.setAttribute('position', position);
+    this.geometry.setAttribute('aVelocity', new THREE.BufferAttribute(this._velocity, 3));
 
-    // Colour and opacity belong to the KIND, not to the system, and setKind
-    // writes them. White at full opacity here so the material is never
-    // constructed with undefined - three warns on that and the theme that
-    // happens to be fitted first should not decide whether it does.
-    this.material = new THREE.LineBasicMaterial({
-      color: 0xffffff,
+    this.material = new THREE.ShaderMaterial({
+      uniforms: {
+        uSize: { value: 0.2 },
+        uPixelsPerUnit: { value: 500 },
+        uStreak: { value: 0 },
+        uFlow: { value: new THREE.Vector3() },
+        uColor: { value: new THREE.Color(0xffffff) },
+        uOpacity: { value: 1 },
+      },
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: FRAGMENT_SHADER,
       transparent: true,
-      opacity: 1,
-      blending: THREE.AdditiveBlending,
       depthWrite: false,
-      toneMapped: false,
-      fog: false,
+      // NOT additive. Additive white over a pale snow verge turns the verge
+      // white and loses the flakes in it, and additive white through the
+      // chromatic aberration in the post chain fringes magenta - which is the
+      // one colour snow may never be.
+      blending: THREE.NormalBlending,
     });
 
-    this.lines = new THREE.LineSegments(this.geometry, this.material);
-    this.lines.name = 'Weather';
+    this.flakes = new THREE.Points(this.geometry, this.material);
+    this.flakes.name = 'Weather';
     // The box moves with the camera, so nothing in it is ever outside the
     // frustum in a way a bounding test could usefully find.
-    this.lines.frustumCulled = false;
-    this.lines.renderOrder = 5;
-    this.lines.visible = false;
-    scene.add(this.lines);
+    this.flakes.frustumCulled = false;
+    this.flakes.renderOrder = 5;
+    this.flakes.visible = false;
+    scene.add(this.flakes);
 
     this.kind = null;
-    this.setKind(config.world.weather.kind);
+    this.setKind(cfg.kind);
   }
 
   /**
@@ -102,19 +190,22 @@ export class Weather {
     const preset = kind && config.world.weather.kinds[kind];
     this.kind = preset ? kind : null;
     this.preset = preset || null;
-    this.lines.visible = !!preset;
+    this.flakes.visible = !!preset;
     if (!preset) return;
 
-    this.material.color.set(preset.color);
-    this.material.opacity = preset.opacity;
+    this.material.uniforms.uColor.value.set(preset.color);
+    this.material.uniforms.uOpacity.value = preset.opacity;
+    this.material.uniforms.uSize.value = preset.size;
 
-    // Per particle velocity, scattered so the fall is not a single sheet.
+    // Per particle velocity, scattered so the fall is not a single sheet. The
+    // lateral drift takes either sign, so the field wanders instead of sliding.
     for (let i = 0; i < this.count; i++) {
       const at = i * 3;
-      this._velocity[at] = preset.drift[0] * (0.4 + this.rng.next() * 1.2);
+      this._velocity[at] = preset.drift[0] * (this.rng.next() * 2 - 1);
       this._velocity[at + 1] = -preset.fall * (0.6 + this.rng.next() * 0.8);
       this._velocity[at + 2] = preset.drift[1] * (this.rng.next() * 2 - 1);
     }
+    this.geometry.attributes.aVelocity.needsUpdate = true;
   }
 
   /**
@@ -129,39 +220,38 @@ export class Weather {
     const half = this._half;
     const points = this._points;
     const velocity = this._velocity;
-    const vertices = this._vertices;
+    const uniforms = this.material.uniforms;
 
     // The box rides with the camera. Position only, not rotation: weather that
     // rolled with the bike's lean would read as the sky tipping over.
-    this.camera.getWorldPosition(this.lines.position);
+    this.camera.getWorldPosition(this.flakes.position);
 
     // Flow is the bike's own velocity, pushed back through the box. The camera
     // looks roughly where it is going, so its forward axis is the travel axis.
     this.camera.getWorldDirection(_forward);
     const speed = state.speed || 0;
     _flow.copy(_forward).multiplyScalar(-speed);
+    uniforms.uFlow.value.copy(_flow);
 
-    // How long a streak is. streakMin is a floor rather than a starting point
-    // for a reason: at rest the speed term is zero, and a zero length segment
-    // draws nothing at all, so a stopped bike would be standing in clear air.
-    const streak = preset.streakMin + speed * preset.streakFromSpeed * comfort;
+    // A point's size is in PIXELS, so it depends on how tall the frame is and
+    // how wide the field of view is - and both of those move. Element 5 of a
+    // perspective projection is 1 / tan(fov / 2).
+    this.renderer.getDrawingBufferSize(_size);
+    uniforms.uPixelsPerUnit.value = _size.y * this.camera.projectionMatrix.elements[5] * 0.5;
 
-    // A thinned fall, rather than a stopped one: the reduced setting parks the
-    // surplus outside the box instead of changing the buffer, which cannot be
-    // resized mid run.
+    // SHORT STREAKS ONLY AT HIGH SPEED. Below the threshold this is zero and
+    // every flake is a circle, which is what snow looks like when you are not
+    // travelling through it.
+    const over = Math.max(0, speed - preset.streakFrom);
+    uniforms.uStreak.value = Math.min(preset.streakMax, over * preset.streakRate) * comfort;
+
+    // A thinned fall rather than a stopped one. drawRange, so the surplus is
+    // never drawn rather than drawn and discarded.
     const live = Math.max(1, Math.round(this.count * (comfort < 1 ? comfort : 1)));
+    this.geometry.setDrawRange(0, live);
 
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < live; i++) {
       const at = i * 3;
-      const out = i * 6;
-
-      if (i >= live) {
-        // Collapsed to a zero length segment: no fragments, no branch in the
-        // shader, and nothing to see.
-        vertices[out] = 0; vertices[out + 1] = 0; vertices[out + 2] = 0;
-        vertices[out + 3] = 0; vertices[out + 4] = 0; vertices[out + 5] = 0;
-        continue;
-      }
 
       let x = points[at] + (velocity[at] + _flow.x) * dt;
       let y = points[at + 1] + velocity[at + 1] * dt;
@@ -177,23 +267,6 @@ export class Weather {
       points[at] = x;
       points[at + 1] = y;
       points[at + 2] = z;
-
-      // The tail points back along the particle's own velocity through the
-      // world, which is the fall plus the flow - so a flake hangs when the bike
-      // is stopped and lies almost flat at speed, with no special case for
-      // either.
-      const vx = velocity[at] + _flow.x;
-      const vy = velocity[at + 1];
-      const vz = velocity[at + 2] + _flow.z;
-      const length = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
-      const k = streak / length;
-
-      vertices[out] = x;
-      vertices[out + 1] = y;
-      vertices[out + 2] = z;
-      vertices[out + 3] = x - vx * k;
-      vertices[out + 4] = y - vy * k;
-      vertices[out + 5] = z - vz * k;
     }
 
     this.geometry.attributes.position.needsUpdate = true;
@@ -202,8 +275,9 @@ export class Weather {
   dispose() {
     this.geometry.dispose();
     this.material.dispose();
-    this.scene.remove(this.lines);
+    this.scene.remove(this.flakes);
     this.scene = null;
     this.camera = null;
+    this.renderer = null;
   }
 }

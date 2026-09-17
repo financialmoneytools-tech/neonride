@@ -68,6 +68,18 @@ export const road = {
     // The median strip between the two carriageways: not asphalt and not
     // void, so the barrier standing in it has something to stand on.
     medianColor: 0x0a0814,
+
+    // THE GROUND EITHER SIDE. Equal to voidColor here, which is Galaxy Road's
+    // answer - a road in space has no verge - and the knob a snowy theme turns
+    // up. `bankColor` is the ploughed ridge piled hard against each edge of
+    // each carriageway; `bankWidth` is how far out it reaches, in metres.
+    // How much of itself the far carriageway keeps. A theme that gives it
+    // plenty of headlights can afford 1.0; one that does not needs it low, or
+    // it reads as a second lane of ours rather than as somewhere else.
+    oncomingDim: 0.55,
+    groundColor: 0x050310,
+    bankColor: 0x000000,
+    bankWidth: 2.4,
     sheenColor: 0x2a1550, // fake sky reflection picked up at grazing angles
     sheenStrength: 0.55,
     sheenPower: 3.0,

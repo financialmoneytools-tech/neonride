@@ -21,9 +21,24 @@ export const galaxyRoad = {
     scenery: {
       // Nothing. A road in space has no trees beside it, and the emptiness is
       // the point rather than an omission.
-      density: { pine: 0, rock: 0, lampLeft: 0, lampRight: 0 },
+      density: { pine: 0, rock: 0, lampLeft: 0, lampRight: 0, gantry: 0 },
     },
     weather: { kind: null },
+
+    // NOTHING OPAQUE MAY BLOCK THE SKY HERE. The ridge silhouettes are near
+    // black and sat across the lower third of the frame, eating the starfield
+    // on the right and part of the left - and the starfield is the entire
+    // reason this theme exists. Aurora Pass keeps them; a pass needs walls.
+    mountains: { enabled: false },
+
+    road: {
+      surface: {
+        // The far carriageway recedes rather than reading as a flat navy plane
+        // laid beside ours. It is 12 to 27 metres away across a barrier and
+        // should look it.
+        oncomingDim: 0.45,
+      },
+    },
   },
 
   /**

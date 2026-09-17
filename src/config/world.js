@@ -88,7 +88,7 @@ export const world = {
 
     // Set by the theme. Zero here, which IS Galaxy Road: a road in space has
     // no trees beside it.
-    density: { pine: 0, rock: 0, lampLeft: 0, lampRight: 0 },
+    density: { pine: 0, rock: 0, lampLeft: 0, lampRight: 0, gantry: 0 },
 
     kinds: {
       pine: {
@@ -99,13 +99,17 @@ export const world = {
         spread: 15, // depth of the band they scatter through
         scaleMin: 0.9, scaleMax: 2.1,
         sink: -0.3, // a touch into the ground, so none of them float
-        sides: 7, // radial segments: a 7 sided cone still reads as round
-        trunkRadius: 0.22, trunkHeight: 1.1,
-        height: 7.5, radius: 1.9,
+        sides: 8, // radial segments: an 8 sided cone still reads as round
+        trunkRadius: 0.22, trunkHeight: 1.0,
+        height: 8.2, radius: 2.1,
+        tiers: 4, // stacked skirts; the banding IS the silhouette of a pine
+        taper: 0.52, // how much narrower the top tier is than the bottom
+        spire: 0.35, // upper tiers grow taller, which sharpens the top
+        overlap: 0.62, // each tier starts this far up the one below
+        snowLine: 0.5, // share of a tier's height that carries snow, from the top
         trunkColor: 0x1a1410,
-        needleColor: 0x0d2119,
-        snow: 0.55, // share of the crown under snow; 0 for a bare pine
-        snowColor: 0x9fc6d8,
+        needleColor: 0x122a22,
+        snowColor: 0xcfe4f0,
       },
       rock: {
         shape: 'rock',
@@ -116,29 +120,101 @@ export const world = {
         radius: 1.1, squash: 0.7,
         color: 0x14161c,
       },
+      // OVERHEAD SIGN GANTRY. The one prop that spans the road instead of
+      // standing beside it, so it is placed on the path centre - see the
+      // 'centre' side in world/Scenery.js. The legs land at +/-10.5: outside
+      // our edge lines at +/-7.6 on the right, and in the median on the left,
+      // which is where a real gantry's leg goes.
+      gantry: {
+        shape: 'gantry',
+        perChunk: 2, // one every 100 units before the theme's density
+        side: 'centre',
+        setback: 0, spread: 0,
+        scaleMin: 1, scaleMax: 1,
+        span: 21,
+        height: 7.4, // clear of a 4.1 m box truck with room to spare
+        legWidth: 0.34,
+        footHeight: 0.5,
+        beamHeight: 0.55,
+        beamDepth: 0.4,
+        legColor: 0x2a323d,
+        toneMapped: true,
+        glow: {
+          opacity: 1,
+          panel: {
+            size: 2.7,
+            gap: 0.45,
+            color: 0xffffff, // the atlas carries the colour; this is the gain
+            // Which atlas cell each panel shows, left to right. Fixed rather
+            // than random: a gantry has to read the same every time that
+            // stretch of road is rebuilt, and a sign that changes its mind is
+            // worse than a sign that repeats.
+            cells: [[1, 0], [0, 0], [0, 1]],
+          },
+          sign: {
+            textureSize: 512,
+            plateColor: '#0b1622',
+            borderColor: '#6fe8ff',
+            textColor: '#d8f6ff',
+          },
+        },
+      },
+
       lampRight: {
         shape: 'lampRight',
         perChunk: 7, // one every ~29 units
         side: 'right',
         setback: 0.5, spread: 0.4,
         scaleMin: 1, scaleMax: 1,
-        height: 9.5, postWidth: 0.3, armLength: 3.4,
+        height: 9.5, postWidth: 0.32, armLength: 3.4,
         headLength: 1.5, headHeight: 0.28, headWidth: 0.6,
-        postColor: 0x101018,
-        headColor: 0xcfe9ff,
-        toneMapped: false, // the head is a light; it must be allowed to blow out
+        // The post has to be light enough to silhouette against a snow verge,
+        // or the head floats. Against Galaxy Road's black it makes no odds.
+        postColor: 0x27303c,
+        headColor: 0x9fe2ff, // ice blue, and bright: this is a light source
+        toneMapped: false, // it is a light; it must be allowed to blow out
+        // The light it throws. See buildLampGlow in world/scenery/props.js -
+        // an additive pool on the road and a halo at the head, on their own
+        // mesh, because light is not a surface.
+        glow: {
+          color: 0x7fd4ff,
+          opacity: 0.85,
+          size: 9.0, // the pool across the road
+          stretch: 2.2, // and along it, because a lamp lights a stretch
+          lift: 0.06, // clear of the road surface, so they do not z-fight
+          haloSize: 3.2,
+          textureSize: 128,
+          texture: { coreStop: 0.06, coreAlpha: 0.9, midStop: 0.3, midAlpha: 0.32,
+            tailStop: 0.62, tailAlpha: 0.06 },
+        },
       },
       lampLeft: {
         shape: 'lampLeft',
-        perChunk: 7,
+        perChunk: 7, // one every ~29 units
         side: 'left',
         setback: 0.5, spread: 0.4,
         scaleMin: 1, scaleMax: 1,
-        height: 9.5, postWidth: 0.3, armLength: 3.4,
+        height: 9.5, postWidth: 0.32, armLength: 3.4,
         headLength: 1.5, headHeight: 0.28, headWidth: 0.6,
-        postColor: 0x101018,
-        headColor: 0xcfe9ff,
-        toneMapped: false,
+        // The post has to be light enough to silhouette against a snow verge,
+        // or the head floats. Against Galaxy Road's black it makes no odds.
+        postColor: 0x27303c,
+        headColor: 0x9fe2ff, // ice blue, and bright: this is a light source
+        toneMapped: false, // it is a light; it must be allowed to blow out
+        // The light it throws. See buildLampGlow in world/scenery/props.js -
+        // an additive pool on the road and a halo at the head, on their own
+        // mesh, because light is not a surface.
+        glow: {
+          color: 0x7fd4ff,
+          opacity: 0.85,
+          size: 9.0, // the pool across the road
+          stretch: 2.2, // and along it, because a lamp lights a stretch
+          lift: 0.06, // clear of the road surface, so they do not z-fight
+          haloSize: 3.2,
+          textureSize: 128,
+          texture: { coreStop: 0.06, coreAlpha: 0.9, midStop: 0.3, midAlpha: 0.32,
+            tailStop: 0.62, tailAlpha: 0.06 },
+        },
       },
     },
   },
@@ -149,25 +225,35 @@ export const world = {
   weather: {
     seed: 777,
     kind: null, // set by the theme; null is clear weather
-    count: 1800,
+    count: 2600, // there is headroom on the phone; snow wants to be dense
     // The box it falls in, centred on the camera. Near field on purpose: the
     // sky dome is at 1500 and must never be dimmed by weather in front of it.
     box: [90, 44, 130],
+    // `size` is the flake's diameter in METRES at the camera; the shader turns
+    // it into pixels. Streaking starts at `streakFrom` units per second and
+    // grows at `streakRate` per unit, capped at `streakMax` - so below about
+    // half speed every flake is a circle and only a fast run smears them.
     kinds: {
       snow: {
-        color: 0xdbeaf5, opacity: 0.8,
-        fall: 3.2, drift: [1.1, 0.8],
-        streakMin: 0.22, streakFromSpeed: 0.0010,
+        // Plain white. Not blue-white: the chromatic aberration in the post
+        // chain fringes a bright tinted particle, and a blue-white flake
+        // fringes MAGENTA, which is the one thing snow may never look like.
+        color: 0xffffff, opacity: 0.85,
+        size: 0.13,
+        fall: 2.4, drift: [1.4, 1.0], // soft, wandering, nothing like rain
+        streakFrom: 90, streakRate: 0.022, streakMax: 3.0,
       },
       rain: {
-        color: 0x9fc8ff, opacity: 0.55,
+        color: 0xbcd8ff, opacity: 0.6,
+        size: 0.09,
         fall: 22, drift: [1.6, 0.6],
-        streakMin: 0.8, streakFromSpeed: 0.006,
+        streakFrom: 0, streakRate: 0.06, streakMax: 9.0,
       },
       dust: {
-        color: 0xc98a4a, opacity: 0.35,
+        color: 0xc98a4a, opacity: 0.4,
+        size: 0.22,
         fall: 0.4, drift: [7, 3],
-        streakMin: 0.5, streakFromSpeed: 0.004,
+        streakFrom: 40, streakRate: 0.03, streakMax: 5.0,
       },
     },
   },
@@ -183,20 +269,29 @@ export const world = {
     // and a single offset put the left hand row in the middle of an oncoming
     // lane. world/Roadside.js derives both sides from world/road/layout.js.
     verge: 2.2,
-    postWidth: 0.45,
-    postDepth: 0.45,
-    postHeight: 5.2,
-    postColor: 0x0b0b16,
-    tubeWidth: 0.26,
-    tubeDepth: 0.26,
-    tubeHeight: 3.9,
-    tubeLift: 0.7, // tube base above the road
-    tubeInset: 0.34, // tube pushed off the post face, toward the road
+    postWidth: 0.24,
+    postDepth: 0.24,
+    postHeight: 6.4,
+    postColor: 0x232b36, // light enough to read as a pole against a snow verge
+    baseWidth: 0.72, // the plinth it stands on, so it is not floating
+    baseHeight: 0.42,
+    // A THIN STRIP UP THE POLE. At 0.26 square and 3.9 tall, lifted clear of
+    // the ground beside an invisible post, this was a flat slab of light
+    // hanging in the air - and the single most objectionable thing in the
+    // frame at close range.
+    tubeWidth: 0.1,
+    tubeDepth: 0.1,
+    tubeHeight: 5.0,
+    tubeLift: 0.55, // tube base above the road
+    tubeInset: 0.17, // tube pushed off the post face, toward the road
     leftColor: 0x22f7ff,
     rightColor: 0xff2bd0,
   },
 
   mountains: {
+    // A theme decides whether there is anything on the horizon at all. Galaxy
+    // Road turns them off: nothing opaque may block the sky on a road in space.
+    enabled: true,
     slabLength: 2400,
     slabsPerLayer: 2, // two slabs leapfrog each other along the travel axis
     columns: 28,

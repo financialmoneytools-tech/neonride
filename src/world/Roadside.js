@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { UP } from './road/RoadPath.js';
 import { applyDistanceFade } from '../utils/distanceFade.js';
 import { roadLayout } from './road/layout.js';
+import { GeometryBuilder } from '../utils/geometry.js';
 
 /**
  * Roadside - the rhythmic neon pylons standing along both edges of the road.
@@ -55,7 +56,14 @@ export class Roadside {
     this.group.name = 'Roadside';
     scene.add(this.group);
 
-    this.postGeometry = new THREE.BoxGeometry(side.postWidth, side.postHeight, side.postDepth);
+    // A POLE WITH A BASE, not a floating tube. The old pylon was a 0.26 square
+    // neon bar 3.9 tall lifted clear of the ground beside a post so dark it was
+    // invisible, which read as a large flat slab of light hanging in the air -
+    // and at close range it is the biggest thing in the frame. Now the post is
+    // a real pole standing on a plinth, and the neon is a thin strip up its
+    // face. The base and the pole are ONE geometry, so this is still two draw
+    // calls for every pylon in the world.
+    this.postGeometry = Roadside._buildPost(side);
     this.tubeGeometry = new THREE.BoxGeometry(side.tubeWidth, side.tubeHeight, side.tubeDepth);
 
     this.postMaterial = new THREE.MeshBasicMaterial({ color: side.postColor });
@@ -91,6 +99,23 @@ export class Roadside {
 
     this._onChunkBuilt = this._fillChunk.bind(this);
     road.onChunkBuilt(this._onChunkBuilt);
+  }
+
+  /** Pole plus the plinth it stands on, merged. Origin at the pole's centre. */
+  static _buildPost(side) {
+    const builder = new GeometryBuilder();
+    const matrix = new THREE.Matrix4();
+
+    builder.add(
+      new THREE.BoxGeometry(side.postWidth, side.postHeight, side.postDepth),
+      matrix.identity(),
+    );
+    builder.add(
+      new THREE.BoxGeometry(side.baseWidth, side.baseHeight, side.baseWidth),
+      matrix.makeTranslation(0, -side.postHeight * 0.5 + side.baseHeight * 0.5, 0),
+    );
+
+    return builder.build('roadside-post');
   }
 
   /**

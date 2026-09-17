@@ -268,12 +268,22 @@ Per-theme allowance:
 | sky bodies and cloud | +3 | +4k |
 | **worst-case theme** | **~82** | **~85k** |
 
-**Measured, 17 September 2026**, 1280x720 on a desktop GPU:
+**Measured, 17 September 2026**, after the visual rework:
 
 | | draw calls | triangles |
 |---|---|---|
-| Galaxy Road, four lanes, no scenery | 76 | 38k |
-| Aurora Pass, pines + rocks + lamps + snow | 74 | 58k |
+| Galaxy Road, four lanes, no scenery (desktop 1280x720) | 69 | 41k |
+| Aurora Pass, pines + rocks + lamps + gantries + snow (desktop) | 83 | 81k |
+| Aurora Pass on an Android phone, player driving | 78 | 58k | 
+
+The phone holds 60.1 FPS on Aurora Pass, so the budget that matters is 45 FPS,
+120 draw calls and 250k triangles on that device - and the theme sits at about
+a third of the triangle allowance. There is room for the remaining four places.
+
+A screenshot's own FPS counter is only real if the tool asked for a GPU:
+headless Chromium falls back to SwiftShader, which read 7.5 FPS on a frame the
+phone runs at 60. Both `tools/shot.mjs` and `tools/god-run.mjs` launch with
+`--use-angle=default --enable-gpu` now.
 
 The highway itself cost most of the draw calls the estimate had set aside for
 scenery: the median is 2, the oncoming carriageway 2, and the two truck types 8.

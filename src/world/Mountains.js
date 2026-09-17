@@ -32,6 +32,12 @@ export class Mountains {
 
     this.group = new THREE.Group();
     this.group.name = 'Mountains';
+    // OFF IS A REAL ANSWER. Galaxy Road is a motorway laid through a galaxy and
+    // the sky is the whole point of it; a near black ridge across the lower
+    // third of the frame eats the starfield it exists to show. Built either
+    // way, because a theme may not allocate - see docs/THEMES.md - and hidden
+    // when a theme does not want them.
+    this.group.visible = cfg.enabled !== false;
     scene.add(this.group);
 
     // A seed of its own, so the ridges never echo the shape of the road.

@@ -23,6 +23,12 @@ const height = Number(process.argv[4] || 720);
 // card: the card owns the first gesture and a synthetic click on it is not
 // always the gesture it is waiting for.
 const query = process.argv[5] ? '?' + process.argv[5].replace(/^\?/, '') : '';
+// Optional 6th argument: wait until a vehicle of this type is within `NEAR_MAX`
+// units ahead before shooting, e.g. "semi" or "boxTruck". A screenshot of a
+// thing that happens sometimes cannot be taken by waiting a fixed four seconds
+// and hoping - it has to be waited FOR.
+const NEAR_TYPE = process.argv[6] || '';
+const NEAR_MAX = Number(process.argv[7] || 26);
 
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
 
@@ -52,7 +58,13 @@ function stop(child) {
 }
 
 const server = await startServer();
-const browser = await chromium.launch();
+// THE REAL GPU, the same flags tools/god-run.mjs uses. Without them headless
+// Chromium falls back to SwiftShader and the stats overlay in the screenshot
+// reads 7 FPS - a software rasteriser's number, which then gets read as the
+// game's. A screenshot that carries an FPS counter has to carry a real one.
+const browser = await chromium.launch({
+  args: ['--use-angle=default', '--enable-gpu', '--ignore-gpu-blocklist'],
+});
 const page = await browser.newPage({ viewport: { width, height } });
 await page.goto(server.url + query, { waitUntil: 'load', timeout: 30000 });
 await page.waitForTimeout(800);
@@ -60,6 +72,29 @@ await page.waitForTimeout(800);
 await page.mouse.click(width / 2, height / 2);
 // Long enough for the card to fade and the road to be moving.
 await page.waitForTimeout(4000);
+
+if (NEAR_TYPE) {
+  const found = await page.waitForFunction(
+    ([name, max]) => {
+      const NEON = window.NEON;
+      if (!NEON) return false;
+      const distance = NEON.loop.state.distance || 0;
+      for (const fleet of NEON.traffic.fleets) {
+        if (fleet.type.name !== name) continue;
+        for (const vehicle of fleet.vehicles) {
+          if (!vehicle.active) continue;
+          const gap = vehicle.distance - distance;
+          // Ahead, and close enough to fill the frame.
+          if (gap > 4 && gap < max) return true;
+        }
+      }
+      return false;
+    },
+    [NEAR_TYPE, NEAR_MAX],
+    { timeout: 60000, polling: 100 },
+  ).catch(() => null);
+  if (!found) console.log('  (never saw a ' + NEAR_TYPE + ' within ' + NEAR_MAX + ' units)');
+}
 mkdirSync(dirname(out), { recursive: true });
 await page.screenshot({ path: out });
 console.log(out + '  ' + width + 'x' + height + '  from ' + server.url + query);

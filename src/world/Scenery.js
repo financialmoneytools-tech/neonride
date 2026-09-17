@@ -4,7 +4,9 @@ import { createRng } from '../utils/rng.js';
 import { UP } from './road/RoadPath.js';
 import { roadLayout } from './road/layout.js';
 import { applyDistanceFade } from '../utils/distanceFade.js';
-import { BUILDERS } from './scenery/props.js';
+import { createStarTexture } from '../utils/textures.js';
+import { BUILDERS, GLOW_BUILDERS } from './scenery/props.js';
+import { createSignAtlas } from './scenery/signs.js';
 
 /**
  * Scenery - the props that stand beside the road, pooled with it.
@@ -78,7 +80,8 @@ export class Scenery {
       applyDistanceFade(material, roadCfg.surface.neonFadeStart, roadCfg.surface.neonFadeEnd);
 
       const perChunk = kind.perChunk;
-      const mesh = new THREE.InstancedMesh(geometry, material, roadCfg.poolSize * perChunk);
+      const count = roadCfg.poolSize * perChunk;
+      const mesh = new THREE.InstancedMesh(geometry, material, count);
       mesh.name = 'Scenery_' + name;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       // Instances span the whole pool, far beyond the bounds of one prop, so
@@ -86,8 +89,51 @@ export class Scenery {
       mesh.frustumCulled = false;
       this.group.add(mesh);
 
+      // A SECOND MESH FOR THE LIGHT A PROP THROWS, when it throws any. Light is
+      // not a surface: a lamp head painted bright is a white slab, and what
+      // makes it a lamp is a halo and a pool of road lit under it. Additive,
+      // depth-write off, and driven by the SAME instance matrix, so placing the
+      // prop places its light with it.
+      let glow = null;
+      const glowBuild = kind.glow && GLOW_BUILDERS[kind.shape];
+      if (glowBuild) {
+        // Two kinds of light so far, and they want different textures: a lamp
+        // wants a soft radial falloff, a sign wants writing. Each is built once
+        // and cached, because a texture per kind is a texture per kind.
+        let texture;
+        if (kind.glow.sign) {
+          this.signTexture = this.signTexture || createSignAtlas(kind.glow.sign);
+          texture = this.signTexture;
+        } else {
+          this.glowTexture = this.glowTexture
+            || createStarTexture(kind.glow.texture, kind.glow.textureSize);
+          texture = this.glowTexture;
+        }
+
+        const glowGeometry = glowBuild(kind);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          map: texture,
+          vertexColors: true,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          toneMapped: false,
+          opacity: kind.glow.opacity,
+        });
+        applyDistanceFade(glowMaterial, roadCfg.surface.neonFadeStart, roadCfg.surface.neonFadeEnd);
+
+        glow = new THREE.InstancedMesh(glowGeometry, glowMaterial, count);
+        glow.name = 'SceneryGlow_' + name;
+        glow.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        glow.frustumCulled = false;
+        glow.renderOrder = 2;
+        this.group.add(glow);
+        this._extra = this._extra || [];
+        this._extra.push({ geometry: glowGeometry, material: glowMaterial, mesh: glow });
+      }
+
       this.kinds.push({
-        name, cfg: kind, mesh, geometry, material, perChunk,
+        name, cfg: kind, mesh, glow, geometry, material, perChunk,
         // A per kind salt for the placement RNG. An INDEX, not something
         // derived from the name: seeding from the name's length put 'pine' and
         // 'rock' on the same sequence, which stands every boulder inside a
@@ -133,6 +179,7 @@ export class Scenery {
       // every one of its triangles. Galaxy Road uses no scenery at all and was
       // paying four draw calls and 21k triangles for it.
       kind.mesh.visible = live > 0;
+      if (kind.glow) kind.glow.visible = live > 0;
       if (live === 0) continue;
 
       // One RNG per kind per chunk. Seeded from both, so two kinds do not share
@@ -147,6 +194,7 @@ export class Scenery {
           // that has since moved on.
           _matrix.makeTranslation(PARKED, PARKED, PARKED);
           kind.mesh.setMatrixAt(base + i, _matrix);
+          if (kind.glow) kind.glow.setMatrixAt(base + i, _matrix);
           continue;
         }
 
@@ -155,10 +203,16 @@ export class Scenery {
         const along = (chunkIndex + (i + rng.next()) / kind.perChunk) * chunkLength;
         path.frameAt(along, _position, _tangent, _lateral);
 
-        const right = cfg.side === 'both' ? (rng.next() < 0.5 ? 1 : -1)
-          : cfg.side === 'right' ? 1 : -1;
-        const edge = right > 0 ? this.layout.ribbonRight : -this.layout.ribbonLeft;
-        const offset = right * (edge + cfg.setback + rng.next() * cfg.spread);
+        // 'centre' is for anything that SPANS the road rather than standing
+        // beside it - a sign gantry - and it is the one case where the side and
+        // the setback mean nothing.
+        let offset = 0;
+        if (cfg.side !== 'centre') {
+          const right = cfg.side === 'both' ? (rng.next() < 0.5 ? 1 : -1)
+            : cfg.side === 'right' ? 1 : -1;
+          const edge = right > 0 ? this.layout.ribbonRight : -this.layout.ribbonLeft;
+          offset = right * (edge + cfg.setback + rng.next() * cfg.spread);
+        }
 
         _forward.crossVectors(_lateral, UP);
         _matrix.makeBasis(_lateral, UP, _forward);
@@ -173,9 +227,11 @@ export class Scenery {
         );
 
         kind.mesh.setMatrixAt(base + i, _matrix);
+        if (kind.glow) kind.glow.setMatrixAt(base + i, _matrix);
       }
 
       kind.mesh.instanceMatrix.needsUpdate = true;
+      if (kind.glow) kind.glow.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -185,6 +241,13 @@ export class Scenery {
       kind.material.dispose();
       kind.mesh.dispose();
     }
+    for (const extra of this._extra || []) {
+      extra.geometry.dispose();
+      extra.material.dispose();
+      extra.mesh.dispose();
+    }
+    if (this.glowTexture) this.glowTexture.dispose();
+    if (this.signTexture) this.signTexture.dispose();
     this.kinds.length = 0;
     this.scene.remove(this.group);
     this.group.clear();

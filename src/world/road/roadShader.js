@@ -55,11 +55,25 @@ export const FRAGMENT_SHADER = `
   uniform vec3 uVoidColor;
   uniform vec3 uMedianColor;
 
+  // THE GROUND EITHER SIDE OF THE ASPHALT. On Galaxy Road it is the void
+  // colour and nothing happens; on a snow pass it is what makes the theme
+  // read, because the one thing a snowy highway has that a dark one does not
+  // is a pale ground throwing light back up. The bank is the ploughed ridge
+  // that piles against the edge of the carriageway - brightest right at the
+  // asphalt, fading outward, which is exactly how a ploughed verge looks.
+  uniform vec3 uGroundColor;
+  uniform vec3 uBankColor;
+  uniform float uBankWidth;
+
   // The cross section, in metres. x = near edge, y = far edge.
   uniform vec2 uOurs;       // our carriageway plus its hard shoulder
   uniform vec2 uMedian;     // the strip the barrier stands in
   uniform vec2 uOncoming;   // the other carriageway plus its shoulder
   uniform float uVergeFade; // how far the asphalt takes to die into the void
+  // How much of itself the far carriageway keeps. It is twelve to twenty seven
+  // metres away across a barrier and was reading as a flat navy plane laid
+  // beside ours; this is what makes it recede.
+  uniform float uOncomingDim;
 
   uniform vec3 uSheenColor;
   uniform float uSheenStrength;
@@ -151,7 +165,22 @@ export const FRAGMENT_SHADER = `
     float median = slab(across, uMedian);
     float paved = max(ours, oncoming);
 
-    vec3 color = mix(uVoidColor, uAsphaltColor, paved);
+    // The ground, then the asphalt over it. Doing it in this order means the
+    // verge is ground everywhere the road is not, including between the two
+    // carriageways, without a band for every gap.
+    vec3 color = mix(uVoidColor, uGroundColor, 1.0 - paved);
+    color = mix(color, uAsphaltColor, paved);
+
+    // Ploughed banks: a ridge hard against each edge of each carriageway,
+    // falling away outward. Measured from the paved edges rather than listed,
+    // so it follows the layout like everything else.
+    float bank =
+        (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOurs.y)))
+      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOurs.x)))
+      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOncoming.x)))
+      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOncoming.y)));
+    color += uBankColor * min(bank, 1.0) * (1.0 - paved) * reach;
+
     color = mix(color, uMedianColor, median * (1.0 - paved));
 
     // Cheap stand in for a reflection: grazing angles pick up the sky tint.
@@ -199,6 +228,11 @@ export const FRAGMENT_SHADER = `
     vec2 rightLine = lineProfile(abs(across - uEdgeAt), uEdgeWidth, uEdgeGlow);
     color += uEdgeLeftColor * (leftLine.x + leftLine.y * uEdgeHalo) * uEdgeIntensity * reach;
     color += uEdgeRightColor * (rightLine.x + rightLine.y * uEdgeHalo) * uEdgeIntensity * reach;
+
+    // The far carriageway steps back, everything on it together - asphalt,
+    // paint and the headlights' own road. Applied last so nothing has to
+    // remember to dim itself.
+    color *= mix(1.0, uOncomingDim, oncoming);
 
     gl_FragColor = vec4(color, 1.0);
 

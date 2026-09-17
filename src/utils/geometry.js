@@ -69,7 +69,16 @@ export class GeometryBuilder {
    * @param {string} [name]
    * @returns {THREE.BufferGeometry} merged, with the sources released
    */
-  build(name = 'merged') {
+  /**
+   * @param {string} [name]
+   * @param {{flat?: boolean}} [options] `flat` opts out of the solidity check,
+   *   for an assembly that is DELIBERATELY a set of billboards - the lit panels
+   *   under a sign gantry, say. The check exists to catch a part scaled by a
+   *   value that arrived undefined, and a flat thing that meant to be flat is
+   *   the one case it cannot tell apart from that. Saying so at the call site
+   *   keeps the check strict everywhere else.
+   */
+  build(name = 'merged', options) {
     const positions = new Float32Array(this._vertexCount * 3);
     const normals = new Float32Array(this._vertexCount * 3);
     const uvs = new Float32Array(this._vertexCount * 2);
@@ -121,7 +130,7 @@ export class GeometryBuilder {
     if (colors) geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     geometry.computeBoundingSphere();
-    assertSolid(geometry, name);
+    if (!(options && options.flat)) assertSolid(geometry, name);
     return geometry;
   }
 }

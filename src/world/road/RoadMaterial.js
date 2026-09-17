@@ -97,6 +97,11 @@ export class RoadMaterial {
           value: new THREE.Vector2(layout.oncomingOuter - shoulder, layout.oncomingInner),
         },
         uVergeFade: { value: road.carriageway.verge },
+        uOncomingDim: { value: road.surface.oncomingDim },
+
+        uGroundColor: { value: new THREE.Color(road.surface.groundColor) },
+        uBankColor: { value: new THREE.Color(road.surface.bankColor) },
+        uBankWidth: { value: road.surface.bankWidth },
 
         uSheenColor: { value: new THREE.Color(road.surface.sheenColor) },
         uSheenStrength: { value: road.surface.sheenStrength },

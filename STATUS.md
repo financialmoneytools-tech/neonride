@@ -43,10 +43,25 @@ bug even if gameplay is fine.
   Confirmed good against the ride.
 - **Start screen** - title and start prompt only; it is the audio unlock
   gesture. Skippable in god mode so it never lands in footage.
-- **Stats overlay** - `H`. Last reading on a desktop GPU (RTX 5060 laptop),
-  1280x720: **60 FPS** (vsync capped), 76 draw calls and 38k triangles on
-  Galaxy Road, 74 and 58k on Aurora Pass. Ceilings are 120 and 400k. The phone
-  figure has NOT been taken since the highway landed - see outstanding.
+- **Stats overlay** - `H`. Measured 17 September 2026:
+
+  | | draw calls | triangles | FPS |
+  |---|---|---|---|
+  | Galaxy Road, desktop (RTX 5060 laptop) 1280x720 | 69 | 41k | 60, vsync capped |
+  | Aurora Pass, same | 83 | 81k | 60, vsync capped |
+  | **Aurora Pass, Android Chrome, player driving** | **78** | **58k** | **60.1, refresh capped** |
+
+  The phone reading is the one that matters and it is comfortable. Budget for a
+  theme on that phone: at least 45 FPS, under 120 draw calls, under 250k
+  triangles - so there is a great deal of headroom left, and the Aurora Pass
+  rework spent some of it deliberately.
+
+  **A SCREENSHOT'S FPS COUNTER IS ONLY REAL IF THE TOOL ASKED FOR A GPU.** An
+  early Aurora Pass screenshot read 7.5 FPS and that number was software
+  rendering, not a cost: headless Chromium falls back to SwiftShader unless it
+  is launched with `--use-angle=default --enable-gpu`. Both `tools/shot.mjs`
+  and `tools/god-run.mjs` pass those flags now, and god-run prints the renderer
+  it actually got alongside the frame rate.
 - **Cockpit sprite** - `public/sprites/cockpit.png`, drawn by
   `src/player/Cockpit.js`. Art and placement are both right now: sized from the
   frame HEIGHT, so it is identical at every landscape aspect. Asserted by
@@ -99,10 +114,9 @@ that chose a source by frame shape, and the second (tall) framing profile.
 1. **Mobile landscape** - the portrait prompt, the orientation lock and
    fullscreen-on-first-touch are done. What is left: quality presets checked on
    a real mid-range phone, and the touch band tried with actual thumbs.
-   **AND A PHONE FPS READING FOR BOTH THEMES.** The highway roughly doubled the
-   road's fill area and Aurora Pass adds 20k triangles of scenery and a 1800
-   segment weather buffer; the desktop holds 60 but the 30 FPS phone floor is
-   unverified since. `?theme=auroraPass&stats=1` on the phone, one reading each.
+   The Aurora Pass phone reading is done - 60.1 FPS, see above - so the floor is
+   no longer in doubt for that theme. Galaxy Road has not been read on the phone
+   since the highway landed, though it is the cheaper of the two.
 2. **Cockpit art is not wide enough.** See open issues - this is now the thing
    holding the framing back.
 3. **Production build** - Vite build, deploy to Vercel.
@@ -116,14 +130,15 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 - **Dash screen** - `cut-cockpit.py` reports `CONFIG_DISAGREES` if the punched
   hole and `screen` in `config/cockpit.js` drift. Re-run after any art change.
-- **Three files are over the 300 line limit.** `src/main.js` 514 (it was 497
-  before the highway work and has been over for a while), `world/Traffic.js`
-  338 and `world/traffic/VehicleMesh.js` 316 - the last two crossed the line
-  with the lane-aware spawn and the truck marker lights. `config/world.js` went
-  to 365 and WAS split, into `config/road.js`. The other three are named here
-  rather than quietly left: main.js wants a bootstrap split, Traffic wants its
-  respawn logic in `world/traffic/spawn.js`, and VehicleMesh wants its builders
-  in a parts file.
+- **Four files are over the 300 line limit.** `src/main.js` 514 (it was 497
+  before any of this and has been over for a while), `world/Traffic.js` 338,
+  `core/Input.js` 323, `world/traffic/VehicleMesh.js` 316 and
+  `config/world.js` 312 - which was split once already, into `config/road.js`,
+  and has crept back with the scenery and weather blocks. Named here rather
+  than quietly left: main.js wants a bootstrap split, Traffic wants its respawn
+  logic in `world/traffic/spawn.js`, VehicleMesh wants its builders in a parts
+  file, and `config/world.js` wants `config/scenery.js` taking the props and
+  the weather out of it.
 - **Near miss rate swings between runs.** Measured at 7.8 and 26.3 a minute over
   two god runs of the same length on the same seed. The autopilot is
   deterministic in its inputs but not in its timing, and a single lane choice
@@ -136,6 +151,35 @@ that chose a source by frame shape, and the second (tall) framing profile.
   cut, and any further drop of the cockpit spends what is left.
 
 ### Closed since the last note
+
+- ~~A flat black shape blocked the sky on Galaxy Road~~. It was
+  `MountainSlab` - the ridge curtains are near black, and at 360 and 560 units
+  out they sat across the lower third of the frame eating the starfield. A
+  theme can switch them off now and Galaxy Road does: nothing opaque blocks the
+  sky on a road in space.
+- ~~The aurora was behind a mountain~~. Literally: a probe put the near ridge's
+  bounding sphere 357 units from the camera and the aurora cylinder's at 390,
+  so the curtain was drawing behind a wall - and what was left of it cleared
+  the ridge line by about six degrees, at the very top of the frame. That is
+  why the sky read as a green wash with no ribbons in it. Aurora Pass now puts
+  its ridges at 700 and 1000, where fog makes them silhouettes rather than
+  walls, and the curtain's tops land at 30 degrees against a frame edge at
+  31.8 - which is also what brings the PURPLE into shot, since the colour ramps
+  from green at a ribbon's foot to purple at its top.
+- ~~Snow drew as white blocks~~. The flakes are points whose falloff is
+  measured in a frame aligned with their own screen space velocity, so they are
+  circles at rest and short dashes at speed. The first attempt stretched the
+  along axis and left the across axis alone - but gl_PointSize is a SQUARE, so
+  asking for a longer streak asks for a bigger sprite in both directions, and
+  the flake got fatter as fast as it got longer. The across axis is multiplied
+  by the stretch instead.
+- ~~Roadside pylons floated~~. A 0.26 square neon bar hanging beside a post so
+  dark it was invisible. The post is a real pole on a plinth now and the neon is
+  a thin strip up its face; both are still one geometry, so it is the same two
+  draw calls for every pylon in the world.
+- ~~Lamp heads were unlit white slabs~~. Light is not a surface. Each lamp kind
+  carries a second additive mesh - a pool of lit road under the head and a halo
+  at it - placed by the same instance matrix.
 
 - ~~The mirror figures were measured against a detached cockpit~~. The tool
   computed them by calling its `at()` projector AFTER `cockpit.dispose()`, and
