@@ -1,7 +1,8 @@
 # Neon Ride - status
 
-Handover note, 16 September 2026. Read this, then `CLAUDE.md`, `BUILD-PLAN.md`
-and `ASSETS.md`. Git history carries the detail; this carries the state.
+Handover note, 17 September 2026. Read this, then `CLAUDE.md`, `README.md`,
+`BUILD-PLAN.md` and `ASSETS.md`; `docs/THEMES.md` for the road themes plan. Git
+history carries the detail; this carries the state.
 
 Stack: Vite, vanilla JS, three@0.186.0. Local path `C:\Projelerim\neon-ride`
 (deliberately outside OneDrive). Two goals, equal weight: a playable game, and a
@@ -80,8 +81,11 @@ that chose a source by frame shape, and the second (tall) framing profile.
 2. **Cockpit art is not wide enough.** See open issues - this is now the thing
    holding the framing back.
 3. **Production build** - Vite build, deploy to Vercel.
-4. **Bike library** - naked and concept bikes, each a cockpit sprite.
-5. **Road themes.**
+4. **Road themes** - IN PROGRESS. Plan written and awaiting approval:
+   `docs/THEMES.md`. Six places, each with its own sky, palette, scenery and
+   weather, and a transition every few km. Step 1 of 3 done (the plan); step 2
+   is the theme system plus Aurora Pass end to end.
+5. **Bike library** - naked and concept bikes, each a cockpit sprite.
 
 ## Open issues
 
@@ -317,6 +321,26 @@ Two things worth knowing rather than discovering:
   starts silent and the first touch anywhere brings the sound up. Everything
   else - autopilot, capture mode, the world - is already running before the
   phone is picked up.
+
+### Road themes
+
+Planned in `docs/THEMES.md`; nothing built yet beyond what is already in the
+repo. The state today:
+
+- `config/themes.js` holds two entries, `neonHighway` (empty - it IS the base
+  config) and `openRoad` (a motion-comfort variant, not a place).
+- `utils/patch.js` is the generic library-and-selector with an undo, written to
+  serve themes, bikes and maps alike.
+- `?theme=<name>` already works and `T` already cycles, by reloading.
+
+The one thing the plan has to solve, and the reason it is a plan and not an
+afternoon: **a theme is a load-time patch and the feature asks for live
+transitions.** The strip count is a shader define and the pylon spacing sizes an
+instance buffer, so neither can change after construction. The answer is to
+split every theme field into structural (allocated once, as the union over all
+themes) and continuous (colours, densities, fog, bloom - animated per frame), so
+that a theme never allocates: it selects and it tints. Read the doc before
+touching `config/themes.js`.
 
 ### The cockpit contract
 

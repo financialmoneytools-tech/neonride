@@ -1,6 +1,7 @@
 {
   "name": "neon-ride",
   "version": "0.0.0",
+  "description": "Neon Ride - a first-person neon motorcycle ride, in the browser.",
   "private": true,
   "type": "module",
   "scripts": {
