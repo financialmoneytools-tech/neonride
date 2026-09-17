@@ -90,6 +90,12 @@ export class Controls {
     this.live = false;
     /** Set when tilt was asked for and could not be had. */
     this.fellBack = false;
+    /** Why, in one line, for the stats overlay. */
+    this.fallbackReason = '';
+    /** Readings seen, so a live sensor can be told from a silent one. */
+    this.readings = 0;
+    this.lastBeta = 0;
+    this.lastGamma = 0;
     /** Called with a short line the first time tilt is refused. */
     this.onNotice = null;
     /** Called whenever the mode changes, so the UI can follow. */
@@ -102,6 +108,20 @@ export class Controls {
     this._listening = false;
 
     this._onReading = this._onReading.bind(this);
+
+    // ANDROID LISTENS IMMEDIATELY. Only iOS gates DeviceOrientationEvent behind
+    // a gesture, and waiting for the start tap everywhere meant the sensor had
+    // no chance to produce a reading until the card was dismissed - which on a
+    // phone is several seconds after load, behind a certificate warning and
+    // possibly a rotate prompt. Attaching now means readings are already
+    // flowing by the time anyone taps.
+    if (this.enabled && Controls.supported && !Controls.needsPermission) this._listen();
+  }
+
+  /** @returns {boolean} true on iOS 13+, where the sensor needs a gesture. */
+  static get needsPermission() {
+    return Controls.supported
+      && typeof window.DeviceOrientationEvent.requestPermission === 'function';
   }
 
   /** @returns {boolean} whether the device can be asked at all. */
@@ -136,12 +156,23 @@ export class Controls {
     if (this._listening) return;
     window.addEventListener('deviceorientation', this._onReading);
     this._listening = true;
+    // THE CLOCK STARTS HERE. It used to start at load, and update() runs from
+    // the first frame - behind the title card, which on a phone is up for
+    // seconds. So by the time the tap arrived the budget was long gone and the
+    // fallback fired on the very next frame, before the sensor could possibly
+    // have answered. That is a timeout measuring the wrong interval, and it
+    // made tilt look unsupported on hardware that supports it.
+    this._waited = 0;
   }
 
   _onReading(event) {
     if (event.beta === null && event.gamma === null) return;
     const angle = (window.screen && window.screen.orientation
       && window.screen.orientation.angle) || window.orientation || 0;
+    this.readings++;
+    this.lastBeta = event.beta || 0;
+    this.lastGamma = event.gamma || 0;
+    this.angle = angle;
     this._raw = screenTilt(event.beta || 0, event.gamma || 0, angle);
     if (this._neutral === null) this._neutral = this._raw;
     this.live = true;
@@ -164,8 +195,11 @@ export class Controls {
     // refusing on the strength of an old answer.
     if (next === 'tilt') {
       this.fellBack = false;
+      this.fallbackReason = '';
       this._neutral = null;
+      this._waited = 0;
       if (this._listening) this.recalibrate();
+      else if (this.enabled) this.request();
     }
     this._save();
     if (this.onChange) this.onChange(next);
@@ -187,8 +221,13 @@ export class Controls {
 
   _fallback(message) {
     this.fellBack = true;
+    this.fallbackReason = message;
     this.mode = 'touch';
-    this._save();
+    // NOT SAVED. A sensor that did not answer this time is not a choice the
+    // rider made, and writing it made a transient failure permanent: once the
+    // timeout above misfired, every later load read 'touch' out of storage and
+    // never tried the sensor again. The stored preference stays whatever was
+    // chosen, so a reload retries.
     if (this.onNotice) this.onNotice(message + ' Dokunmatik kontrole gecildi.');
     if (this.onChange) this.onChange(this.mode);
     return false;
@@ -205,8 +244,10 @@ export class Controls {
     // Waited out rather than failed immediately, because a permission dialog
     // can sit on screen for seconds before the first event arrives.
     if (!this.live) {
+      // Only while listening, for the same reason.
+      if (!this._listening) return 0;
       this._waited += dt;
-      if (this._listening && this._waited > config.controls.tilt.timeout) {
+      if (this._waited > config.controls.tilt.timeout) {
         this._fallback('Egim sensorundan veri gelmedi.');
       }
       return 0;

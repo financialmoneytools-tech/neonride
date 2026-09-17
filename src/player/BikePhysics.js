@@ -194,7 +194,12 @@ export class BikePhysics {
 
   /** Throttle against brake and drag. Drag is what actually caps the speed. */
   _updateSpeed(dt, input, bike) {
-    const throttle = Math.max(input.throttle, bike.throttleFloor);
+    // THE FLOOR IS FOR THE KEYBOARD ONLY. It exists so a desktop ride never
+    // stalls while the cockpit is being tuned, and on a phone it is the
+    // opposite of what is wanted: letting go of the gas has to slow the bike,
+    // or the throttle half of a touch control scheme means nothing.
+    const floor = config.controls.floorByMode[state.controlMode] ?? bike.throttleFloor;
+    const throttle = Math.max(input.throttle, floor);
 
     // Kept, because the throttle the bike is ACTUALLY given is not the throttle
     // the rider asked for and anything downstream that cares needs the real

@@ -6,8 +6,15 @@ import { config } from '../config.js';
  * When config.stats.enabled is false it is never created (see main.js).
  */
 export class StatsOverlay {
-  /** @param {HTMLElement} parent */
-  constructor(parent = document.body) {
+  /**
+   * @param {HTMLElement} parent
+   * @param {import('../core/Controls.js').Controls} [controls] adds the control
+   *   diagnostics block. There is no console on a phone and no keyboard to open
+   *   one with, so anything that has to be read on the device has to be on the
+   *   screen.
+   */
+  constructor(parent = document.body, controls = null) {
+    this.controls = controls;
     this.el = document.createElement('div');
     this.el.className = 'stats-overlay';
     this.el.textContent = 'measuring...';

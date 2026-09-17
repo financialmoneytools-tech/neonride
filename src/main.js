@@ -10,6 +10,7 @@ import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
 import { ControlHints } from './ui/ControlHints.js';
+import { PauseButton } from './ui/PauseButton.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { StartScreen } from './ui/StartScreen.js';
 import { Hud } from './ui/Hud.js';
@@ -107,7 +108,7 @@ const autopilot = new Autopilot(road.path, traffic, bike);
 // bike moving and traffic judging it, which is the only window in the frame
 // where the position the collision test will read can still be corrected.
 const guard = new Guard(bike, traffic);
-const stats = config.stats.enabled ? new StatsOverlay(document.body) : null;
+let stats = null; // built once Controls exists, so it can report on it
 
 // The composer owns the frame from here on; engine.render() is only the
 // fallback used when config.postprocess.enabled is turned off.
@@ -158,6 +159,10 @@ hints.setMode(controls.mode);
 controls.onChange = (mode) => hints.setMode(mode);
 controls.onNotice = (text) => hints.notice(text);
 
+// Built here rather than with the other UI because it reports on Controls, and
+// on a phone there is no console to read and no keyboard to open one with.
+stats = config.stats.enabled ? new StatsOverlay(document.body, controls) : null;
+
 const loop = new Loop(engine.renderer, {
   onRender: (dt) => post.render(dt),
 });
@@ -165,7 +170,14 @@ const loop = new Loop(engine.renderer, {
 // Input values are exposed to every module through the shared state
 loop.state.input = input.values;
 
-loop.add((dt) => input.update(dt));
+loop.add((dt, state) => {
+  input.update(dt);
+  // Which scheme is driving, for anything downstream that has to care. Only
+  // BikePhysics does, for the throttle floor - and it reads the mode rather
+  // than a boolean so a third scheme needs no new flag. Undefined on a desktop,
+  // which is what keeps the keyboard on the bike's own floor.
+  state.controlMode = controls.enabled ? controls.mode : undefined;
+});
 // Runs before the bike, which consumes the values in the same frame. Swapping
 // the reference rather than merging means the human input is never half applied
 // while the autopilot is driving.
@@ -209,7 +221,11 @@ if (stats) loop.add((dt, state) => stats.update(dt, state));
 // The hints fade on their own, and vanish outright once a recording starts.
 loop.add((dt) => {
   hints.update(dt);
-  hints.setVisible(controls.enabled && !config.autopilot.enabled && !config.capture.enabled);
+  const clean = controls.enabled && !config.autopilot.enabled && !config.capture.enabled;
+  hints.setVisible(clean);
+  // Same rule: nothing of ours in a recording. Also hidden while the card is
+  // already up, where it would sit on top of the panel it opened.
+  pauseButton.setVisible(clean && session.phase === PHASE.RUNNING);
 });
 
 /** Applies capture mode: overlay off, pixel ratio pinned, chain resized. */
@@ -315,6 +331,10 @@ const audio = new Audio();
 const session = new Session();
 const hud = new Hud(document.body, session);
 const panels = new Panels(document.body, session, comfort, controls);
+
+// The only way into the pause card without a keyboard, and so the only way to
+// the control mode switch on a phone.
+const pauseButton = new PauseButton(document.body, () => session.togglePause());
 
 // After traffic, which is what publishes the hit and near miss totals the run
 // is scored and ended from, and after audio so a crash is heard on the frame it
@@ -456,6 +476,7 @@ function disposeAll() {
   input.dispose();
   if (stats) stats.dispose();
   hints.dispose();
+  pauseButton.dispose();
   controls.dispose();
   engine.scene.fog = null;
   engine.dispose();

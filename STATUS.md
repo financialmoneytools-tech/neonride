@@ -171,6 +171,13 @@ Releasing everything coasts in both. Switch, set sensitivity and recalibrate
 from the pause card; the choice and the sensitivity are stored under
 `neon-ride.controls`.
 
+The stats overlay (`H`, or `?stats=1`) carries a control diagnostics block:
+mode and fallback reason, `isSecureContext`, whether the sensor exists and
+whether it needs permission, whether we are listening, events received, last
+beta/gamma, and `screen.orientation.angle`. There is no console on a phone and
+no keyboard to open one with, so anything that has to be read on the device is
+on the screen.
+
 Things that are the way they are for a reason:
 
 - **The neutral is wherever you were holding it.** There is no correct angle to
@@ -182,9 +189,29 @@ Things that are the way they are for a reason:
   was turned to get to landscape. `screenTilt()` rotates them into screen space
   using `screen.orientation.angle`, and the two landscape angles take OPPOSITE
   signs. Without it steering is inverted for half of all riders.
-- **Permission is a gesture.** iOS refuses DeviceOrientationEvent outside one,
-  so it is requested from the start card's tap. Refused, or no reading inside
-  2.5 s, falls back to touch and says so once.
+- **Permission is a gesture, on iOS only.** iOS refuses DeviceOrientationEvent
+  outside one, so it is requested from the start card's tap. Android needs no
+  permission and so listens from construction - waiting for the tap everywhere
+  meant the sensor had no chance to answer until the card was dismissed, which
+  on a phone is seconds after load, behind a certificate warning.
+- **The fallback timer starts when listening starts.** It used to start at load,
+  and `update()` runs from the first frame, behind the title card - so the
+  budget was spent before the tap and the fallback fired on the very next frame,
+  before the sensor could possibly answer. Tilt looked unsupported on hardware
+  that supports it.
+- **A fallback is not written to storage.** It used to be, which turned that
+  one misfire into a permanent setting: every later load read `touch` back and
+  never tried the sensor again. The stored preference is only ever what somebody
+  chose, so a reload always retries.
+- **There is a pause button**, top centre, because Escape is a key and every
+  touch on the canvas is a driving input - without it the mode switch existed
+  and could not be reached. It is a real button on `document.body` while
+  `core/Input.js` listens on `#app`, so its touches never enter the driving
+  path. Hidden in god mode and capture.
+- **The throttle floor is per mode.** `player.bike.throttleFloor` is 0.42 so a
+  desktop ride never stalls; `controls.floorByMode` sets it to 0 for tilt and
+  touch, so letting go of the gas actually slows the bike. A mode not named
+  there keeps the bike's value, which is what the keyboard gets.
 - **Every touch is read from coordinates, including the brake button.** The
   on-screen controls are `pointer-events: none` pictures. A real button would be
   a second, disagreeing source of truth and would break multi-touch, because a
@@ -205,6 +232,18 @@ continue. `npm run dev` is unchanged.
 A separate config rather than an env var on one script: `PHONE=1 vite` is not
 something the Windows shell understands, and this project lives on two Windows
 laptops.
+
+If the self-signed certificate turns out to be the problem rather than the
+solution - a browser told to proceed past a warning may still refuse powerful
+APIs - use a real one through a tunnel:
+
+    npm run dev:tunnel
+    cloudflared tunnel --url http://localhost:5173
+
+`vite.tunnel.config.js` serves plain HTTP with `allowedHosts` open, because a
+tunnel's host is random per run and Vite answers an unrecognised Host header
+with a blocked-host error and nothing else. cloudflared terminates TLS with a
+trusted certificate, so the phone gets real HTTPS and no warning.
 
 ### URL parameters
 

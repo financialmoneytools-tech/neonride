@@ -55,6 +55,13 @@ export const controls = {
   // neither coasts.
   halves: { throttle: 'right', brake: 'left' },
 
+  // The throttle floor, per control mode. player.bike.throttleFloor is 0.42 so
+  // a desktop ride never stalls while the cockpit is being tuned; on a phone
+  // that means letting go of the gas does nothing, which makes the throttle
+  // half of both touch schemes meaningless. A mode not named here keeps the
+  // bike's own value, which is what the keyboard gets.
+  floorByMode: { tilt: 0, touch: 0 },
+
   // On-screen hints. They are drawn with pointer-events none - every touch is
   // read from coordinates in core/Input.js, so a visible control is only ever a
   // picture of where to put a thumb and can never swallow a gesture.
