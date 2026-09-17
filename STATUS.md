@@ -48,7 +48,7 @@ bug even if gameplay is fine.
   | | draw calls | triangles | FPS |
   |---|---|---|---|
   | Galaxy Road, desktop (RTX 5060 laptop) 1280x720 | 69 | 41k | 60, vsync capped |
-  | Aurora Pass, same | 83 | 81k | 60, vsync capped |
+  | Aurora Pass, same | 82 | 80k | 60, vsync capped |
   | **Aurora Pass, Android Chrome, player driving** | **78** | **58k** | **60.1, refresh capped** |
 
   The phone reading is the one that matters and it is comfortable. Budget for a
@@ -151,6 +151,20 @@ that chose a source by frame shape, and the second (tall) framing profile.
   cut, and any further drop of the cockpit spends what is left.
 
 ### Closed since the last note
+
+- ~~The aurora was invisible, and raising its intensity did nothing~~.
+  `rayContrast` and `rayHeight` BOTH push the curtain DOWN, which is the
+  opposite of what their names suggest. The shader sets each column's top to
+  `curtainHeight + variation + rayHeight * (rays - 0.5)`, and `rays` is noise
+  raised to the power of `rayContrast` - noise sits around 0.5, so a high
+  contrast crushes it (0.5^3.8 = 0.07) and makes that last term a large
+  NEGATIVE number. At 3.8 and 0.95 the tops landed at 13.9 degrees of elevation
+  against mountains that reach 20.3: the whole curtain was behind the ridge
+  line. Cranking the intensity to 20 changed nothing, because none of it was on
+  screen, and that test is what proved it was placement rather than brightness.
+  Also: `top` is where a ribbon ENDS, not where it stops being visible - the
+  body fades across the whole height, so the visible extent lands well below
+  the number, and solving for it on paper came out 7 degrees high.
 
 - ~~Tilt steering did nothing on Android~~, and there were THREE faults behind
   it, each of which would have been enough on its own.

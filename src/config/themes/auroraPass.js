@@ -181,7 +181,7 @@ export const auroraPass = {
       // there is no sunset here, only cold light.
       colorLow: 0x3dffa0, // green at the bottom
       colorHigh: 0xa46bff, // into purple higher up
-      intensity: 2.4,
+      intensity: 4.5,
       warmIntensity: 0.0, // no sunset here, only cold light
       // THE PURPLE HAS TO LAND IN FRAME. The colour ramps from colorLow at the
       // bottom of a ribbon to colorHigh at its top, so a curtain whose tops are
@@ -193,19 +193,57 @@ export const auroraPass = {
       // to 30, against a frame whose top edge is at 31.8. The colour ramps from
       // green at the bottom of a ribbon to purple at its top, so the tops have
       // to land INSIDE the picture or the whole aurora is green.
-      curtainHeight: 0.785,
+      // Solved against the ridge line rather than chosen. The cylinder spans
+      // -60 to 840 at radius 1120, so a column's top in degrees is
+      // atan((top * 900 - 60) / 1120), against mountains that reach 20.3 and a
+      // frame edge at 31.8.
+      //
+      // `top` is where a ribbon ENDS, not where it stops being visible. The
+      // shader fades the body across the whole height - smoothstep(top, 0, y) -
+      // so a column is already dim at two thirds of its top, and the visible
+      // extent lands well below the number. Solved for 0.88 gave tops at 27
+      // degrees on paper and about 20 on screen; this is the correction, and it
+      // is also what lifts the purple into shot, since the colour ramps from
+      // green at a ribbon's foot to purple at its top.
+      curtainHeight: 1.05,
       arcHalfWidth: 1.15,
 
-      // RIBBONS, not a wash. Fewer and wider rays (rayScale down from 26),
-      // harder separated (rayContrast up), and large regions that go dark
-      // between them (a low clusterFloor) - so what is in the sky is a handful
-      // of distinct curtains with gaps, and the stars come through the gaps.
-      // The whole thing is additive, so it never hides a star, only adds to it.
-      rayScale: 9.0,
-      rayContrast: 3.2,
-      rayHeight: 0.85,
+      // RIBBONS, not a wash, and the theme is NAMED after them so they carry
+      // the frame. rayScale is a frequency: DOWN makes each ribbon wider, and
+      // 5.0 against the default 26 means a handful of broad curtains rather
+      // than a comb. rayContrast separates them harder.
+      //
+      // THE GAPS ARE WHAT KEEPS THE STARS. Brightness alone would wash the sky;
+      // what makes these read as ribbons is that the sky between them is DARK,
+      // which is clusterFloor - so the intensity goes up and the floor comes
+      // down together. The whole curtain is additive, so it never subtracts
+      // from a star, and in the gaps it adds almost nothing.
+      rayScale: 5.0,
+
+      // rayContrast AND rayHeight BOTH PUSH THE CURTAIN DOWN, which is the
+      // opposite of what their names suggest and is why two rounds of raising
+      // them made the aurora vanish completely.
+      //
+      // The shader computes each column's top as
+      //     top = curtainHeight + variation + rayHeight * (rays - 0.5)
+      // and `rays` is noise raised to the power of rayContrast. Noise sits
+      // around 0.5, so a high contrast crushes it: 0.5^3.8 is 0.07, which
+      // makes that last term a large NEGATIVE number. At rayContrast 3.8 and
+      // rayHeight 0.95 the tops landed at 0.375 of the cylinder - 13.9 degrees
+      // of elevation - and the mountains reach 20.3. The whole curtain was
+      // behind the ridge line. Raising the intensity to 20 changed nothing,
+      // because none of it was on screen.
+      //
+      // 2.2 leaves rays at about 0.22, which is three times the old value and
+      // makes the ribbons brighter at the same intensity, and a smaller
+      // rayHeight stops the tops being dragged down with it.
+      rayContrast: 2.2,
+      rayHeight: 0.45,
+
       clusterScale: 3.0,
-      clusterFloor: 0.3,
+      // The gaps are what keeps the stars. A low floor means whole stretches
+      // of the arc go dark, and a star in a gap is a star.
+      clusterFloor: 0.22,
       clusterRange: 0.34,
 
       // Slowly. An aurora that hurries reads as a shader.
