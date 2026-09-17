@@ -48,7 +48,7 @@ bug even if gameplay is fine.
   | | draw calls | triangles | FPS |
   |---|---|---|---|
   | Galaxy Road, desktop (RTX 5060 laptop) 1280x720 | 69 | 41k | 60, vsync capped |
-  | Aurora Pass, same | 82 | 80k | 60, vsync capped |
+  | Aurora Pass, same | 83 | 88k | 60, vsync capped |
   | **Aurora Pass, Android Chrome, player driving** | **78** | **58k** | **60.1, refresh capped** |
 
   The phone reading is the one that matters and it is comfortable. Budget for a
@@ -151,6 +151,24 @@ that chose a source by frame shape, and the second (tall) framing profile.
   cut, and any further drop of the cockpit spends what is left.
 
 ### Closed since the last note
+
+- ~~The right shoulder had no snow bank~~. Every bank was a symmetric bump
+  centred ON an edge of the asphalt, multiplied by (1 - paved) to keep it off
+  the road - and `paved` is 1 at the edge, so each bank was cancelled exactly
+  where it was brightest. Only the outboard tail survived. The left side got
+  away with it because the median beside it is unpaved; the right shoulder had
+  three metres of verge to show in and read as a flat green plane lit by the
+  edge line. The banks are one sided now, measured OUTWARD from each edge, on
+  all four of them.
+- ~~Trucks were plain boxes~~. They have wheels, a rear bumper, mud flaps, rear
+  doors with a centre split and hinges, red tail lights, a lit number plate and
+  amber marker lights along the top AND down both flanks - the side row being
+  what makes one read as a truck from beside it, which on a four lane road is
+  most of the time. All of it in the existing meshes via vertex colours, so a
+  truck still costs the same four draw calls every other type costs. Two things
+  had to move out of the way first: the rear outline and the rear halo are
+  sized for a car, and at a truck's size in a truck's amber they were a glowing
+  frame that swallowed everything inside it. Both are per-type gains now.
 
 - ~~The aurora was invisible, and raising its intensity did nothing~~.
   `rayContrast` and `rayHeight` BOTH push the curtain DOWN, which is the

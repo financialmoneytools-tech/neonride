@@ -3,6 +3,7 @@ import { config } from '../../config.js';
 import { GeometryBuilder, paintVertices } from '../../utils/geometry.js';
 import { createStarTexture } from '../../utils/textures.js';
 import { applyDistanceFade } from '../../utils/distanceFade.js';
+import { addMarkers, addTruckParts, rearFace } from './truckParts.js';
 
 /**
  * VehicleMesh - the instanced meshes for ONE vehicle type: body, tinted strips
@@ -16,6 +17,18 @@ import { applyDistanceFade } from '../../utils/distanceFade.js';
  * because it is a tall slab, not because it has a wing mirror, so the shapes
  * stay deliberately blunt and deliberately far apart.
  */
+/** @param {THREE.BufferGeometry} geometry @param {number} color */
+function painted(geometry, color) {
+  paintVertices(geometry, color);
+  return geometry;
+}
+
+/** The same, with a scalar brightness rather than a colour. */
+function dim(geometry, value) {
+  paintVertices(geometry, value);
+  return geometry;
+}
+
 export class VehicleMesh {
   /**
    * @param {object} type one entry from config.world.traffic.types
@@ -36,9 +49,28 @@ export class VehicleMesh {
 
     // White base: the real paint arrives per vehicle through instanceColor,
     // so variety inside a type costs nothing.
-    this.bodyMaterial = new THREE.MeshBasicMaterial({ color: shared.bodyColor });
-    this.stripMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-    this.tailMaterial = new THREE.MeshBasicMaterial({ color: shared.tail.color, toneMapped: false });
+    //
+    // VERTEX COLOURS ON TOP OF THAT, which is how a truck gets dark wheels,
+    // dark door seams and a pale number plate without a mesh for each. The two
+    // multiply: a part left white comes out exactly the paint it always did -
+    // GeometryBuilder fills white for any part that sets no colour - and a part
+    // painted dark comes out dark whatever the paint is.
+    //
+    // The tail mesh is the one with no instanceColor of its own, so its vertex
+    // colours are absolute. That is what lets red lamps and a white plate share
+    // it. Its base goes white and every existing part is painted the red it
+    // used to get from the material, so nothing else changes.
+    this.bodyMaterial = new THREE.MeshBasicMaterial({
+      color: shared.bodyColor, vertexColors: true,
+    });
+    // Vertex colours here too, so the strips can hold two brightnesses of the
+    // same instance colour: bright marker lights and a dim rear outline.
+    this.stripMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff, vertexColors: true, toneMapped: false,
+    });
+    this.tailMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff, vertexColors: true, toneMapped: false,
+    });
 
     for (const material of [this.bodyMaterial, this.stripMaterial, this.tailMaterial]) {
       applyDistanceFade(material, road.neonFadeStart, road.neonFadeEnd);
@@ -99,6 +131,8 @@ export class VehicleMesh {
       );
     }
 
+    if (type.truck) addTruckParts(type, builder, matrix);
+
     return builder.build('traffic-body-' + type.name);
   }
 
@@ -118,29 +152,7 @@ export class VehicleMesh {
       );
     }
 
-    // MARKER LIGHTS along the top of the rear face, which is what a truck has
-    // and a car does not. They go in the strip geometry rather than a mesh of
-    // their own, so they are tinted per vehicle by the same instance colour and
-    // cost no extra draw call - the whole reason the strips work that way.
-    const markers = type.markers;
-    if (markers) {
-      const box = type.rearBox;
-      const top = size.height * 0.5 + (box ? box.height : 0);
-      const back = box
-        ? box.offset + box.length * 0.5
-        : size.length * 0.5;
-      const span = (markers.count - 1) * markers.spacing;
-      for (let i = 0; i < markers.count; i++) {
-        builder.add(
-          new THREE.BoxGeometry(markers.size[0], markers.size[1], markers.size[2]),
-          matrix.makeTranslation(
-            -span * 0.5 + i * markers.spacing,
-            top - markers.size[1] * 0.5,
-            back + markers.size[2] * 0.5,
-          ),
-        );
-      }
-    }
+    if (type.markers) addMarkers(type, builder, matrix);
 
     // Outline around the rear face. This is what draws the shape head on, which
     // is the angle the rider sees almost all the time.
@@ -149,14 +161,21 @@ export class VehicleMesh {
     const halfWidth = Math.max(0.06, size.width * 0.5 - rear.inset);
     const halfHeight = Math.max(0.06, size.height * 0.5 - rear.inset);
 
+    // DIMMER ON A TRUCK. The outline is what draws a car's shape head on, and
+    // it is the right thing for a car - but at a truck's size, in the truck's
+    // amber, it became a glowing frame that swallowed the doors, the plate and
+    // the tail lights inside it. A scalar vertex colour dims it without
+    // touching the marker lights, which share this mesh and its instance
+    // colour and want to stay bright.
+    const gain = type.outlineGain === undefined ? 1 : type.outlineGain;
     for (let s = 0; s < 2; s++) {
       const sign = s === 0 ? 1 : -1;
       builder.add(
-        new THREE.BoxGeometry(halfWidth * 2, rear.thickness, rear.depth),
+        dim(new THREE.BoxGeometry(halfWidth * 2, rear.thickness, rear.depth), gain),
         matrix.makeTranslation(0, sign * halfHeight, z),
       );
       builder.add(
-        new THREE.BoxGeometry(rear.thickness, halfHeight * 2, rear.depth),
+        dim(new THREE.BoxGeometry(rear.thickness, halfHeight * 2, rear.depth), gain),
         matrix.makeTranslation(sign * halfWidth, 0, z),
       );
     }
@@ -174,7 +193,7 @@ export class VehicleMesh {
 
     if (type.singleTail) {
       builder.add(
-        new THREE.BoxGeometry(tail.width * 0.55, tail.height, 0.05),
+        painted(new THREE.BoxGeometry(tail.width * 0.55, tail.height, 0.05), tail.color),
         matrix.makeTranslation(0, tail.y, z),
       );
       return builder.build('traffic-tail-' + type.name);
@@ -184,16 +203,34 @@ export class VehicleMesh {
     for (let s = 0; s < 2; s++) {
       const sign = s === 0 ? 1 : -1;
       builder.add(
-        new THREE.BoxGeometry(tail.width, tail.height, 0.05),
+        painted(new THREE.BoxGeometry(tail.width, tail.height, 0.05), tail.color),
         matrix.makeTranslation(sign * spacing, tail.y, z),
       );
     }
 
     const bar = tail.bar;
     builder.add(
-      new THREE.BoxGeometry(Math.min(bar.width, size.width * 0.82), bar.height, 0.05),
+      painted(new THREE.BoxGeometry(Math.min(bar.width, size.width * 0.82), bar.height, 0.05),
+        tail.color),
       matrix.makeTranslation(0, bar.y, z),
     );
+
+    // The lit number plate: pale, not red, and the one part of a truck's rear
+    // that is genuinely white at night. A rectangle of light low on the doors
+    // is most of what says "the back of a lorry" from behind.
+    const truck = type.truck;
+    if (truck) {
+      const plate = truck.plate;
+      // ON THE CHASSIS REAR, not the cargo box's. A box truck's body ends at
+      // 4.1 and its chassis runs to 4.3, so a plate placed on the box face sat
+      // 200mm INSIDE the chassis and was never drawn. The doors are fine on the
+      // box face because they are above the chassis entirely; the plate and the
+      // lamps are not.
+      builder.add(
+        painted(new THREE.BoxGeometry(plate.width, plate.height, 0.05), plate.color),
+        matrix.makeTranslation(plate.x, plate.y, size.length * 0.5 + 0.03),
+      );
+    }
 
     return builder.build('traffic-tail-' + type.name);
   }
@@ -233,7 +270,11 @@ export class VehicleMesh {
       size.width * rear.widthScale,
       size.height * rear.heightScale,
     );
-    paintVertices(halo, 1);
+    // PER TYPE. The rear halo is the largest single fill in the traffic system
+    // and on a truck it is enormous - 3.75 metres of additive amber over the
+    // exact face that now carries doors, a plate and tail lights. Dimming it is
+    // what lets that detail be seen at all.
+    paintVertices(halo, type.rearGlow === undefined ? 1 : type.rearGlow);
     builder.add(halo, matrix.makeTranslation(0, 0, size.length * 0.5 + rear.offset));
 
     const ground = new THREE.PlaneGeometry(glow.size, glow.size);

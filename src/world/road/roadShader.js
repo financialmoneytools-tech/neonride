@@ -150,6 +150,26 @@ export const FRAGMENT_SHADER = `
     return 1.0 - smoothstep(width * 0.5, width, dist);
   }
 
+  // A ploughed ridge, measured OUTWARD from an edge of the asphalt: full height
+  // hard against the edge, falling away over uBankWidth, and nothing at all on
+  // the road side of it. d is metres outboard, so a negative d is on the
+  // asphalt and contributes zero.
+  //
+  // NO BACKTICKS ANYWHERE IN THIS FILE. The GLSL is a JS template literal, so a
+  // backtick in a comment closes the shader and the build fails somewhere else
+  // entirely - the same family of trap as the regex rule in CLAUDE.md.
+  //
+  // One sided for a reason. The first version centred a symmetric bump ON each
+  // edge and then multiplied the whole thing by (1 - paved) to keep it off the
+  // road - but paved is 1 at the edge, so every bank was cancelled exactly
+  // where it was brightest and only the outboard tail survived. The left side
+  // got away with it because the median beside it is unpaved; the right shoulder
+  // had nothing but a three metre verge to show in, so it read as a flat green
+  // plane lit by the edge line and the neon strip.
+  float bankAt(float d) {
+    return step(0.0, d) * (1.0 - smoothstep(0.0, uBankWidth, d));
+  }
+
   void main() {
     float across = vAcross;
 
@@ -172,14 +192,14 @@ export const FRAGMENT_SHADER = `
     color = mix(color, uAsphaltColor, paved);
 
     // Ploughed banks: a ridge hard against each edge of each carriageway,
-    // falling away outward. Measured from the paved edges rather than listed,
-    // so it follows the layout like everything else.
+    // falling away OUTWARD, on all four edges. Measured from the paved edges
+    // rather than listed, so they follow the layout like everything else.
     float bank =
-        (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOurs.y)))
-      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOurs.x)))
-      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOncoming.x)))
-      + (1.0 - smoothstep(0.0, uBankWidth, abs(across - uOncoming.y)));
-    color += uBankColor * min(bank, 1.0) * (1.0 - paved) * reach;
+        bankAt(across - uOurs.y)        // right of our hard shoulder
+      + bankAt(uOurs.x - across)        // left of our carriageway, into the median
+      + bankAt(across - uOncoming.y)    // right of the oncoming side, into the median
+      + bankAt(uOncoming.x - across);   // left of the oncoming shoulder
+    color += uBankColor * min(bank, 1.0) * reach;
 
     color = mix(color, uMedianColor, median * (1.0 - paved));
 

@@ -84,8 +84,11 @@ if (NEAR_TYPE) {
         for (const vehicle of fleet.vehicles) {
           if (!vehicle.active) continue;
           const gap = vehicle.distance - distance;
-          // Ahead, and close enough to fill the frame.
-          if (gap > 4 && gap < max) return true;
+          // AHEAD AND IN LINE. Distance alone finds one in the next lane over,
+          // which shows its flank - and the flank is not the face with the
+          // doors, the plate and the tail lights on it.
+          const across = Math.abs((vehicle.lateral || 0) - (NEON.loop.state.lateral || 0));
+          if (gap > 4 && gap < max && across < 2.2) return true;
         }
       }
       return false;

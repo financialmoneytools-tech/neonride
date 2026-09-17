@@ -138,8 +138,48 @@ export const traffic = {
       // all. Keeping the widest vehicles out of it guarantees the guard always
       // has somewhere to go, and it is what the law says anyway.
       minLane: 1,
+      rideHeight: 0.52, // lifts the body so the wheels are visible under it
+      // The rear frame and halo step WAY back. Both are sized for a car: on a
+      // 2.5 by 2.45 truck the halo is 3.75 metres of additive amber laid over
+      // exactly the face that carries the doors, the plate and the tail
+      // lights, and at 0.4 it was still the only thing anyone could see. A
+      // truck does not need them to be visible at distance - it has marker
+      // lights and the largest silhouette on the road.
+      outlineGain: 0.16,
+      rearGlow: 0.12,
       stripColor: 0xffb42a, // amber, as a truck's marker lights are
-      markers: { count: 5, spacing: 0.52, size: [0.16, 0.12, 0.16] },
+      markers: {
+        count: 5, spacing: 0.52, size: [0.16, 0.12, 0.16],
+        // Down both flanks as well. A rider on a four lane road spends the pass
+        // ALONGSIDE a truck rather than behind it, so the side row is what
+        // makes one read as a truck most of the time.
+        side: { count: 5, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.2, margin: 0.5 },
+      },
+      // THE HARDWARE, built by world/traffic/truckParts.js. All of it lands in
+      // the body geometry painted dark with vertex colours, so a truck still
+      // costs the same four draw calls every other type costs.
+      truck: {
+        wheels: {
+          radius: 0.52, width: 0.34, sides: 8,
+          inset: 0.16, // in from the flank, so they sit under the body
+          color: 0x0a0a0d,
+          axles: [-2.6, 2.1, 3.1],
+        },
+        bumper: { widthScale: 0.92, height: 0.16, depth: 0.16, y: 0.46, color: 0x14141a },
+        mudFlaps: { width: 0.46, height: 0.5, gap: 0.22, color: 0x0d0d11 },
+        doors: {
+          seam: 0.06, // the split down the middle, and the hinge bars
+          depth: 0.04, // proud of the face, not cut into it
+          reach: 0.86, // share of the face height the split runs down
+          hinges: 3,
+          hingeInset: 0.16,
+          hingeWidth: 0.3,
+          color: 0x101016,
+        },
+        // Lit, and pale - the one genuinely white thing on the back of a lorry
+        // at night, and most of what says "lorry" from behind.
+        plate: { width: 0.62, height: 0.2, x: 0.0, y: -0.55, color: 0xdfe6ee },
+      },
     },
     {
       name: 'semi',
@@ -152,8 +192,39 @@ export const traffic = {
       cabin: { length: 2.6, width: 2.45, height: 0.62, offset: -6.4, taper: 0.9 },
       speed: { min: 0.3, max: 0.5 },
       minLane: 2, // a semi keeps to the two inside lanes
+      rideHeight: 0.58,
+      outlineGain: 0.15,
+      rearGlow: 0.1,
       stripColor: 0xff6a1f,
-      markers: { count: 7, spacing: 0.4, size: [0.16, 0.12, 0.16] },
+      markers: {
+        count: 7, spacing: 0.4, size: [0.16, 0.12, 0.16],
+        side: { count: 8, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.22, margin: 0.6 },
+      },
+      // THE HARDWARE, built by world/traffic/truckParts.js. All of it lands in
+      // the body geometry painted dark with vertex colours, so a truck still
+      // costs the same four draw calls every other type costs.
+      truck: {
+        wheels: {
+          radius: 0.56, width: 0.34, sides: 8,
+          inset: 0.16, // in from the flank, so they sit under the body
+          color: 0x0a0a0d,
+          axles: [-6.2, 4.8, 6.0, 7.0],
+        },
+        bumper: { widthScale: 0.92, height: 0.16, depth: 0.16, y: 0.5, color: 0x14141a },
+        mudFlaps: { width: 0.46, height: 0.56, gap: 0.22, color: 0x0d0d11 },
+        doors: {
+          seam: 0.06, // the split down the middle, and the hinge bars
+          depth: 0.04, // proud of the face, not cut into it
+          reach: 0.86, // share of the face height the split runs down
+          hinges: 3,
+          hingeInset: 0.16,
+          hingeWidth: 0.3,
+          color: 0x101016,
+        },
+        // Lit, and pale - the one genuinely white thing on the back of a lorry
+        // at night, and most of what says "lorry" from behind.
+        plate: { width: 0.62, height: 0.2, x: 0.0, y: -1.05, color: 0xdfe6ee },
+      },
     },
     {
       name: 'motorcycle',
