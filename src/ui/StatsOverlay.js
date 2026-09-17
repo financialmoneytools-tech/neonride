@@ -83,6 +83,34 @@ export class StatsOverlay {
       );
     }
 
+    // THE TILT DIAGNOSTICS. This block is the reason the constructor takes
+    // `controls`, and for one round it did not exist: the parameter was wired,
+    // the docstring described the block, and update() never read it - so a
+    // phone that was asked to show the readout showed the ordinary overlay and
+    // nothing else. There is no console on a phone, so a diagnostic that is not
+    // on the screen is a diagnostic that does not exist.
+    //
+    // Always printed when the overlay is up, whatever the mode: switching to
+    // touch to go and look at why tilt failed must not blank the evidence.
+    const controls = this.controls;
+    if (controls && controls.enabled) {
+      const g = controls.gravity;
+      lines.push('');
+      lines.push('mode ' + controls.mode
+        + '  src ' + (controls.source || '-')
+        + '  secure ' + (controls.secure ? 'yes' : 'NO'));
+      lines.push('motion ' + controls.motionEvents
+        + '  /s ' + controls.motionRate.toFixed(0)
+        + '  read ' + controls.motionReadings);
+      lines.push('orient ' + controls.orientationEvents
+        + '  /s ' + controls.orientationRate.toFixed(0)
+        + '  read ' + controls.orientationReadings);
+      lines.push('grav ' + g.x.toFixed(2) + ' ' + g.y.toFixed(2) + ' ' + g.z.toFixed(2)
+        + '  ang ' + controls.angle);
+      lines.push('tilt ' + (controls.steer >= 0 ? '+' : '') + controls.steer.toFixed(3)
+        + (controls.fellBack ? '  FELL BACK' : ''));
+    }
+
     this.el.textContent = lines.join('\n');
   }
 

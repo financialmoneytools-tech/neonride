@@ -48,18 +48,31 @@ export class Panels {
     this.promptEl = document.createElement('p');
     this.promptEl.className = 'panel-prompt';
 
-    this.el.append(this.titleEl, this.scoreEl, this.bestEl, this.promptEl);
+    // TWO COLUMNS, because a landscape phone is 360 CSS pixels tall and this
+    // card had six stacked blocks in it. On a real handset the bottom of it -
+    // the control mode switch, the sensitivity and the recentre button - was
+    // simply below the screen and unreachable, with nothing to scroll. What is
+    // read goes left, what is pressed goes right; the stylesheet folds them
+    // back into one column when there is height for it.
+    this.readEl = document.createElement('div');
+    this.readEl.className = 'panel-read';
+    this.readEl.append(this.titleEl, this.scoreEl, this.bestEl, this.promptEl);
+
+    this.actionsEl = document.createElement('div');
+    this.actionsEl.className = 'panel-actions';
+
+    this.el.append(this.readEl, this.actionsEl);
 
     // Pause is the other place somebody reaches for this, and it is the one
     // that matters most: by then they are already feeling it. Hidden on the
     // game over card, where the run is finished and the offer is noise.
-    this.toggle = comfort ? new ComfortToggle(this.el, comfort) : null;
+    this.toggle = comfort ? new ComfortToggle(this.actionsEl, comfort) : null;
 
     // The control mode switch, for the same reason and in the same place: it is
     // the only screen a rider can reach without a keyboard and without ending
     // the run. Pause only - a game over card is not where anybody retunes
     // steering.
-    this.controlsPanel = controls ? new ControlsPanel(this.el, controls) : null;
+    this.controlsPanel = controls ? new ControlsPanel(this.actionsEl, controls) : null;
 
     parent.appendChild(this.el);
 

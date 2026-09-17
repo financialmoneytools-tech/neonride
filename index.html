@@ -398,6 +398,17 @@
         opacity: 1;
       }
 
+      /* The two halves of the pause card: what you read, and what you press. */
+      .panel-read,
+      .panel-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+      }
+
+
       .panel-title {
         margin: 0 0 0.4rem;
         font: 700 clamp(1.5rem, 6.5vw, 3rem) / 1 ui-monospace, SFMono-Regular, Menlo,
@@ -481,6 +492,39 @@
         .start-screen,
         .panel { transition-duration: 1ms; }
       }
+      /* A LANDSCAPE PHONE IS ABOUT 360 CSS PIXELS TALL. Stacked, this card's
+         six blocks ran off the bottom of it and the control buttons could not
+         be reached at all - and there is nothing to scroll, because the page
+         does not scroll. Below 520px of height the card lays out as two
+         columns, which fits every landscape handset with room over.
+
+         Height, not width, and not a device query: the thing that is short is
+         the viewport, whatever is making it short. */
+      @media (max-height: 520px) {
+        .panel {
+          flex-direction: row;
+          gap: 2rem;
+          padding: 8px 18px;
+          align-items: center;
+        }
+
+        .panel-read,
+        .panel-actions {
+          gap: 0.4rem;
+          max-width: 46vw;
+        }
+
+        /* The type has to come down with it, or the left column is what
+           overflows instead of the right one. */
+        .panel-title { font-size: clamp(1.1rem, 4.2vw, 1.9rem); }
+        .panel-score { font-size: clamp(1.4rem, 5vw, 2.4rem); }
+        .panel-prompt { font-size: clamp(0.58rem, 1.9vw, 0.76rem); }
+
+        .controls-panel { margin-top: 4px; }
+        .controls-btn { min-height: 34px; padding: 6px 10px; font-size: 10px; }
+        .comfort-toggle { min-height: 34px; padding: 6px 10px; }
+      }
+
     </style>
   </head>
   <body>

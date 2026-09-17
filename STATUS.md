@@ -152,6 +152,36 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 ### Closed since the last note
 
+- ~~Tilt steering did nothing on Android~~, and there were THREE faults behind
+  it, each of which would have been enough on its own.
+
+  1. **The wrong sensor.** `deviceorientation` is built on a fused rotation
+     vector on Chrome for Android and on a great many handsets it never fires
+     at all - no error, no prompt, just silence, which is indistinguishable
+     from a sensor that is switched off. The primary source is now
+     `devicemotion` and `accelerationIncludingGravity`, which needs only an
+     accelerometer; any phone that can auto-rotate has one. The roll is
+     computed from where gravity points. Orientation is kept as the fallback
+     for devices where it is the one that works.
+  2. **The permission gate.** The constructor only attached its listeners when
+     `requestPermission` did NOT exist, and `request()` treated any answer
+     other than 'granted' as final. Headless Chromium exposes
+     `requestPermission` and answers something else - so did the phone, in all
+     likelihood. The rule is now: always listen, ask if the API is there, and
+     let DATA decide. A refusal is recorded and only becomes the explanation
+     once two seconds have passed with nothing arriving.
+  3. **The diagnostics did not exist.** `StatsOverlay` took a `controls`
+     argument and its docstring described the block; `update()` never read it.
+     The parameter was wired and the feature was not written, so the one thing
+     that would have shown which of the above was happening showed nothing.
+
+- ~~The pause card was unreachable on a landscape phone~~. Six stacked blocks
+  on a viewport about 320 to 360 CSS pixels tall: measured, the lowest button
+  sat at exactly 360 on a 360 tall screen and 10 to 20 pixels below the edge on
+  anything shorter, with nothing to scroll because the page does not scroll. It
+  lays out as two columns below 520px of height - what you read on the left,
+  what you press on the right.
+
 - ~~A flat black shape blocked the sky on Galaxy Road~~. It was
   `MountainSlab` - the ridge curtains are near black, and at 360 and 560 units
   out they sat across the lower third of the frame eating the starfield. A
@@ -342,6 +372,39 @@ Things that are the way they are for a reason:
 - **Hints fade** after 12 s of play and vanish in god mode and capture, so
   footage stays clean. A mode change brings them back.
 
+### Tilt steering, and how to check it on a device
+
+`core/Controls.js`. **`devicemotion` is the primary source and
+`deviceorientation` is the fallback**, not the other way round - see the closed
+issue above for why. The roll comes from the gravity vector, rotated into the
+screen's frame by `screen.orientation.angle`, low-pass filtered, with the dead
+zone, the sensitivity and recalibrate all unchanged.
+
+THE ONE THING THAT CAN STILL BE WRONG IS A SIGN. iOS reports
+`accelerationIncludingGravity` with the opposite polarity to Android, and the
+neutral is captured by calibration - so an inverted axis does not break tilt, it
+steers the wrong way. `config/controls.js` -> `tilt.invert` flips it in one
+place rather than one edit.
+
+Three things to read, in order:
+
+| | where | what it means |
+|---|---|---|
+| `public/sensor-test.html` | any browser, no game code | whether the PHONE sends data at all |
+| stats overlay, `?stats=1` | in the game | whether the game is receiving it |
+| the notice at the start | in the game | which fault it was, in Turkish |
+
+The overlay's block is always printed while the overlay is up, whatever the
+mode: switching to touch to look at why tilt failed must not blank the evidence.
+It shows the live source, `isSecureContext`, events and readings per second for
+BOTH event types, the last gravity vector, the orientation angle and the tilt
+value.
+
+`tools/smoke-mobile.mjs` feeds a synthetic `devicemotion` stream, so the gravity
+path has automated coverage and the pause card can be checked with all four of
+its buttons showing - in touch mode two of them are hidden and a geometry check
+run against that card is checking half of it.
+
 ### Phone testing
 
     npm run dev:phone
@@ -368,7 +431,17 @@ solution - a browser told to proceed past a warning may still refuse powerful
 APIs - use a real one through a tunnel:
 
     npm run dev:tunnel
-    cloudflared tunnel --url http://localhost:5173
+
+ONE COMMAND, and it prints the two URLs to open on the phone. It starts the dev
+server, starts a Cloudflare quick tunnel in front of it, waits for the tunnel's
+own address and prints the game and the sensor test. `cloudflared` is a
+devDependency, so there is nothing to install by hand. The address is new every
+run; read it off the terminal rather than remembering one.
+
+It parses cloudflared's own output rather than using the npm package's
+`tunnel()` helper - that helper's URL parser does not match the output of the
+version it ships with, and resolved `undefined`, which printed a perfectly good
+tunnel as `undefined/?stats=1`.
 
 `vite.tunnel.config.js` serves plain HTTP with `allowedHosts` open, because a
 tunnel's host is random per run and Vite answers an unrecognised Host header

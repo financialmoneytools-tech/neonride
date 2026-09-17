@@ -34,10 +34,16 @@ export const controls = {
     // accelerometer is noisy and Input's own steerSmoothing is tuned for a key
     // going down, not for a signal that jitters while being held still.
     tau: 0.09,
-    // If no reading arrives within this long after starting, there is no usable
-    // sensor and the mode falls back. Permission prompts can take a while, so
-    // this is generous.
-    timeout: 2.5, // seconds
+    // If no reading arrives within this long after the start tap, there is no
+    // usable sensor and the mode falls back, saying which fault it was.
+    timeout: 2, // seconds
+
+    // Flips the steering direction. It exists because the one thing that can
+    // still be wrong after all of this is a SIGN: iOS reports
+    // accelerationIncludingGravity with the opposite polarity to Android, and
+    // the neutral is captured by calibration, so an inverted axis does not
+    // break tilt - it just steers the wrong way. One flag beats one edit.
+    invert: false
   },
 
   touch: {

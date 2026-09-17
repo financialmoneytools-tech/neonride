@@ -401,8 +401,21 @@ const start = new StartScreen(document.body, () => {
   // falls back to touch and says so once.
   if (controls.mode === 'tilt') controls.request();
   if (wantsGod) setAutopilot(true);
-  else session.begin(loop.state);
+  else beginRun();
 }, comfort);
+
+/**
+ * Starts a run and says which controls it will use.
+ *
+ * Both restarts go through here rather than calling session.begin directly, so
+ * the banner cannot be attached to one entry point and forgotten on the other -
+ * which is exactly the shape of bug that leaves a feature working on the first
+ * run of a session and nowhere else.
+ */
+function beginRun() {
+  session.begin(loop.state);
+  if (controls.enabled) hints.banner(controls.mode);
+}
 
 /**
  * What a press means, decided from the phase and nowhere else.
@@ -421,7 +434,7 @@ function onPress(event) {
     // would restart the run instead of resuming it.
     if (key === 'Escape') return;
   }
-  if (session.phase === PHASE.OVER && session.overShown) session.begin(loop.state);
+  if (session.phase === PHASE.OVER && session.overShown) beginRun();
   else if (session.phase === PHASE.PAUSED) session.togglePause();
 }
 window.addEventListener('pointerdown', onPress);

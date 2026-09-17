@@ -19,6 +19,7 @@
  *   - a stats overlay still reading "measuring...", which means the loop
  *     never completed a tick
  *   - a pause button that does not open the pause card
+ *   - any button on the pause card sitting outside the viewport
  *
  * The black-canvas check is a pixel check on purpose. "Did it throw" and "is
  * anything on screen" are different questions, and the failure this was written
@@ -179,6 +180,151 @@ async function readErrorPanel(page) {
   return visible ? (await page.textContent('.error-panel').catch(() => '')) : null;
 }
 
+/**
+ * Makes the context behave like a phone with an accelerometer.
+ *
+ * Headless Chromium has no sensors, so tilt always falls back to touch - and
+ * ControlsPanel hides the sensitivity and recentre buttons when it does. A
+ * viewport check run against that card is checking two buttons out of four and
+ * calling the card fine. It also meant the gravity path this whole round was
+ * written for had NO automated coverage at all.
+ *
+ * So the context is given a synthetic devicemotion stream, in the same shape a
+ * real one arrives in: accelerationIncludingGravity, about 9.8 in total, in the
+ * device's own frame. The roll is swept slowly so a reading is never stale.
+ * @param {import('playwright').BrowserContext} context
+ */
+async function fakeTilt(context) {
+  await context.addInitScript(() => {
+    try {
+      window.localStorage.setItem('neon-ride.controls',
+        JSON.stringify({ mode: 'tilt', sensitivity: 1 }));
+    } catch (error) {
+      // A context without storage still gets the events below.
+    }
+
+    const G = 9.81;
+    let phase = 0;
+    setInterval(() => {
+      phase += 0.12;
+      // Landscape: the phone is rolled about the axis running away from the
+      // rider, so gravity swings between the device's x and y.
+      const lean = Math.sin(phase) * 0.45; // radians, about +/-26 degrees
+      const detail = {
+        accelerationIncludingGravity: {
+          x: Math.sin(lean) * G,
+          y: Math.cos(lean) * G,
+          z: 0.4,
+        },
+      };
+      let event;
+      try {
+        event = new window.DeviceMotionEvent('devicemotion', detail);
+      } catch (error) {
+        // Not constructible everywhere; a plain event with the field on it is
+        // read the same way by the listener.
+        event = new Event('devicemotion');
+        event.accelerationIncludingGravity = detail.accelerationIncludingGravity;
+      }
+      window.dispatchEvent(event);
+    }, 40);
+  });
+}
+
+/**
+ * Which buttons on the pause card are not fully on the screen.
+ *
+ * A card that OPENS is not the same as a card you can use, and only the first
+ * of those was ever being checked. On a landscape phone this one had its
+ * control switch, its sensitivity and its recentre button below the bottom
+ * edge, with nothing to scroll because the page does not scroll.
+ * @param {import('playwright').Page} page
+ */
+async function panelGeometry(page) {
+  return page.evaluate(() => {
+    const bad = [];
+    let shown = 0;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    for (const el of document.querySelectorAll('.panel button, .panel .controls-btn')) {
+      if (el.hidden || el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      shown++;
+      // WITH A MARGIN. A button whose edge is exactly on the viewport edge is
+      // inside it arithmetically and unreachable with a thumb.
+      const M = 8;
+      if (r.top < M || r.left < M || r.bottom > h - M || r.right > w - M) {
+        bad.push((el.textContent || el.className).trim().slice(0, 28)
+          + ' [' + Math.round(r.left) + ',' + Math.round(r.top)
+          + ' ' + Math.round(r.right) + ',' + Math.round(r.bottom) + ']');
+      }
+    }
+    return { bad, w, h, buttons: shown };
+  });
+}
+
+/**
+ * The pause card again, in a context the size a landscape phone actually is.
+ *
+ * A SECOND CONTEXT rather than a resize: setViewportSize is refused inside a
+ * mobile emulation context, and 900x414 - the profile everything else runs in -
+ * fits the old stacked card with room to spare. A geometry check run only there
+ * passes on the exact layout that was reported broken on the hardware.
+ * @returns {Promise<string[]>} failures
+ */
+async function checkShortViewport(browser, base) {
+  // 740x320, and the size is measured rather than picked. The old stacked card
+  // put its lowest button at exactly 360 on a 360 tall viewport - inside by the
+  // letter of the test and flush against the bottom edge in practice - and
+  // overflowed by 10 at 340 and 20 at 320. A landscape phone with its browser
+  // chrome showing is in that range, which is where this was reported from.
+  const SHORT = { width: 740, height: 320 };
+  const context = await browser.newContext({
+    ...devices['Pixel 7'], viewport: SHORT, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
+  await fakeTilt(context);
+  const page = await context.newPage();
+  const failures = [];
+  try {
+    await page.goto(base, { waitUntil: 'load', timeout: 30000 });
+    await page.waitForTimeout(700);
+    await page.tap('body', { position: { x: 700, y: 60 }, force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
+    if (!(await page.isVisible('.pause-button').catch(() => false))) {
+      failures.push(`no pause button at ${SHORT.width}x${SHORT.height}`);
+      return failures;
+    }
+    await page.tap('.pause-button', { force: true });
+    await page.waitForTimeout(600);
+    const result = await panelGeometry(page);
+    for (const line of result.bad) {
+      failures.push(`pause card button outside the ${SHORT.width}x${SHORT.height} viewport: ${line}`);
+    }
+    if (result.buttons < 4) {
+      failures.push(`pause card showed ${result.buttons} buttons, expected 4 in tilt mode`);
+    }
+
+    // THE GRAVITY PATH ITSELF. devicemotion has to be the source that answered,
+    // and a phone being rolled has to produce a steering value - the exact
+    // thing that was silently doing nothing on the device.
+    const tilt = await page.evaluate(() => {
+      const c = window.NEON && window.NEON.controls;
+      if (!c) return null;
+      return { source: c.source, motion: c.motionReadings, mode: c.mode, live: c.live };
+    });
+    if (!tilt) failures.push('no controls on window.NEON');
+    else if (tilt.source !== 'motion') {
+      failures.push(`tilt source is ${tilt.source}, expected motion (${tilt.motion} readings)`);
+    } else if (tilt.mode !== 'tilt') {
+      failures.push(`tilt fell back to ${tilt.mode} with a live motion sensor`);
+    }
+  } finally {
+    await context.close();
+  }
+  return failures;
+}
+
 async function main() {
   let server = null;
   let base = BASE;
@@ -257,7 +403,22 @@ async function main() {
     await page.waitForTimeout(600);
     const panelUp = await page.isVisible('.controls-panel').catch(() => false);
     if (!panelUp) failures.push('pause card did not open, or has no control switch');
+    else {
+      // EVERY BUTTON ON THE PAUSE CARD HAS TO BE ON THE SCREEN. A landscape
+      // phone is about 360 CSS pixels tall and this card had six stacked
+      // blocks in it: on a real handset the control switch, the sensitivity
+      // and the recentre button were simply below the bottom edge, with
+      // nothing to scroll because the page does not scroll. A card that opens
+      // is not the same as a card you can use, and only one of those was
+      // being checked.
+      const offscreen = await panelGeometry(page);
+      for (const line of offscreen.bad) {
+        failures.push(`pause card button outside the ${offscreen.w}x${offscreen.h} viewport: ${line}`);
+      }
+    }
   }
+
+  for (const line of await checkShortViewport(browser, `${base}${query}`)) failures.push(line);
 
   const late = await readErrorPanel(page);
   if (late && !early) {

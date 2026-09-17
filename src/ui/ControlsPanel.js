@@ -38,7 +38,7 @@ export class ControlsPanel {
     this.calBtn = document.createElement('button');
     this.calBtn.type = 'button';
     this.calBtn.className = 'controls-btn';
-    this.calBtn.textContent = 'MERKEZI SIFIRLA';
+    this.calBtn.textContent = config.ui.controls.recentre;
 
     this.el.append(this.modeBtn, this.sensBtn, this.calBtn);
     parent.appendChild(this.el);
@@ -59,9 +59,11 @@ export class ControlsPanel {
     this._onCal = (e) => {
       e.stopPropagation();
       controls.recalibrate();
-      this.calBtn.textContent = 'SIFIRLANDI';
+      this.calBtn.textContent = config.ui.controls.recentred;
       clearTimeout(this._calTimer);
-      this._calTimer = setTimeout(() => { this.calBtn.textContent = 'MERKEZI SIFIRLA'; }, 1400);
+      this._calTimer = setTimeout(() => {
+        this.calBtn.textContent = config.ui.controls.recentre;
+      }, 1400);
     };
     for (const [el, fn] of [[this.modeBtn, this._onMode], [this.sensBtn, this._onSens],
       [this.calBtn, this._onCal]]) {
@@ -74,8 +76,9 @@ export class ControlsPanel {
 
   refresh() {
     const tilt = this.controls.mode === 'tilt';
-    this.modeBtn.textContent = tilt ? 'KONTROL: EGIM' : 'KONTROL: DOKUNMATIK';
-    this.sensBtn.textContent = 'HASSASIYET: ' + config.controls.tilt.sensitivity.toFixed(1);
+    const text = config.ui.controls;
+    this.modeBtn.textContent = tilt ? text.modeTilt : text.modeTouch;
+    this.sensBtn.textContent = text.sensitivity + config.controls.tilt.sensitivity.toFixed(1);
     // Sensitivity and calibration only mean anything while tilt is steering.
     this.sensBtn.hidden = !tilt;
     this.calBtn.hidden = !tilt;

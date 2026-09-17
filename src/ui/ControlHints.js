@@ -32,7 +32,7 @@ export class ControlHints {
 
     this.brake = document.createElement('div');
     this.brake.className = 'hint hint-brake';
-    this.brake.textContent = 'FREN';
+    this.brake.textContent = config.ui.controls.hintBrake;
 
     this.el.append(this.left, this.right, this.brake);
     parent.appendChild(this.el);
@@ -73,8 +73,9 @@ export class ControlHints {
       this.brake.style.height = `${b.height * 100}%`;
     }
 
-    this.left.textContent = tilt ? 'FREN' : 'YON';
-    this.right.textContent = 'GAZ';
+    const text = config.ui.controls;
+    this.left.textContent = tilt ? text.hintBrake : text.hintSteer;
+    this.right.textContent = text.hintThrottle;
     this.left.style.width = `${(tilt ? 0.5 : config.controls.touch.steerHalf) * 100}%`;
     this.right.style.width = `${(1 - (tilt ? 0.5 : config.controls.touch.steerHalf)) * 100}%`;
 
@@ -91,14 +92,33 @@ export class ControlHints {
   }
 
   /**
-   * Says something once, briefly. Used when tilt is asked for and refused.
-   * @param {string} text
+   * Announces which control scheme is live, for a few seconds at the start of
+   * every run.
+   *
+   * At the start of EVERY run, not only when it changes. Tilt and touch feel
+   * completely different and the mode is remembered across sessions, so a rider
+   * coming back tomorrow has no way of knowing which one they left behind
+   * except by trying to steer - and on a phone that means finding out in
+   * traffic.
+   * @param {'tilt'|'touch'} mode
    */
-  notice(text) {
+  banner(mode) {
+    const text = config.ui.controls;
+    this.notice(mode === 'tilt' ? text.bannerTilt : text.bannerTouch,
+      text.bannerSeconds * 1000);
+  }
+
+  /**
+   * Says something once, briefly. Used for the mode banner, and when tilt is
+   * asked for and refused.
+   * @param {string} text
+   * @param {number} [ms] how long to leave it up
+   */
+  notice(text, ms = 5200) {
     this.noticeEl.textContent = text;
     this.noticeEl.hidden = false;
     clearTimeout(this._noticeTimer);
-    this._noticeTimer = setTimeout(() => { this.noticeEl.hidden = true; }, 5200);
+    this._noticeTimer = setTimeout(() => { this.noticeEl.hidden = true; }, ms);
   }
 
   /** @param {number} dt */

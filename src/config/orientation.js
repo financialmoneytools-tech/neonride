@@ -28,6 +28,6 @@ export const orientation = {
   enter: 0.95,
   leave: 1.05,
 
-  title: 'TELEFONU YAN CEVIR',
-  body: 'NEON RIDE yatay ekran icin yapildi.',
+  title: 'TELEFONU YAN ÇEVİR',
+  body: 'NEON RIDE yatay ekran için yapıldı.',
 };

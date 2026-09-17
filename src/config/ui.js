@@ -31,6 +31,38 @@ export const ui = {
     off: '○', // hollow circle
   },
 
+  // Everything the control system says. Gathered here with the rest of the
+  // player facing text rather than left inline: they were scattered across
+  // core/Controls.js, ui/ControlsPanel.js and ui/ControlHints.js in ASCII
+  // transliteration - EGIM for EĞİM, HASSASIYET for HASSASİYET - which is the
+  // failure this file's rule exists to prevent. Turkish belongs in Turkish.
+  controls: {
+    modeTilt: 'KONTROL: EĞİM',
+    modeTouch: 'KONTROL: DOKUNMATİK',
+    // Shown for a few seconds at the start of every run, so the rider always
+    // knows which scheme they are about to get without opening anything.
+    bannerTilt: 'KONTROL: EĞİM',
+    bannerTouch: 'KONTROL: DOKUNMATİK',
+    bannerSeconds: 3,
+
+    sensitivity: 'HASSASİYET: ',
+    recentre: 'MERKEZİ SIFIRLA',
+    recentred: 'SIFIRLANDI',
+
+    hintSteer: 'YÖN',
+    hintThrottle: 'GAZ',
+    hintBrake: 'FREN',
+
+    // Why tilt was refused. Each names a DIFFERENT fault, because "it does not
+    // work" is not something anybody can act on.
+    tiltSilent: 'Eğim sensörü veri göndermiyor. Dokunmatik kontrole geçildi.',
+    tiltEmpty: 'Eğim sensörü boş veri gönderiyor. Dokunmatik kontrole geçildi.',
+    tiltMissing: 'Bu cihazda eğim sensörü yok. Dokunmatik kontrole geçildi.',
+    tiltDenied: 'Eğim izni verilmedi. Dokunmatik kontrole geçildi.',
+    tiltInsecure: 'Eğim sensörü yalnızca HTTPS üzerinde çalışır. '
+      + 'Dokunmatik kontrole geçildi.',
+  },
+
   // The score readout during a run.
   hud: {
     distanceUnit: ' M',
