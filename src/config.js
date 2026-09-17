@@ -21,7 +21,7 @@ import { postprocess } from './config/postprocess.js';
 import { ui } from './config/ui.js';
 import { game } from './config/game.js';
 import { comfort } from './config/comfort.js';
-import { theme, themes } from './config/themes.js';
+import { theme, themes } from './config/themes/index.js';
 import { audio } from './config/audio.js';
 
 export const config = {

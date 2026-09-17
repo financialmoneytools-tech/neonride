@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
 import { UP } from './RoadPath.js';
+import { roadLayout } from './layout.js';
 
 /**
  * RoadChunk - one pooled slice of road, about chunkLength units long.
@@ -27,7 +28,15 @@ export class RoadChunk {
     const road = config.world.road;
 
     this.chunkLength = road.chunkLength;
-    this.ribbonHalfWidth = road.halfWidth * road.shoulderScale;
+
+    // THE RIBBON IS NOT SYMMETRIC ANY MORE. Four lanes our way sit centred on
+    // the path; the median and the whole oncoming carriageway hang off to the
+    // left. So the rim positions come from the layout rather than from a half
+    // width, and aAcross carries METRES instead of -1..1 - see layout.js for
+    // why that had to change.
+    const layout = roadLayout();
+    this.ribbonLeft = layout.ribbonLeft;
+    this.ribbonRight = layout.ribbonRight;
     this.rings = road.lengthSegments + 1;
     this.columns = road.widthSegments + 1;
 
@@ -67,7 +76,8 @@ export class RoadChunk {
     this.geometry.setAttribute('position', position);
     this.geometry.setAttribute('normal', normal);
     this.geometry.setAttribute('aAlong', along);
-    this.geometry.setAttribute('aAcross', RoadChunk._buildAcross(this.rings, this.columns));
+    this.geometry.setAttribute('aAcross',
+      RoadChunk._buildAcross(this.rings, this.columns, this.ribbonLeft, this.ribbonRight));
     this.geometry.setIndex(RoadChunk._buildIndex(this.rings, this.columns));
 
     this.mesh = new THREE.Mesh(this.geometry, material);
@@ -75,11 +85,11 @@ export class RoadChunk {
     this.mesh.matrixAutoUpdate = true;
   }
 
-  /** Lateral coordinate, -1 at the left rim and +1 at the right. Constant. */
-  static _buildAcross(rings, columns) {
+  /** Lateral coordinate in METRES from the path centre. Constant. */
+  static _buildAcross(rings, columns, left, right) {
     const data = new Float32Array(rings * columns);
     for (let c = 0; c < columns; c++) {
-      const across = -1 + (2 * c) / (columns - 1);
+      const across = left + ((right - left) * c) / (columns - 1);
       for (let i = 0; i < rings; i++) data[i * columns + c] = across;
     }
     return new THREE.BufferAttribute(data, 1);
@@ -122,7 +132,8 @@ export class RoadChunk {
     const columns = this.columns;
     const centers = this._centers;
     const lengths = this._lengths;
-    const halfWidth = this.ribbonHalfWidth;
+    const left = this.ribbonLeft;
+    const span = this.ribbonRight - this.ribbonLeft;
 
     // Chunk local space: the origin sits on the travel axis at the chunk start.
     const originZ = -chunkIndex * this.chunkLength;
@@ -165,7 +176,7 @@ export class RoadChunk {
 
       for (let c = 0; c < columns; c++) {
         const index = i * columns + c;
-        const across = (-1 + (2 * c) / (columns - 1)) * halfWidth;
+        const across = left + (span * c) / (columns - 1);
         const at = index * 3;
 
         positions[at] = center.x + _lateral.x * across;

@@ -60,7 +60,13 @@ src/
   world/
     Sky.js         # gradient skydome shader + yıldız alanı + nebula katmanları
     Road.js        # sonsuz yol: spline chunk üretimi + geri dönüşüm havuzu
+    road/layout.js # otoyolun enkesiti, METRE cinsinden - tek kaynak
     Roadside.js    # neon direkler/kenar şeritleri (InstancedMesh)
+    Median.js      # orta bariyer, yol chunk'lariyla havuzlanir
+    Oncoming.js    # karsi seritteki farlar - SADECE dekor, carpisma yok
+    Scenery.js     # yol kenari nesneleri, tema yogunluk verir
+    Weather.js     # kar/yagmur/toz, tek sarmalanan tampon
+    Traffic.js     # oynayanin carpabilecegi tum araclar
     Mountains.js   # uzak dağ siluetleri (düşük poly, fog içinde erir)
   player/
     Rider.js       # eller + gidon (primitiflerden), kameraya child olarak bağlı
@@ -91,6 +97,8 @@ src/
   `config/orientation.js` ve `core/Orientation.js`.
 - Tam ekran ilk dokunusta istenir, ekran yonu kilidi de onunla birlikte -
   cogu tarayici kilidi reddeder, karti asil uygulayan sey odur.
+- Yol dort seritli bir otoyol. Her yanal konum `world/road/layout.js`'ten
+  tureler; hicbir modul kendi metre degerini yazmaz.
 - Dokunmatik kontrol ekranin ALT SERIDINDE: sol alt kose sola, sag alt kose
   saga, ikisi birden fren. Ust yariya dokunmak gaz verir ama direksiyon
   cevirmez - telefonu tutan el yanlislikla yon vermesin diye.

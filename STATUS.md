@@ -12,20 +12,41 @@ bug even if gameplay is fine.
 ## Built and working
 
 - **Sky** - starfield, nebulae, aurora.
-- **Road** - endless, CatmullRomCurve3 chunks from a recycling pool. Zero new
-  geometry inside the loop. Neon edge lines, cyan left / magenta right.
+- **Road** - a four lane motorway, endless, CatmullRomCurve3 chunks from a
+  recycling pool. Zero new geometry inside the loop. Painted lane markings, a
+  median barrier, an oncoming carriageway beyond it, neon edge lines cyan on the
+  median side and magenta on the shoulder. See the cross section below.
 - **Post** - UnrealBloomPass, vignette, chromatic aberration.
-- **Traffic** - InstancedMesh, five vehicle types, ~65 on the road.
-- **God mode** - AI rider slaloms through traffic. 36,000 frames with zero
-  overlap, tightest pass 0.050 u, ~23.5 near misses a minute. If no safe gap
-  exists the guard slows and waits instead of phasing through. The guard is
-  inert outside god mode.
+- **Traffic** - InstancedMesh, seven vehicle types including a box truck and a
+  16 m semi, lane-aware: a vehicle's speed suggests its lane and the widest
+  types are barred from the outside lanes.
+- **Scenery and weather** - `world/Scenery.js` pools instanced props with the
+  road chunks; `world/Weather.js` is one wrapping line buffer that does snow,
+  rain and dust. Both are theme-driven and neither allocates per theme.
+- **God mode** - AI rider slaloms through traffic. Measured with
+  `tools/god-run.mjs` on the four lane road, 17 September 2026:
+
+  | | Galaxy Road | Aurora Pass |
+  |---|---|---|
+  | run | 150 s, 9000 frames, 28.2 km | 55 s, 3295 frames, 14.3 km |
+  | overlaps | **0** | **0** |
+  | tightest pass | 0.050 u (ambulance) | 0.050 u (semi) |
+  | near misses | 21.6 a minute | 30.6 a minute |
+  | trapped frames | 0 | 0 |
+  | worst guard correction | 0.33 u | 0.14 u |
+
+  Every tightest pass lands exactly on the guard's 0.05 floor, which is the
+  guard doing its job. If no safe gap exists it slows and waits instead of
+  phasing through; it is inert outside god mode.
 - **Audio** - Web Audio, fully synthesised: engine formant bank with
   progressive gearing (short low gears, long top gears), wind, traffic pass-bys.
   Confirmed good against the ride.
 - **Start screen** - title and start prompt only; it is the audio unlock
   gesture. Skippable in god mode so it never lands in footage.
-- **Stats overlay** - `H`. Last reading: 90 FPS, 64 draw calls, 21k triangles.
+- **Stats overlay** - `H`. Last reading on a desktop GPU (RTX 5060 laptop),
+  1280x720: **60 FPS** (vsync capped), 76 draw calls and 38k triangles on
+  Galaxy Road, 74 and 58k on Aurora Pass. Ceilings are 120 and 400k. The phone
+  figure has NOT been taken since the highway landed - see outstanding.
 - **Cockpit sprite** - `public/sprites/cockpit.png`, drawn by
   `src/player/Cockpit.js`. Art and placement are both right now: sized from the
   frame HEIGHT, so it is identical at every landscape aspect. Asserted by
@@ -78,19 +99,36 @@ that chose a source by frame shape, and the second (tall) framing profile.
 1. **Mobile landscape** - the portrait prompt, the orientation lock and
    fullscreen-on-first-touch are done. What is left: quality presets checked on
    a real mid-range phone, and the touch band tried with actual thumbs.
+   **AND A PHONE FPS READING FOR BOTH THEMES.** The highway roughly doubled the
+   road's fill area and Aurora Pass adds 20k triangles of scenery and a 1800
+   segment weather buffer; the desktop holds 60 but the 30 FPS phone floor is
+   unverified since. `?theme=auroraPass&stats=1` on the phone, one reading each.
 2. **Cockpit art is not wide enough.** See open issues - this is now the thing
    holding the framing back.
 3. **Production build** - Vite build, deploy to Vercel.
-4. **Road themes** - IN PROGRESS. Plan written and awaiting approval:
-   `docs/THEMES.md`. Six places, each with its own sky, palette, scenery and
-   weather, and a transition every few km. Step 1 of 3 done (the plan); step 2
-   is the theme system plus Aurora Pass end to end.
+4. **Road themes** - step 2 of 3 done. `docs/THEMES.md` is the plan. Built: the
+   four lane highway, trucks, the theme system, GALAXY ROAD and AURORA PASS.
+   Left for step 3: Sunset Highway, Neon Metropolis (with the wet road), Nebula
+   Coast, Red Planet, and the transitions through a light gate.
 5. **Bike library** - naked and concept bikes, each a cockpit sprite.
 
 ## Open issues
 
 - **Dash screen** - `cut-cockpit.py` reports `CONFIG_DISAGREES` if the punched
   hole and `screen` in `config/cockpit.js` drift. Re-run after any art change.
+- **Three files are over the 300 line limit.** `src/main.js` 514 (it was 497
+  before the highway work and has been over for a while), `world/Traffic.js`
+  338 and `world/traffic/VehicleMesh.js` 316 - the last two crossed the line
+  with the lane-aware spawn and the truck marker lights. `config/world.js` went
+  to 365 and WAS split, into `config/road.js`. The other three are named here
+  rather than quietly left: main.js wants a bootstrap split, Traffic wants its
+  respawn logic in `world/traffic/spawn.js`, and VehicleMesh wants its builders
+  in a parts file.
+- **Near miss rate swings between runs.** Measured at 7.8 and 26.3 a minute over
+  two god runs of the same length on the same seed. The autopilot is
+  deterministic in its inputs but not in its timing, and a single lane choice
+  early on changes how the rest of the run threads. Worth a longer sample before
+  anyone tunes `nearMiss.range` again.
 - **Sway lifts the cut bottom edge** at full lock. The plane sits 7.6 per cent
   of the frame below the bottom edge, down from 10.2 before the framing change,
   so there is less headroom than there was. Still headroom, but it is geometry
@@ -339,25 +377,80 @@ Two things worth knowing rather than discovering:
   else - autopilot, capture mode, the world - is already running before the
   phone is picked up.
 
+### The highway
+
+Four lanes our way, a median barrier, four more coming the other way. Every
+lateral position in the world is derived from six numbers in
+`config/road.js` -> `carriageway` by `world/road/layout.js`, and everything that
+needs one asks: the ribbon geometry, the road shader's markings, where traffic
+sits, where the barrier stands, where the pylons go. **Nothing writes a lateral
+position out in metres of its own**, because the lane width has already changed
+once and every hand written copy would have been silently wrong.
+
+In metres from the path centre, which is the middle of OUR carriageway:
+
+| | |
+|---|---|
+| our lanes | -5.7, -1.9, 1.9, 5.7 (3.8 wide) |
+| lane dividers, dashed paint | -3.8, 0, 3.8 |
+| our edges, solid paint + neon | -7.6 and 7.6 |
+| hard shoulder | out to 10.2 |
+| median, barrier down the middle | -8.8 to -12.0 |
+| oncoming carriageway | -12.0 to -27.2 |
+| the drawn ribbon | -31.6 to 12.8 |
+
+`aAcross` CARRIES METRES now, not -1..1 across the ribbon. It had to: a
+normalised coordinate made every marking position depend on the total width, so
+widening the verge moved the lane markings.
+
+**Lane width is 3.8, not the real 3.6, and the 20 cm is load bearing.** A truck
+is 2.5 wide and the bike is 1.0, so at 3.6 the gap between two trucks in
+adjacent lanes was 1.1 against a 1.1 requirement - there was no legal line at
+all, and `tools/god-run.mjs` showed the god mode guard reporting trapped frames
+and then letting overlaps through. Three things fixed it together: 3.8 m lanes,
+a 1.0 m bike instead of 1.24, and `minLane` keeping the box truck out of lane 0
+and the semi out of lanes 0 and 1.
+
+The oncoming carriageway is SCENERY. `world/Oncoming.js` is never tested against
+the player and never can be: it is behind a barrier, and a collision system that
+reaches across the barrier is one that will one day kill somebody through a wall.
+
+### Where the neon went
+
+The flowing neon strips used to run down the middle of the asphalt at 1.45 times
+road speed, directly under the cluster. They are now on the shoulder, on both
+sides of the median and out on the far verge, and the traffic lanes carry
+painted markings instead - world locked, so they stream past at exactly road
+speed, which is the comfortable kind of cue.
+
+That retires `openRoad`. It was never a place, it was the motion comfort variant
+that existed because of those centre strips, and the variant IS the default now
+on every theme. `config/comfort.js` and the reduced motion toggle are unchanged
+and still matter - weather is a far stronger trigger than the strips ever were.
+
 ### Road themes
 
-Planned in `docs/THEMES.md`; nothing built yet beyond what is already in the
-repo. The state today:
+`docs/THEMES.md` is the plan. Two themes are built, in `config/themes/`:
+**GALAXY ROAD** (the original look) and **AURORA PASS** (snow pass, northern
+lights, ice blue and green). `?theme=<name>` picks one, `T` cycles by reloading.
 
-- `config/themes.js` holds two entries, `neonHighway` (empty - it IS the base
-  config) and `openRoad` (a motion-comfort variant, not a place).
-- `utils/patch.js` is the generic library-and-selector with an undo, written to
-  serve themes, bikes and maps alike.
-- `?theme=<name>` already works and `T` already cycles, by reloading.
+**A THEME NEVER ALLOCATES.** It sets colours, intensities and densities, and
+nothing else - no counts, no pool sizes, no shader defines. Every scenery kind
+and the whole weather buffer are allocated at load whatever theme is fitted; a
+kind a theme does not use has its mesh switched off. That is the rule the live
+transitions in step 3 rest on, because an instance buffer cannot be resized mid
+run and a road that changes theme every few kilometres cannot reload the page.
 
-The one thing the plan has to solve, and the reason it is a plan and not an
-afternoon: **a theme is a load-time patch and the feature asks for live
-transitions.** The strip count is a shader define and the pylon spacing sizes an
-instance buffer, so neither can change after construction. The answer is to
-split every theme field into structural (allocated once, as the union over all
-themes) and continuous (colours, densities, fog, bloom - animated per frame), so
-that a theme never allocates: it selects and it tints. Read the doc before
-touching `config/themes.js`.
+Measured, and worth knowing: parking unused instances a million units away is
+NOT free. An InstancedMesh still submits its draw call and all of its triangles
+wherever its instances are, so a kind at density zero is switched off outright -
+Galaxy Road was paying four draw calls and 21k triangles for scenery it does not
+have.
+
+Each theme file carries a `comfort` block saying where its motion lives, which
+`CLAUDE.md` requires of every theme. Aurora Pass is the one that needed it:
+falling snow is the strongest nausea trigger in the project, and it goes through
+`motionScale('weather')`.
 
 ### The cockpit contract
 
@@ -413,7 +506,12 @@ they sit across the frame is the artist's and not a knob. Only how far down the
 frame the whole cockpit sits is still ours to set.
 
 Tools: **`tools/measure-cockpit.mjs`** - run it after any cockpit change; it
-exits non-zero when a target is missed. Also `tools/cut-cockpit.py --debug`,
+exits non-zero when a target is missed. **`tools/god-run.mjs`** - drives a real
+browser in god mode for N seconds and reports overlaps, the tightest pass, near
+misses a minute, draw calls, triangles and frame rate; it exits non-zero on a
+single overlap. `node tools/god-run.mjs 120 auroraPass`. It prints the WebGL
+renderer with the result, because a headless frame rate off SwiftShader is a
+regression signal and not a frame rate anybody will see. Also `tools/cut-cockpit.py --debug`,
 `tools/cockpit.mjs` (`--depths`, `--parts`, `--render`, `--overlay`),
 `tools/measure-hands.mjs` and `tools/preview-hands.py` (primitive cockpit),
 `tools/key-sprite.py --group`.

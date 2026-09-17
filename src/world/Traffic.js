@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { createRng } from '../utils/rng.js';
 import { VehicleMesh } from './traffic/VehicleMesh.js';
 import { testVehicle } from './traffic/TrafficEvents.js';
+import { roadLayout } from './road/layout.js';
 
 /**
  * Traffic - vehicles running the player's way at varied speeds, pooled per type
@@ -47,6 +48,14 @@ export class Traffic {
     this.bike = bike;
 
     this.rng = createRng(cfg.seed);
+
+    // LANES COME FROM THE ROAD, not from a list in the traffic config. They
+    // used to be written out by hand, which was survivable while the road was
+    // a plain strip and is not now: changing the lane count in config has to
+    // move the paint, the traffic and the barrier together or they disagree
+    // silently, and a car straddling a painted line is the kind of wrong that
+    // is obvious in a recording and invisible in a diff.
+    this.lanes = roadLayout().laneCentres;
     this.group = new THREE.Group();
     this.group.name = 'Traffic';
     scene.add(this.group);
@@ -225,8 +234,23 @@ export class Traffic {
     const type = fleet.type;
     const rng = this.rng;
 
-    vehicle.lane = Math.floor(rng.next() * cfg.lanes.length);
-    vehicle.laneLateral = cfg.lanes[vehicle.lane];
+    // LANE BY SPEED, the way a real motorway sorts itself out. We drive on the
+    // right, so lane 0 is the leftmost - the fast one - and the slowest traffic
+    // belongs on the right. The pick is biased rather than forced: a van in the
+    // outside lane is a thing that happens, and a road where every vehicle is
+    // exactly where it should be reads as a simulation rather than as traffic.
+    const speedRatio = (type.speed.min + type.speed.max) * 0.5;
+    const want = (1 - Math.min(1, Math.max(0, (speedRatio - 0.3) / 0.5)))
+      * (this.lanes.length - 1);
+    const spread = cfg.laneDiscipline;
+    const pick = want + (rng.next() * 2 - 1) * spread;
+    // minLane keeps the widest vehicles out of the outside lanes. Without it a
+    // truck in lane 0 could pair with one across the road and leave no legal
+    // line anywhere, which the god mode guard reports as a trapped frame and
+    // then, sometimes, as an overlap.
+    const lowest = type.minLane || 0;
+    vehicle.lane = Math.min(this.lanes.length - 1, Math.max(lowest, Math.round(pick)));
+    vehicle.laneLateral = this.lanes[vehicle.lane];
     vehicle.lateral = vehicle.laneLateral;
     vehicle.speed = rng.range(type.speed.min, type.speed.max);
     vehicle.scale = 1 + (rng.next() * 2 - 1) * cfg.vehicle.scaleJitter;

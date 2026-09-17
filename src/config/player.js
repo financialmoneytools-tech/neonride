@@ -52,7 +52,11 @@ export const player = {
       bottomRpm: 0.24, // where an upshift lands; 0 would be a stall
     },
 
-    lateralLimit: 5.4, // how far off the centre line the bike may drift
+    // Widened for the four lane carriageway: the outer lane centres are at
+    // +/-5.7, so the old 5.4 let the rider reach them and not sit in them.
+    // 6.6 puts the outer lanes properly in reach and stops just short of the
+    // edge lines at +/-7.6, so the bike stays on the asphalt at full lock.
+    lateralLimit: 6.6, // how far off the centre line the bike may drift
     lateralSpeed: 13, // units per second of drift at full steer and full speed
     lateralReturnTau: 0.5, // seconds to ease back to the centre with no steer
     lateralTau: 0.35, // drift smoothing

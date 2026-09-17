@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { config } from '../config.js';
 import { UP } from './road/RoadPath.js';
 import { applyDistanceFade } from '../utils/distanceFade.js';
+import { roadLayout } from './road/layout.js';
 
 /**
  * Roadside - the rhythmic neon pylons standing along both edges of the road.
@@ -37,6 +38,16 @@ export class Roadside {
     this.stationsPerChunk = side.stationsPerChunk;
     this.spacing = roadCfg.chunkLength / side.stationsPerChunk;
     this.perChunk = side.stationsPerChunk * 2; // one pylon on each side
+
+    // ASYMMETRIC, because the highway is. A single offset put the left hand
+    // pylons at -14, which on a four lane road with an oncoming carriageway
+    // beyond the median is the middle of the second oncoming lane - a row of
+    // posts standing in the traffic. Each side is measured from its own
+    // outermost shoulder instead.
+    const layout = roadLayout();
+    this.offsetRight = layout.shoulderEdge + side.verge;
+    this.offsetLeft = -(layout.oncomingOuter
+      - config.world.road.carriageway.shoulderRight - side.verge);
 
     const count = roadCfg.poolSize * this.perChunk;
 
@@ -108,15 +119,16 @@ export class Roadside {
       for (let s = 0; s < 2; s++) {
         const sign = s === 0 ? 1 : -1; // +1 is the rider's right
         const index = base + k * 2 + s;
+        const offset = sign > 0 ? this.offsetRight : this.offsetLeft;
 
         _matrix.setPosition(
-          _position.x + _lateral.x * sign * side.offset,
+          _position.x + _lateral.x * sign * offset,
           _position.y + side.postHeight * 0.5,
-          _position.z + _lateral.z * sign * side.offset,
+          _position.z + _lateral.z * sign * offset,
         );
         this.posts.setMatrixAt(index, _matrix);
 
-        const tubeOffset = sign * (side.offset - side.tubeInset);
+        const tubeOffset = sign * (offset - side.tubeInset);
         _matrix.setPosition(
           _position.x + _lateral.x * tubeOffset,
           _position.y + side.tubeLift + side.tubeHeight * 0.5,

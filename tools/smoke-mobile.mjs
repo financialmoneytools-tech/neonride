@@ -30,6 +30,11 @@ import { inflateSync } from 'node:zlib';
 import { chromium, devices } from 'playwright';
 
 const URL_ARG = process.argv.find((a) => a.startsWith('http'));
+// A theme to check, because a theme can break startup on its own: it is a patch
+// applied before anything is built, so a bad value in one reaches the
+// constructor of whatever reads it and nothing else in the repo would see it.
+//     npm run smoke -- auroraPass
+const THEME = process.argv.slice(2).find((a) => !a.startsWith('http')) || '';
 const PORT = 5173;
 const BASE = URL_ARG || `http://localhost:${PORT}/`;
 const OWN_SERVER = !URL_ARG;
@@ -181,7 +186,7 @@ async function main() {
     const started = await startServer();
     server = started.child;
     base = started.url;
-    console.log(`dev server: ${base}`);
+    console.log(`dev server: ${base}${THEME ? '  theme ' + THEME : ''}`);
   }
 
   const browser = await chromium.launch();
@@ -196,7 +201,8 @@ async function main() {
 
   // ?stats=1 so the overlay is up and its text can be read back. It is the
   // cheapest proof that the loop completed a tick.
-  await page.goto(`${base}?stats=1`, { waitUntil: 'load', timeout: 30000 });
+  const query = '?stats=1' + (THEME ? '&theme=' + THEME : '');
+  await page.goto(`${base}${query}`, { waitUntil: 'load', timeout: 30000 });
 
   // The title card owns the first gesture. Tapped, not clicked: the card
   // listens for pointerdown, and a phone profile should be exercised the way a

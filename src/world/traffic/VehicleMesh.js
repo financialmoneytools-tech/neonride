@@ -118,6 +118,30 @@ export class VehicleMesh {
       );
     }
 
+    // MARKER LIGHTS along the top of the rear face, which is what a truck has
+    // and a car does not. They go in the strip geometry rather than a mesh of
+    // their own, so they are tinted per vehicle by the same instance colour and
+    // cost no extra draw call - the whole reason the strips work that way.
+    const markers = type.markers;
+    if (markers) {
+      const box = type.rearBox;
+      const top = size.height * 0.5 + (box ? box.height : 0);
+      const back = box
+        ? box.offset + box.length * 0.5
+        : size.length * 0.5;
+      const span = (markers.count - 1) * markers.spacing;
+      for (let i = 0; i < markers.count; i++) {
+        builder.add(
+          new THREE.BoxGeometry(markers.size[0], markers.size[1], markers.size[2]),
+          matrix.makeTranslation(
+            -span * 0.5 + i * markers.spacing,
+            top - markers.size[1] * 0.5,
+            back + markers.size[2] * 0.5,
+          ),
+        );
+      }
+    }
+
     // Outline around the rear face. This is what draws the shape head on, which
     // is the angle the rider sees almost all the time.
     const rear = shared.rear.outline;

@@ -202,12 +202,20 @@ export class Autopilot {
 
     for (const fleet of this.traffic.fleets) {
       const halfWidth = fleet.type.size.width * 0.5;
+      const halfLength = fleet.type.size.length * 0.5;
       const weave = fleet.type.weave;
 
       for (const vehicle of fleet.vehicles) {
         if (!vehicle.active) continue;
 
-        const gap = vehicle.distance - distance;
+        // GAP TO THE NEAREST END, not to the centre. A sedan is 4.7 long and
+        // the difference hardly shows; a semi is 16, so its centre is eight
+        // metres from the part the bike actually meets. Planning against the
+        // centre had the bike deciding a lane was clear while the trailer was
+        // still in it.
+        const centreGap = vehicle.distance - distance;
+        const reach = halfLength * vehicle.scale;
+        const gap = Math.sign(centreGap) * Math.max(0, Math.abs(centreGap) - reach);
         const closing = speed - vehicle.speed * maxSpeed;
 
         // Both signs matter. Traffic runs at up to 0.86 of the bike's top
@@ -221,6 +229,8 @@ export class Autopilot {
 
         // Level with the bike right now: a problem this instant, whatever the
         // arithmetic says about when the two centres will meet.
+        // Level with the bike right now. Measured from the near end too, so a
+        // long vehicle counts as alongside for the whole time it is.
         const alongside = Math.abs(gap) < cfg.traffic.alongside;
 
         // Everything else has to be CONVERGING to matter. A blanket "anything

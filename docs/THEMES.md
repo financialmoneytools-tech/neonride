@@ -1,7 +1,9 @@
 # Neon Ride - road themes
 
-Plan, not a record of work done. Nothing in here is built yet except where it
-says so. Written 17 September 2026.
+Written 17 September 2026. **Step 2 of 3 is built** - the four lane highway,
+trucks, the theme system, Galaxy Road and Aurora Pass. What follows is the plan
+as approved; a "Built" note marks what has landed and what changed on contact
+with the code.
 
 ## The concept
 
@@ -33,6 +35,8 @@ This is not a green field, and the plan is mostly about what has to CHANGE.
 
 - `src/config/themes.js` - a theme is a patch over `config`, with two entries:
   `neonHighway` (empty, the base look) and `openRoad`.
+  **Built:** now `src/config/themes/`, one file per theme, with `galaxyRoad` and
+  `auroraPass`. `openRoad` is gone - see below.
 - `src/utils/patch.js` - `applyPatch` and `PatchSelector`: a library of patches,
   one selected at a time, with an undo so patches never stack. Written to be
   reused for bikes and maps.
@@ -90,6 +94,15 @@ themes become places it stops being one of them and becomes a MODIFIER: a flag
 a theme carries or a toggle beside the reduced-motion one. Left in the same list
 it would be the odd entry the transition system has to special-case, and it
 would turn up in the middle of a run as if it were a location.
+
+**Built, and it went further than that: `openRoad` is retired, not converted.**
+The multi lane road moved the flowing neon strips off the traffic lanes and out
+to the shoulder and the median, and put painted markings down the middle
+instead - world locked, so they stream past at exactly road speed rather than at
+1.45 times it. The centre of vision is clear by default now, on every theme, so
+the variant IS the default and there is nothing left for a modifier to turn on.
+`config/comfort.js` and the reduced motion toggle are untouched and matter more
+than before: weather is a far stronger trigger than the strips ever were.
 
 ## Architecture
 
@@ -154,6 +167,9 @@ differs in three ways:
    the instance buffer partitioned by pool slot the same way. A kind at density
    zero writes its matrices outside the fog wall rather than skipping the write,
    so the buffer never has a stale instance in it.
+   **Built, with a correction:** parking is not free. An InstancedMesh submits
+   its draw call and all of its triangles wherever its instances are, so a kind
+   at density zero has its mesh switched off as well as parked.
 2. **Placement is seeded by chunk index, not by slot.** `Roadside.js` places
    pylons at an exact spacing; trees cannot be evenly spaced or they read as a
    fence. A per-chunk RNG seeded from the global chunk index gives scatter that
@@ -245,15 +261,26 @@ Per-theme allowance:
 
 | | draw calls | triangles |
 |---|---|---|
-| now | 64 | 21k |
+| before the highway | 64 | 21k |
 | scenery, up to 6 active kinds | +12 | +40k |
 | guardrail | +2 | +12k |
 | weather | +1 | +8k (points) |
 | sky bodies and cloud | +3 | +4k |
 | **worst-case theme** | **~82** | **~85k** |
 
-Both well inside the ceilings, which is the point of allocating the union: the
-cost is memory, and memory is not what a phone runs out of here.
+**Measured, 17 September 2026**, 1280x720 on a desktop GPU:
+
+| | draw calls | triangles |
+|---|---|---|
+| Galaxy Road, four lanes, no scenery | 76 | 38k |
+| Aurora Pass, pines + rocks + lamps + snow | 74 | 58k |
+
+The highway itself cost most of the draw calls the estimate had set aside for
+scenery: the median is 2, the oncoming carriageway 2, and the two truck types 8.
+Draw calls move by a few between readings because road chunks are frustum
+culled and the instanced systems are not. Both well inside the 120 and 400k
+ceilings, which is the point of allocating the union: the cost is memory, and
+memory is not what a phone runs out of here.
 
 Triangle counts per prop are a design constraint, not an outcome. A pine is two
 cones and a trunk, about 60 triangles. A palm is a trunk and six quads. A power
@@ -274,7 +301,12 @@ scenery at 40 metres has less to prove than a vehicle at 4.
   this document will not pretend it is - the phone number comes off the device
   with `?stats=1`, one reading per theme, written down here.
 - `tools/smoke-mobile.mjs` must pass for every theme, which means it takes a
-  theme argument.
+  theme argument. **Built:** `npm run smoke -- auroraPass`.
+- `tools/god-run.mjs`, built instead of `bench-themes.mjs` and doing its job as
+  well: it drives god mode for N seconds on a named theme and reports overlaps,
+  the tightest pass, near misses a minute, draw calls, triangles and frame rate,
+  exiting non-zero on a single overlap. It prints the WebGL renderer with the
+  result, because a frame rate off SwiftShader is not a frame rate.
 
 A theme is done when it has: a screenshot in `tools/out/`, a draw call and
 triangle figure from the bench, a measured FPS reading from the phone, a
@@ -282,11 +314,20 @@ reduced-motion check, and a green smoke run.
 
 ## Order of work
 
-1. **This document.** Report and stop for approval.
-2. **The theme system plus Aurora Pass, end to end.** The split into structural
-   and continuous, the theme files, `Scenery`, `Guardrail`, `Weather`, and one
-   complete place to prove all of it. Screenshots at 16:9, then stop for visual
-   approval. No transitions yet - one theme at a time via `?theme=`.
+1. **This document.** Done.
+2. **BUILT.** The multi lane highway, trucks, the theme system, Galaxy Road and
+   Aurora Pass. What changed against the plan:
+   - The multi lane road came first, in the same step, and it was larger than
+     the plan implied: `aAcross` had to become metres, the ribbon had to become
+     asymmetric, and `world/road/layout.js` is now the single source of every
+     lateral position in the world.
+   - `Guardrail` was not built. The median barrier (`world/Median.js`) does the
+     job the guardrail was for; a crash barrier along the outer verges is
+     scenery and belongs with the other props.
+   - Parking unused instances turned out not to be free. A kind at density zero
+     has its MESH SWITCHED OFF, not just its instances moved.
+   - `openRoad` was not converted into a modifier, it was retired. Moving the
+     flowing strips out of the traffic lanes made the variant the default.
 3. **The remaining four places, then the transitions.** Sunset Highway, Neon
    Metropolis (with the wet road), Nebula Coast, Red Planet; then `ThemeBlend`
    and `ThemeGate`. Every theme gets its screenshot, its bench figures, its
@@ -294,17 +335,18 @@ reduced-motion check, and a green smoke run.
 
 ## Open questions
 
-- **Does Galaxy Road keep the empty patch?** It is the current look and the
+- ~~Does Galaxy Road keep the empty patch?~~ Resolved: it is an explicit file
+  like every other theme, stating what grows beside its road (nothing) and what
+  falls out of its sky (nothing), because a theme that leaves those unsaid
+  inherits whatever the theme before it left behind.
+- **(was) Does Galaxy Road keep the empty patch?** It is the current look and the
   `themes.js` comment argues well for the default being the base config rather
   than a layer. Once every theme carries scenery and weather, a base config with
   no scenery is a strange shape. Leaning toward: Galaxy Road becomes an explicit
   theme file like the others, and the base config keeps only what is common.
-- **Multi-lane.** The road is one ribbon with painted strips, and "multi-lane
-  with lane markings" is a real change to `RoadMaterial` and possibly to how
-  traffic picks a lane. It affects every theme at once, so it may want to be its
-  own step between 2 and 3 rather than being folded into a place.
-- **Trucks** are a new vehicle type, not a theme's business, and the traffic mix
-  per theme only works once they exist.
+- ~~Multi-lane~~ and ~~trucks~~ are both built; see step 2 above. The per theme
+  traffic mix is now possible and is not yet used: every theme gets the same
+  seven types in the same proportions.
 - **Two seeds.** `sky.seed` and `world.seed` are fixed. A theme that changes the
   sky seed gets different nebula placement, which may be wanted; a theme that
   changes the world seed gets a different road, which is almost certainly not.

@@ -78,6 +78,7 @@ export class Device {
       this._base = {
         trafficStart: density.start,
         trafficFullAt: density.fullAt,
+        oncomingCount: config.world.oncoming.count,
         starCounts: config.sky.stars.layers.map((layer) => layer.count),
       };
     }
@@ -95,6 +96,14 @@ export class Device {
     const density = config.world.traffic.density;
     density.start = this._base.trafficStart * preset.trafficScale;
     density.fullAt = this._base.trafficFullAt / preset.trafficScale;
+
+    // The far carriageway thins out with the near one. Its pool IS its count -
+    // unlike traffic, which keeps its pool and turns vehicles off - because
+    // nothing over there is ever tested against the player, so a smaller pool
+    // costs nothing but headlights.
+    config.world.oncoming.count = Math.max(
+      1, Math.round(this._base.oncomingCount * preset.trafficScale),
+    );
 
     // Stars are the single largest vertex count in the scene and the cheapest
     // thing to thin out: at a phone's screen size most of the deep layer is

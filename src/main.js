@@ -22,6 +22,10 @@ import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
 import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
+import { Median } from './world/Median.js';
+import { Scenery } from './world/Scenery.js';
+import { Weather } from './world/Weather.js';
+import { Oncoming } from './world/Oncoming.js';
 import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Autopilot } from './player/Autopilot.js';
@@ -94,6 +98,10 @@ engine.scene.fog = new THREE.FogExp2(config.world.fog.color, config.world.fog.de
 const sky = new Sky(engine.scene, engine.camera);
 const road = new Road(engine.scene);
 const roadside = new Roadside(engine.scene, road);
+const median = new Median(engine.scene, road);
+const scenery = new Scenery(engine.scene, road);
+const weather = new Weather(engine.scene, engine.camera);
+const oncoming = new Oncoming(engine.scene, road);
 const mountains = new Mountains(engine.scene);
 const bike = new BikePhysics(engine.camera, road.path, framing);
 // THE COCKPIT, either photographed or built. Both present the same three
@@ -217,6 +225,11 @@ loop.add((dt, state) => bike.place(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
 loop.add((dt, state) => traffic.update(dt, state));
+// Scenery, so it runs after the traffic the player can actually hit. It reads
+// state.distance and writes nothing.
+loop.add((dt, state) => oncoming.update(dt, state));
+// After the camera has been placed, because the weather box rides on it.
+loop.add((dt, state) => weather.update(dt, state));
 loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
 loop.add((dt, state) => post.update(dt, state));
@@ -453,7 +466,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -476,6 +489,10 @@ function disposeAll() {
   bike.dispose();
   traffic.dispose();
   mountains.dispose();
+  weather.dispose();
+  scenery.dispose();
+  oncoming.dispose();
+  median.dispose();
   roadside.dispose();
   road.dispose();
   sky.dispose();

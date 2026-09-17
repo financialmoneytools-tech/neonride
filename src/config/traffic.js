@@ -30,10 +30,16 @@ export const traffic = {
   spawnClear: 30,
   minGap: 26, // along the road, between two vehicles sharing a lane
 
-  // Lane centres, in world units either side of the centre line. The asphalt is
-  // 9 units to each side and the player can reach 5.4, so every lane is
-  // reachable and the outer ones sit near the edge lines.
-  lanes: [-6.1, -2.5, 2.5, 6.1],
+  // LANE CENTRES ARE NOT LISTED HERE ANY MORE. They come from
+  // world/road/layout.js, derived from the carriageway in config/world.js, so
+  // the paint and the traffic cannot disagree. With four 3.6 m lanes that is
+  // -5.4, -1.8, 1.8 and 5.4, and the player reaches 6.4, so every lane is
+  // reachable and the outer ones sit under the edge lines.
+
+  // How loosely traffic keeps to the lane its speed suggests. 0 sorts the road
+  // perfectly by speed, which reads as a simulation; this is in lanes of slop,
+  // so a van in the outside lane is uncommon rather than impossible.
+  laneDiscipline: 1.15,
 
   // Speed is per type now; see the table below. It stays a fraction of the
   // PLAYER's maximum, so raising the bike's top speed keeps the overtaking rate
@@ -115,6 +121,41 @@ export const traffic = {
       stripColor: 0x39ff88,
     },
     {
+      name: 'boxTruck',
+      count: 8,
+      // A tall cargo box on a low chassis. The step from cab roof to box is the
+      // shape, the same trick the ambulance uses, and it is legible at a
+      // hundred units where no amount of detail would be.
+      size: { length: 8.6, width: 2.5, height: 2.45 },
+      cabin: { length: 2.3, width: 2.35, height: 0.42, offset: -3.0, taper: 0.92 },
+      rearBox: { length: 6.0, width: 2.5, height: 1.5, offset: 1.1 },
+      // Slow, and that is the point of a truck: it is the thing worth
+      // overtaking. It also belongs on the right, which the lane pick in
+      // world/Traffic.js works out from this on its own.
+      speed: { min: 0.26, max: 0.44 },
+      // NOT IN THE OUTSIDE LANE. Lane 0 is the fastest one, and a 2.5 m truck
+      // there can pair with another across the road to leave no legal line at
+      // all. Keeping the widest vehicles out of it guarantees the guard always
+      // has somewhere to go, and it is what the law says anyway.
+      minLane: 1,
+      stripColor: 0xffb42a, // amber, as a truck's marker lights are
+      markers: { count: 5, spacing: 0.52, size: [0.16, 0.12, 0.16] },
+    },
+    {
+      name: 'semi',
+      count: 6,
+      // SIXTEEN METRES. Long enough that the autopilot had to learn to measure
+      // gaps from a vehicle's near end rather than its centre - see
+      // player/Autopilot.js - because eight metres of trailer was still in the
+      // lane the planner had already called clear.
+      size: { length: 16.0, width: 2.55, height: 3.3 },
+      cabin: { length: 2.6, width: 2.45, height: 0.62, offset: -6.4, taper: 0.9 },
+      speed: { min: 0.3, max: 0.5 },
+      minLane: 2, // a semi keeps to the two inside lanes
+      stripColor: 0xff6a1f,
+      markers: { count: 7, spacing: 0.4, size: [0.16, 0.12, 0.16] },
+    },
+    {
       name: 'motorcycle',
       count: 14,
       size: { length: 2.0, width: 0.5, height: 1.15 },
@@ -184,7 +225,11 @@ export const traffic = {
   //   'off'    - pass straight through, which is what recording wants
   collision: {
     mode: 'arcade',
-    playerHalfWidth: 0.62,
+    // A MOTORCYCLE IS ONE METRE WIDE, mirrors included; 0.62 made it 1.24 and
+    // that quarter metre decided whether a legal line existed between two
+    // trucks in adjacent lanes. Measured against the guard with
+    // tools/god-run.mjs, not guessed.
+    playerHalfWidth: 0.5,
     playerHalfLength: 1.2,
     speedLoss: 0.45, // speed is multiplied by this on contact
 
@@ -224,7 +269,12 @@ export const traffic = {
     // half width of about 1.6 that gap is 0.9, so this has to stay under it: a
     // near miss should mean the player chose to squeeze past, not that a car
     // went by.
-    range: 0.6, // lateral gap, edge to edge, that counts
+    // 0.6 was solved against lanes 2.5 apart. On the four lane carriageway the
+    // lanes are 3.8 apart but the bike rides BETWEEN them as often as in them,
+    // and from the middle of a pair the edge to edge gap to either is only
+    // 0.35 - so every overtake fired and the rate went from 28 a minute to
+    // 161, which is a permanent tint rather than an event.
+    range: 0.28, // lateral gap, edge to edge, that counts
     cooldown: 1.5, // seconds before another can fire
     flashColor: 0x9ad8ff,
     flashStrength: 0.38,

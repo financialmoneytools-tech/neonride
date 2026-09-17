@@ -64,5 +64,15 @@ export const comfort = {
     // enough to still answer the bars, because a cockpit that does not move at
     // all is the thing this was added to fix.
     cockpitSway: 0.3,
+
+    // WEATHER, and it is the strongest trigger the project has ever added:
+    // high contrast motion straight through the centre of vision, which is the
+    // first cause on the list at the top of this file. Snow and rain streak
+    // toward the rider and the eye cannot help trying to track them.
+    //
+    // Not zero. A theme that is meant to be snowing has to still be snowing -
+    // an empty sky is a different place, not a gentler one - so this thins the
+    // fall right down and shortens the streaks rather than stopping either.
+    weather: 0.18,
   },
 };
