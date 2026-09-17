@@ -25,6 +25,19 @@
         overflow: hidden;
       }
 
+      /* HIDDEN MEANS HIDDEN. The browser's own `[hidden] { display: none }` is a
+         user-agent rule, so ANY author rule that sets display beats it - and
+         almost every element here is a flex box. That cost two separate bugs
+         with the same shape: a clipped FREN label in the corner of every tilt
+         run, and a pause button sitting in the middle of the top edge of every
+         frame including god-mode footage. Both were "I set .hidden and nothing
+         happened", found by eye, weeks apart. `!important` here so the third
+         one cannot happen; a component that needs to stay laid out while
+         invisible uses opacity or visibility, not this. */
+      [hidden] {
+        display: none !important;
+      }
+
       body {
         /* Disable scroll and zoom gestures on touch devices */
         touch-action: none;
@@ -184,15 +197,6 @@
         background: rgba(20, 60, 85, 0.85);
       }
 
-      /* Same trap as `.hint[hidden]` below: `.pause-button` sets display flex,
-         an author rule, which beats the browser's `[hidden] { display: none }`.
-         Without this the button never hides, so it sat in the middle of the top
-         edge of every god-mode frame - in footage, on a desktop that has no use
-         for it, and on top of the pause card it had just opened. */
-      .pause-button[hidden] {
-        display: none;
-      }
-
       /* Uncaught errors, readable on a phone. Above everything, including the
          rotate gate: a crash outranks a prompt. */
       .error-panel {
@@ -225,13 +229,6 @@
 
       .hints-faded {
         opacity: 0;
-      }
-
-      /* `.hint` sets display flex below, which as an author rule beats the
-         browser's own `[hidden] { display: none }`. Without this, hiding any
-         hint does nothing. */
-      .hint[hidden] {
-        display: none;
       }
 
       .hint {

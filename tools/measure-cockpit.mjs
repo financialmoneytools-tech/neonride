@@ -17,6 +17,18 @@
  * exactly the bug that came back: the plane was sized from the frame's WIDTH,
  * so every window wider than 16:9 grew it, and 16:9 was the only shape anybody
  * checked. One aspect is not a test.
+ *
+ * AND BOTH ENDS OF THE SPEED RAMP. The fov opens from 75 to fovMax at full
+ * speed, which raises the horizon and narrows the road band without moving the
+ * cockpit an inch - so the frame is at its tightest exactly when the rider is
+ * going fastest. That used to be measured once, at rest, with the worst case
+ * written down in a document instead. A worst case that is noted rather than
+ * checked is a worst case nobody finds out has broken.
+ *
+ * The cockpit's own numbers are reported once because they are the same at both
+ * fovs, and the tool PROVES that rather than assuming it: every landmark is
+ * compared between the two readings, and a cockpit that has started to move
+ * with the fov is a failure in its own right.
  */
 
 import { readFileSync } from 'node:fs';
@@ -156,10 +168,19 @@ const ASPECTS = [
   ['21:9', 21 / 9],
 ];
 
-function measure(aspect) {
+/**
+ * @param {number} aspect
+ * @param {'base'|'max'} fovMode which end of the speed ramp to measure at.
+ *   'max' is fovMax, which the camera reaches at full speed - see
+ *   player/bike/response.js. It was left unmeasured and merely noted, and a
+ *   worst case that is noted rather than checked is a worst case nobody knows
+ *   has broken.
+ */
+function measure(aspect, fovMode) {
   const framing = new Framing();
   framing.update(aspect);
-  const camera = new THREE.PerspectiveCamera(framing.fov, aspect, 0.1, 20000);
+  const fov = fovMode === 'max' ? framing.fovMax : framing.fov;
+  const camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 20000);
   // The framing pitch, as bike/view.js applies it on top of the road-following
   // aim. On a straight road at rest that aim is level, so this is the whole of
   // the camera's pitch.
@@ -201,15 +222,33 @@ function measure(aspect) {
     * config.player.cockpit.distance;
   const out = {
     aspect,
+    fov,
+    fovMode,
     planeWidthPct: cockpit.mesh.scale.x / (2 * halfHeight * aspect) * 100,
     planeHeightPct: cockpit.mesh.scale.y / (2 * halfHeight) * 100,
     marks: {},
   };
   for (const [name, v] of Object.entries(LANDMARKS)) out.marks[name] = at(0.5, v).down * 100;
+
+  // MEASURED BEFORE dispose(), and that is not a detail. dispose() takes the
+  // cockpit group off the camera, and three's localToWorld re-derives the world
+  // matrix from the parent chain - so the moment the group is detached, `at`
+  // silently drops the camera transform and starts answering a different
+  // question. The mirror figures used to be taken after dispose and were wrong
+  // for exactly that reason: they read 57.7-65.4% down when the mirror tops
+  // actually sit at 64.4%, a number this same tool was printing two lines
+  // above from the landmark list. Two readings of the same point disagreeing
+  // is what gave it away.
+  out.mirror = {
+    top: at(0.5, MIRRORS.top).down * 100,
+    bottom: at(0.5, MIRRORS.bottom).down * 100,
+    left: at(MIRRORS.left, MIRRORS.top).across * 100,
+    right: at(MIRRORS.right, MIRRORS.top).across * 100,
+  };
   out.cockpitSharePct = 100 - out.marks['silhouette top'];
   out.armEdge = armEdge;
   out.bottomV = bottomV;
-  out.at = at;
+
   // THE HORIZON, BY PROJECTING ONE. It was computed from the pitch with a
   // formula whose sign was wrong - it put the horizon LOWER when the camera
   // pitched down, which is backwards - and that went unnoticed for as long as
@@ -233,13 +272,47 @@ console.log('landmarks in the sprite: '
   + Object.entries(LANDMARKS).map(([k, v]) => `${k} ${(v * 100).toFixed(1)}%`).join(', '));
 console.log('');
 
+/**
+ * Every landmark the cockpit owns, as a flat list, so the two fov readings can
+ * be compared number for number.
+ */
+function cockpitNumbers(m) {
+  const list = Object.entries(m.marks).map(([name, value]) => [name, value]);
+  list.push(['plane width', m.planeWidthPct], ['plane height', m.planeHeightPct]);
+  for (const [name, value] of Object.entries(m.mirror)) list.push(['mirror ' + name, value]);
+  return list;
+}
+
 for (const [label, aspect] of ASPECTS) {
-  const m = measure(aspect);
+  const base = measure(aspect, 'base');
+  const wide = measure(aspect, 'max');
+  const m = base;
+
   console.log(`${label} (${aspect.toFixed(4)})`);
   console.log(`  plane covers ${m.planeWidthPct.toFixed(1)}% of frame width, `
     + `${m.planeHeightPct.toFixed(1)}% of its height`);
-  console.log(`  horizon at ${m.horizonPct.toFixed(1)}% down, `
-    + `cockpit occupies the bottom ${m.cockpitSharePct.toFixed(1)}%`);
+  console.log(`  cockpit occupies the bottom ${m.cockpitSharePct.toFixed(1)}%`);
+
+  // THE COCKPIT DOES NOT MOVE WITH THE FOV, AND THIS PROVES IT RATHER THAN
+  // ASSUMING IT. The sprite is a child of the camera and _place() re-sizes it
+  // from the current fov every frame, so every number below is the same at both
+  // ends of the speed ramp - which is the only reason the landmarks can be
+  // reported once instead of twice. If that ever stops being true the targets
+  // have to be met at both fovs separately, and this is the line that says so.
+  const drift = [];
+  const wideNumbers = cockpitNumbers(wide);
+  cockpitNumbers(base).forEach(([name, value], i) => {
+    const other = wideNumbers[i][1];
+    if (Math.abs(value - other) > 0.05) {
+      drift.push(`${name} ${value.toFixed(2)}% at fov ${base.fov.toFixed(0)}, `
+        + `${other.toFixed(2)}% at fov ${wide.fov.toFixed(0)}`);
+    }
+  });
+  if (drift.length) {
+    failures.push(`${label}: the cockpit is no longer fixed in screen space - ${drift.join('; ')}`);
+    console.log(`  COCKPIT MOVES WITH FOV: ${drift.join('; ')}`);
+  }
+
   for (const [name, value] of Object.entries(m.marks)) {
     const want = TARGETS[name];
     const ok = !want || (value >= want[0] && value <= want[1]);
@@ -251,37 +324,38 @@ for (const [label, aspect] of ASPECTS) {
     console.log(`  arms end ${(m.armEdge[0] * 100).toFixed(1)}% from the left edge and `
       + `${((1 - m.armEdge[1]) * 100).toFixed(1)}% from the right, along the frame bottom`);
   }
-  const at = m.at;
-  const horizonOk = m.horizonPct >= HORIZON[0] && m.horizonPct <= HORIZON[1];
-  if (!horizonOk) {
-    failures.push(`${label}: horizon at ${m.horizonPct.toFixed(1)}%, `
-      + `want ${HORIZON[0]}-${HORIZON[1]}%`);
-  }
-  console.log(`  horizon          ${m.horizonPct.toFixed(1)}% down`
-    + `   target ${HORIZON[0]}-${HORIZON[1]}%   ${horizonOk ? 'ok' : 'FAIL'}`);
-
-  // The road has to be visible between the horizon and the top of the cockpit.
-  const gap = m.marks['windscreen top'] - m.horizonPct;
-  const roadOk = gap >= ROAD_BAND_MIN;
-  if (!roadOk) {
-    failures.push(`${label}: road band ${gap.toFixed(1)}%, want at least ${ROAD_BAND_MIN}%`);
-  }
-  console.log(`  road band        ${gap.toFixed(1)}% of frame height`
-    + `   target >= ${ROAD_BAND_MIN}%   ${roadOk ? 'ok' : 'FAIL'}`);
 
   // Mirrors have to be wholly inside the frame.
-  const mirror = {
-    top: at(0.5, MIRRORS.top).down * 100,
-    bottom: at(0.5, MIRRORS.bottom).down * 100,
-    left: at(MIRRORS.left, MIRRORS.top).across * 100,
-    right: at(MIRRORS.right, MIRRORS.top).across * 100,
-  };
+  const mirror = m.mirror;
   const mirrorOk = mirror.top >= 0 && mirror.bottom <= 100
     && mirror.left >= 0 && mirror.right <= 100;
   if (!mirrorOk) failures.push(`${label}: mirrors are not wholly in frame`);
   console.log(`  mirrors          across ${mirror.left.toFixed(1)}..`
     + `${mirror.right.toFixed(1)}%, down ${mirror.top.toFixed(1)}..`
     + `${mirror.bottom.toFixed(1)}%   ${mirrorOk ? 'ok' : 'FAIL'}`);
+
+  // THE HORIZON MOVES WITH THE FOV AND THE COCKPIT DOES NOT, so the road band
+  // between them is narrowest at the top of the speed ramp - which is exactly
+  // when the rider needs to see furthest. Both ends are checked.
+  for (const reading of [base, wide]) {
+    const tag = reading.fovMode === 'max' ? 'full speed' : 'at rest';
+    const name = `${label} fov ${reading.fov.toFixed(0)} (${tag})`;
+    const horizonOk = reading.horizonPct >= HORIZON[0] && reading.horizonPct <= HORIZON[1];
+    if (!horizonOk) {
+      failures.push(`${name}: horizon at ${reading.horizonPct.toFixed(1)}%, `
+        + `want ${HORIZON[0]}-${HORIZON[1]}%`);
+    }
+    const gap = m.marks['windscreen top'] - reading.horizonPct;
+    const roadOk = gap >= ROAD_BAND_MIN;
+    if (!roadOk) {
+      failures.push(`${name}: road band ${gap.toFixed(1)}%, want at least ${ROAD_BAND_MIN}%`);
+    }
+    console.log(`  fov ${reading.fov.toFixed(0)} (${tag.padEnd(10)}) `
+      + `horizon ${reading.horizonPct.toFixed(1)}% `
+      + `target ${HORIZON[0]}-${HORIZON[1]}% ${horizonOk ? 'ok' : 'FAIL'}   `
+      + `road band ${gap.toFixed(1)}% `
+      + `target >= ${ROAD_BAND_MIN}% ${roadOk ? 'ok' : 'FAIL'}`);
+  }
   console.log('');
 }
 

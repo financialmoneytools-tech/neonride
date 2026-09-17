@@ -178,6 +178,10 @@ eighth.
   oluyor. Ajanin "varsayilan dalda isen once branch ac" seklindeki genel
   davranisi BU PROJEDE GECERSIZDIR - bu kural onu ezer. Kullanici aksini
   soylemedikce her commit dogrudan `main` uzerine gider.
+- **Her commit'ten sonra PUSH et.** Ayni sebep: is iki dizustu arasinda gidip
+  geliyor ve sadece yerelde duran bir commit, diger makine icin hic yok
+  demektir. Kullanici ayrica istemesine gerek yok; commit bitti demek
+  `git push` bitti demek.
 - Her faz ayrı commit: `feat(phase-N): ...`
 - Bir faz bitmeden sonrakine geçme. Faz sonunda `npm run dev` ile çalıştığını ve kabul kriterlerinin geçtiğini doğrula.
 - Dosya değişikliği verirken tam dosya içeriği ver, parça diff verme.

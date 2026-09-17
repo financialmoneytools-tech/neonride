@@ -99,6 +99,23 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 ### Closed since the last note
 
+- ~~The mirror figures were measured against a detached cockpit~~. The tool
+  computed them by calling its `at()` projector AFTER `cockpit.dispose()`, and
+  dispose takes the group off the camera - three's `localToWorld` re-derives the
+  world matrix from the parent chain, so from that moment `at()` silently
+  dropped the camera transform and answered a different question. Everything
+  ever reported as "mirrors down 57.7-65.4%" was wrong; they are at 64.4-72.4%.
+  Caught by the new two-fov comparison: the same point read 64.4% from the
+  landmark list and 57.75% from the mirror block, two lines apart. Mirrors are
+  now measured inside `measure()` while the cockpit is still attached.
+- ~~The `[hidden]` trap, for good~~. `index.html` carries one global
+  `[hidden] { display: none !important }`. It had already cost two bugs with
+  the same shape - the clipped FREN label and the pause button in every frame -
+  because any author `display` rule beats the user agent's `[hidden]`, and
+  almost every element here is a flex box. `.panel` and `.controls-panel` were
+  the next two waiting to be found. The per-component fixes and the
+  attach/detach workaround in `ControlHints` are gone with it.
+
 - ~~The pause button never hid~~. `.pause-button` sets `display: flex`, an
   author rule, which beats the browser's own `[hidden] { display: none }` - so
   `setVisible(false)` did nothing and the button sat in the middle of the top
@@ -354,7 +371,7 @@ identical numbers, which is the point of sizing from height:
 | wrist cuffs, both gloves | inside the frame | **94.9%** down |
 | horizon / road vanishing point | 40-47% down | **43.5%** |
 | road band, horizon to windscreen | >= 15% | **18.5%** of frame height |
-| both mirrors fully visible | yes | across 33.1-67.0%, down 57.7-65.4% at 16:9 |
+| both mirrors fully visible | yes | across 32.8-67.3%, down 64.4-72.4% at 16:9 |
 | cockpit share of frame height | - | 38.0% |
 | arms to the side edge | report only | 18.0% at 16:9, 21.7% at 2:1, 25.7% at 21:9 |
 
@@ -363,12 +380,23 @@ have to be in frame. Arm-to-edge is reported and never asserted - it is a
 consequence of the plane's width at each aspect, not something worth failing a
 build over, and the bottom corners it leaves empty were play-tested and kept.
 
-The tool measures at the base fov of 75. The fov ramps to 104 at speed, and
-that moves the horizon but not the cockpit: `_place()` runs every frame off the
-current fov, so the sprite holds its screen position while the world opens up
-around it. At full ramp the horizon sits at 46.1 per cent and the road band
-narrows to 15.9 per cent - inside both targets, but that is the worst case and
-it is close, so a wider fovMax would have to be re-measured.
+**Both ends of the speed ramp are asserted**, not just the base fov of 75. The
+fov opens to 104 at full speed, which moves the horizon but not the cockpit:
+`_place()` runs every frame off the current fov, so the sprite holds its screen
+position while the world opens up around it. Measured:
+
+| | horizon | road band |
+|---|---|---|
+| fov 75, at rest | 43.5% | 18.5% |
+| fov 104, full speed | 46.1% | **15.9%** |
+
+The frame is tightest exactly when the rider is going fastest, and 15.9 against
+a floor of 15 is not much room - so a wider `fovMax` fails the tool rather than
+needing anyone to remember this paragraph.
+
+The cockpit's own landmarks are reported once because they are identical at both
+fovs, and the tool proves that rather than assuming it: a cockpit that has
+started to move with the fov is its own failure.
 
 Two knobs and a camera angle put it there: `heightScale` 0.7034 and `offset`
 [0, -0.1521] in `config/cockpit.js` size and drop the plane, and `pitch`
