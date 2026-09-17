@@ -9,6 +9,7 @@ import { Hotkeys, KeySequence } from './core/Hotkeys.js';
 import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
+import { ControlHints } from './ui/ControlHints.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { StartScreen } from './ui/StartScreen.js';
 import { Hud } from './ui/Hud.js';
@@ -23,6 +24,7 @@ import { Traffic } from './world/Traffic.js';
 import { BikePhysics } from './player/BikePhysics.js';
 import { Autopilot } from './player/Autopilot.js';
 import { Guard } from './player/autopilot/Guard.js';
+import { Controls } from './core/Controls.js';
 import { Orientation } from './core/Orientation.js';
 import { Rider } from './player/Rider.js';
 import { Cockpit } from './player/Cockpit.js';
@@ -144,6 +146,18 @@ if (config.viewport.fullscreen.onFirstTouchWhenCoarse && device.coarsePointer) {
 // being held.
 const orientation = new Orientation(document.body, () => viewport);
 
+// CONTROL MODE. Input reads coordinates and the keyboard; this owns which touch
+// scheme those coordinates mean, the stored choice, and the tilt sensor.
+// Touch devices only. A desktop has a keyboard, so the whole mode question is
+// meaningless there - and left ungated the tilt timeout fires on every desktop
+// load and announces a fallback from a mode nobody was using.
+const controls = new Controls(device.coarsePointer);
+input.controls = controls;
+const hints = new ControlHints(document.body);
+hints.setMode(controls.mode);
+controls.onChange = (mode) => hints.setMode(mode);
+controls.onNotice = (text) => hints.notice(text);
+
 const loop = new Loop(engine.renderer, {
   onRender: (dt) => post.render(dt),
 });
@@ -192,10 +206,16 @@ loop.add((dt, state) => post.update(dt, state));
 // by what the frame ended up being rather than by what it started as.
 loop.add((dt, state) => audio.update(dt, state));
 if (stats) loop.add((dt, state) => stats.update(dt, state));
+// The hints fade on their own, and vanish outright once a recording starts.
+loop.add((dt) => {
+  hints.update(dt);
+  hints.setVisible(controls.enabled && !config.autopilot.enabled && !config.capture.enabled);
+});
 
 /** Applies capture mode: overlay off, pixel ratio pinned, chain resized. */
 function applyCapture() {
   if (stats) stats.setVisible(!(config.capture.enabled && config.capture.hideOverlay));
+  hints.setVisible(!config.autopilot.enabled && !config.capture.enabled);
   // Picks up the capture pixel ratio and resizes the chain.
   engine.resize(viewport.width, viewport.height);
 }
@@ -294,7 +314,7 @@ window.neonRide = { god: setAutopilot };
 const audio = new Audio();
 const session = new Session();
 const hud = new Hud(document.body, session);
-const panels = new Panels(document.body, session, comfort);
+const panels = new Panels(document.body, session, comfort, controls);
 
 // After traffic, which is what publishes the hit and near miss totals the run
 // is scored and ended from, and after audio so a crash is heard on the frame it
@@ -337,6 +357,10 @@ orientation.onChange = (portrait) => {
 
 const start = new StartScreen(document.body, () => {
   audio.start(traffic);
+  // iOS refuses DeviceOrientationEvent outside a user gesture, and this tap is
+  // the only one the build is guaranteed. A refusal is handled inside: the mode
+  // falls back to touch and says so once.
+  if (controls.mode === 'tilt') controls.request();
   if (wantsGod) setAutopilot(true);
   else session.begin(loop.state);
 }, comfort);
@@ -378,6 +402,7 @@ if (wantsGod) {
   start.skip();
   const wake = () => {
     audio.start(traffic);
+    if (controls.mode === 'tilt') controls.request();
     window.removeEventListener('pointerdown', wake);
     window.removeEventListener('keydown', wake);
   };
@@ -402,7 +427,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -430,6 +455,8 @@ function disposeAll() {
   sky.dispose();
   input.dispose();
   if (stats) stats.dispose();
+  hints.dispose();
+  controls.dispose();
   engine.scene.fog = null;
   engine.dispose();
 }

@@ -31,6 +31,9 @@ bug even if gameplay is fine.
   `tools/measure-cockpit.mjs` at 16:9, 2:1 and 21:9.
 - **Gameplay loop** - `src/game/Session.js`: score, distance, fail on collision,
   pause. HUD shows score and distance. God mode bypasses it.
+- **Mobile controls** - two modes, switchable in the pause card and stored in
+  localStorage. TILT (default on phones) steers from DeviceOrientation with the
+  holding angle as neutral; TOUCH steers by dragging the left thumb. See below.
 - **Landscape gate** - `core/Orientation.js` shows a rotate prompt in portrait
   and pauses a running session; orientation lock and fullscreen are requested on
   first touch and allowed to fail.
@@ -151,6 +154,57 @@ rather than with a number.
 | `config/cockpit.js` -> `offset` | **[0, -0.2042]** - half-frames [across, up]. Drops the bottom-anchored plane until the windscreen top lands at 52.5% down. |
 | `config/cockpit.js` -> `sway` | roll and shift with lean and steer; goes through `motionScale('cockpitSway')` |
 | hands `width` / `offset` / `handInset` | the primitive fallback only. `handInset` is 0 and dead - it was a per-aspect correction for the tall framing profile, which no longer exists. |
+
+### Control modes
+
+`core/Controls.js` owns which mode is live, the stored choice and the tilt
+sensor. `core/Input.js` reads coordinates and the keyboard and asks Controls
+which scheme those coordinates mean. Desktop is untouched - Controls is
+constructed with `device.coarsePointer` and does nothing when false.
+
+| Mode | Steer | Throttle | Brake |
+|---|---|---|---|
+| `tilt` (phone default) | DeviceOrientation, neutral = the angle you started at | hold the right half | hold the left half |
+| `touch` | drag the left thumb horizontally, relative to where it landed | hold the right half | a button above the right thumb |
+
+Releasing everything coasts in both. Switch, set sensitivity and recalibrate
+from the pause card; the choice and the sensitivity are stored under
+`neon-ride.controls`.
+
+Things that are the way they are for a reason:
+
+- **The neutral is wherever you were holding it.** There is no correct angle to
+  hold a phone at, so the first reading becomes zero and everything after is a
+  delta. RECALIBRATE in the pause card does it again, which is the answer to
+  shifting in a seat mid-run.
+- **Axis mapping is not optional.** beta and gamma are reported in the device's
+  portrait frame; which one means "leaned left" depends on which way the phone
+  was turned to get to landscape. `screenTilt()` rotates them into screen space
+  using `screen.orientation.angle`, and the two landscape angles take OPPOSITE
+  signs. Without it steering is inverted for half of all riders.
+- **Permission is a gesture.** iOS refuses DeviceOrientationEvent outside one,
+  so it is requested from the start card's tap. Refused, or no reading inside
+  2.5 s, falls back to touch and says so once.
+- **Every touch is read from coordinates, including the brake button.** The
+  on-screen controls are `pointer-events: none` pictures. A real button would be
+  a second, disagreeing source of truth and would break multi-touch, because a
+  thumb held on an element does not appear in the other listener's stream.
+- **Hints fade** after 12 s of play and vanish in god mode and capture, so
+  footage stays clean. A mode change brings them back.
+
+### Phone testing
+
+    npm run dev:phone
+
+HTTPS with `--host`, via `vite.phone.config.js`. **DeviceOrientation is a
+secure-context API**: over plain http:// to a LAN address the events never
+arrive - no error, no prompt, nothing - and tilt looks like a bug in the game.
+The certificate is self-signed, so the phone warns once and has to be told to
+continue. `npm run dev` is unchanged.
+
+A separate config rather than an env var on one script: `PHONE=1 vite` is not
+something the Windows shell understands, and this project lives on two Windows
+laptops.
 
 ### URL parameters
 

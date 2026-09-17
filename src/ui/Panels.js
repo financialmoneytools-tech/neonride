@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { PHASE } from '../game/Session.js';
 import { format } from './Hud.js';
 import { ComfortToggle } from './ComfortToggle.js';
+import { ControlsPanel } from './ControlsPanel.js';
 
 /**
  * Panels - the pause card and the game over card.
@@ -25,8 +26,10 @@ export class Panels {
    * @param {HTMLElement} parent
    * @param {import('../game/Session.js').Session} session
    * @param {import('../core/Comfort.js').Comfort} [comfort]
+   * @param {import('../core/Controls.js').Controls} [controls] adds the control
+   *   mode switch to the pause card when given
    */
-  constructor(parent, session, comfort = null) {
+  constructor(parent, session, comfort = null, controls = null) {
     this.session = session;
 
     this.el = document.createElement('div');
@@ -51,6 +54,12 @@ export class Panels {
     // that matters most: by then they are already feeling it. Hidden on the
     // game over card, where the run is finished and the offer is noise.
     this.toggle = comfort ? new ComfortToggle(this.el, comfort) : null;
+
+    // The control mode switch, for the same reason and in the same place: it is
+    // the only screen a rider can reach without a keyboard and without ending
+    // the run. Pause only - a game over card is not where anybody retunes
+    // steering.
+    this.controlsPanel = controls ? new ControlsPanel(this.el, controls) : null;
 
     parent.appendChild(this.el);
 
@@ -93,6 +102,7 @@ export class Panels {
     }
 
     if (this.toggle) this.toggle.el.hidden = shown !== PHASE.PAUSED;
+    if (this.controlsPanel) this.controlsPanel.setVisible(shown === PHASE.PAUSED);
     this.el.classList.toggle('panel-record', shown === PHASE.OVER && session.isRecord);
     this.el.hidden = false;
     // Forces a reflow so the transition runs from the hidden state rather than
@@ -103,6 +113,7 @@ export class Panels {
 
   dispose() {
     if (this.toggle) { this.toggle.dispose(); this.toggle = null; }
+    if (this.controlsPanel) { this.controlsPanel.dispose(); this.controlsPanel = null; }
     if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
     this.el = null;
   }
