@@ -152,6 +152,33 @@ that chose a source by frame shape, and the second (tall) framing profile.
 
 ### Closed since the last note
 
+- ~~No sound on the phone~~. `Audio.start()` set its own `_started` flag before
+  it resumed the context, so a context that came up SUSPENDED - the normal case
+  on mobile, and guaranteed on iOS unless resume() is issued inside the touch
+  handler - left the game silent for the whole session: every later gesture hit
+  the `if (this._started) return` at the top of start() and did nothing. One
+  attempt, no retry. `Audio.unlock()` is the entry point now, every gesture
+  calls it until the context is running, and it is attached in the CAPTURE
+  phase so nothing that stops propagation - the pause card's buttons do,
+  deliberately - can swallow it. Covers every entry path, not just the title
+  card.
+- ~~Truck rear looked like two misaligned boxes~~. The rear outline frames the
+  CHASSIS - measured from the geometry's own bounding box, y -1.18 to 1.18 -
+  while the cargo box it belongs to sits from 1.23 to 2.72 above it. Adjacent,
+  not overlapping, so it read as a smaller orange box stuck under the trailer.
+  A truck does not need it: the marker lights draw the top edge, the door seams
+  the middle, the lamps and plate the bottom. `outlineGain: 0` and the geometry
+  is not built at all.
+- ~~A truck's marker lights read as one broken dashed line~~. The side row sat
+  0.2 under the roof line, so from beside the truck it merged with the top row.
+  Dropped to 0.62 and 0.7, where it reads as a row down the flank.
+- ~~The deformed wedge beside the road was not a bug~~. Probed rather than
+  assumed: every active vehicle's body, strip and tail instance matrices were
+  identical to 1e-4, every scale uniform and inside the jitter range, no NaN.
+  It was a sedan at a gap of -3 units and a lateral of -1.9 against a rider at
+  -0.08 - level with the bike, 0.27 units clear, at a 104 degree field of view.
+  A legal near miss photographed from inside it.
+
 - ~~The right shoulder had no snow bank~~. Every bank was a symmetric bump
   centred ON an edge of the asphalt, multiplied by (1 - paved) to keep it off
   the road - and `paved` is 1 at the edge, so each bank was cancelled exactly
@@ -576,10 +603,33 @@ on.
 
 ### On a crash
 
-One collision ends the run - `config/game.js` -> `crashesAllowed: 1`. There are
-no lives and no checkpoints. The crash itself costs 45 per cent of speed and a
-sideways shove, the panel arrives after `overDelay` 0.9 s so the flash is seen
-first, and any key or tap restarts from zero. God mode never fails.
+**Three lives**, shown on the HUD as filled and hollow pips.
+`config/game.js` -> `crashesAllowed: 3`. A crash costs one life, 45 per cent of
+speed and a shove sideways, and the ride continues; the run ends when the third
+is gone, the panel arriving after `overDelay` 0.9 s so the flash is seen first.
+Any key or tap restarts from zero. God mode never fails at all.
+
+`invulnerable: 1.6` seconds of grace follow a crash, and it is not decoration: a
+collision often leaves the bike still inside the vehicle, and without the window
+the next few frames take the second and third life as well - the game appearing
+to charge three lives for one mistake.
+
+### Audio
+
+`Audio.unlock()` is the entry point, not `start()`. Every gesture calls it until
+the context is running, from a CAPTURE phase listener on `pointerdown`,
+`touchend` and `keydown` - capture because the pause card's buttons stop
+propagation deliberately, and touchend as well as pointerdown because some iOS
+versions honour the gesture only on the touch events. The resume is issued
+synchronously inside the handler; iOS counts it only while that handler is still
+on the stack.
+
+The stats overlay prints `audio <state>  gain <n>  gest <n>` - context state,
+master gain and how many gestures have tried. Zero gestures means nothing has
+even attempted, which is a different fault from a context that will not resume.
+
+Mute is in the pause card and remembered in localStorage; the `M` key still
+works and both drive the same toggle.
 
 ### The highway
 

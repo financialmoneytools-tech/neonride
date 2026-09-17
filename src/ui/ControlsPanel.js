@@ -21,8 +21,9 @@ export class ControlsPanel {
    * @param {HTMLElement} parent the pause card
    * @param {import('../core/Controls.js').Controls} controls
    */
-  constructor(parent, controls) {
+  constructor(parent, controls, audio = null) {
     this.controls = controls;
+    this.audio = audio;
 
     this.el = document.createElement('div');
     this.el.className = 'controls-panel';
@@ -40,7 +41,15 @@ export class ControlsPanel {
     this.calBtn.className = 'controls-btn';
     this.calBtn.textContent = config.ui.controls.recentre;
 
-    this.el.append(this.modeBtn, this.sensBtn, this.calBtn);
+    // SOUND, here rather than anywhere else, for the same reason the control
+    // switch is here: the pause card is the only screen a rider can reach
+    // without a keyboard and without ending their run. The M key still works on
+    // a desktop and both drive the same toggle.
+    this.soundBtn = document.createElement('button');
+    this.soundBtn.type = 'button';
+    this.soundBtn.className = 'controls-btn';
+
+    this.el.append(this.modeBtn, this.sensBtn, this.calBtn, this.soundBtn);
     parent.appendChild(this.el);
 
     // Every one of these stops the event. The pause card sits under a global
@@ -65,8 +74,19 @@ export class ControlsPanel {
         this.calBtn.textContent = config.ui.controls.recentre;
       }, 1400);
     };
+    this._onSound = (e) => {
+      e.stopPropagation();
+      // The gesture is the point as much as the toggle is: on a phone this may
+      // be the press that finally gets the context out of `suspended`.
+      if (this.audio) {
+        this.audio.unlock();
+        this.audio.toggleMute();
+      }
+      this.refresh();
+    };
+
     for (const [el, fn] of [[this.modeBtn, this._onMode], [this.sensBtn, this._onSens],
-      [this.calBtn, this._onCal]]) {
+      [this.calBtn, this._onCal], [this.soundBtn, this._onSound]]) {
       el.addEventListener('click', fn);
       el.addEventListener('pointerdown', (e) => e.stopPropagation());
     }
@@ -82,6 +102,10 @@ export class ControlsPanel {
     // Sensitivity and calibration only mean anything while tilt is steering.
     this.sensBtn.hidden = !tilt;
     this.calBtn.hidden = !tilt;
+    this.soundBtn.hidden = !this.audio;
+    if (this.audio) {
+      this.soundBtn.textContent = this.audio.muted ? text.soundOff : text.soundOn;
+    }
   }
 
   /** @param {boolean} visible */
@@ -95,6 +119,7 @@ export class ControlsPanel {
     this.modeBtn.removeEventListener('click', this._onMode);
     this.sensBtn.removeEventListener('click', this._onSens);
     this.calBtn.removeEventListener('click', this._onCal);
+    this.soundBtn.removeEventListener('click', this._onSound);
     this.el.remove();
   }
 }

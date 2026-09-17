@@ -35,11 +35,18 @@ export class Hud {
     this.metaEl = document.createElement('div');
     this.metaEl.className = 'hud-meta';
 
-    this.el.append(this.scoreEl, this.metaEl);
+    // Lives, as filled and hollow pips. A number would be read once and then
+    // ignored; a row of pips that visibly loses one is read every time it
+    // changes, which is the only moment it matters.
+    this.livesEl = document.createElement('div');
+    this.livesEl.className = 'hud-lives';
+
+    this.el.append(this.scoreEl, this.livesEl, this.metaEl);
     parent.appendChild(this.el);
 
     this._score = -1;
     this._meta = '';
+    this._lives = -1;
   }
 
   update() {
@@ -57,6 +64,15 @@ export class Hud {
     if (session.score !== this._score) {
       this._score = session.score;
       this.scoreEl.textContent = format(session.score);
+    }
+
+    if (session.lives !== this._lives) {
+      this._lives = session.lives;
+      const text = config.ui.lives;
+      const total = config.game.crashesAllowed;
+      let pips = '';
+      for (let i = 0; i < total; i++) pips += i < session.lives ? text.full : text.empty;
+      this.livesEl.textContent = pips;
     }
 
     const labels = config.ui.hud;

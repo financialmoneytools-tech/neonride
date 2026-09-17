@@ -167,7 +167,18 @@ export class VehicleMesh {
     // the tail lights inside it. A scalar vertex colour dims it without
     // touching the marker lights, which share this mesh and its instance
     // colour and want to stay bright.
+    // A GAIN OF ZERO BUILDS NOTHING. On a truck the outline frames the CHASSIS
+    // rear - y -1.18 to 1.18 - while the cargo box it belongs to sits from 1.23
+    // to 2.72 above it. They are adjacent rather than overlapping, so it read
+    // as a second, smaller, misaligned orange box stuck under the trailer.
+    // Measured from the geometry's own bounding boxes, not from the picture.
+    //
+    // A truck's rear does not need it: the marker lights draw the top edge, the
+    // door seams draw the middle and the lamps and plate draw the bottom. That
+    // is more outline than a car's frame ever gave it.
     const gain = type.outlineGain === undefined ? 1 : type.outlineGain;
+    if (gain <= 0) return builder.build('traffic-strip-' + type.name);
+
     for (let s = 0; s < 2; s++) {
       const sign = s === 0 ? 1 : -1;
       builder.add(

@@ -365,6 +365,16 @@
         line-height: 1;
       }
 
+      /* Lives. Sits between the score and the distance, so the one thing that
+         changes suddenly is next to the two that change constantly. */
+      .hud-lives {
+        margin-top: 2px;
+        font-size: clamp(0.8rem, 2.6vw, 1.05rem);
+        letter-spacing: 0.22em;
+        color: #ff6e8a;
+        text-shadow: 0 0 10px rgba(255, 80, 120, 0.55);
+      }
+
       .hud-meta {
         margin-top: 4px;
         font-size: clamp(0.62rem, 1.9vw, 0.78rem);

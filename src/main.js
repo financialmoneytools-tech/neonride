@@ -347,9 +347,13 @@ const reveal = new KeySequence(
 window.neonRide = { god: setAutopilot };
 
 const audio = new Audio();
+// Attached here rather than passed to the constructor: the overlay is built
+// early, with Controls, and `audio` is a const declared further down - reaching
+// for it up there is a temporal dead zone error and a black screen on load.
+if (stats) stats.audio = audio;
 const session = new Session();
 const hud = new Hud(document.body, session);
-const panels = new Panels(document.body, session, comfort, controls);
+const panels = new Panels(document.body, session, comfort, controls, audio);
 
 // The only way into the pause card without a keyboard, and so the only way to
 // the control mode switch on a phone.
@@ -393,6 +397,34 @@ orientation.onChange = (portrait) => {
     session.togglePause();
   }
 };
+
+/**
+ * EVERY GESTURE TRIES THE AUDIO, until it is actually running.
+ *
+ * Not once, and not only from the title card. A context created inside a
+ * gesture can still come up suspended - that is the normal case on a phone -
+ * and Audio.start() sets its own _started flag before it resumes, so the one
+ * attempt was the only attempt and the game stayed silent for the whole
+ * session. Every entry path is covered by this: the title card, ?god=1
+ * skipping the card, and anything added later that skips it too.
+ *
+ * CAPTURE PHASE, and synchronous. iOS only counts a resume() issued while the
+ * touch handler is still on the stack, and a capture listener cannot be
+ * swallowed by anything that stops propagation further down - which the pause
+ * card's buttons deliberately do.
+ */
+const unlockAudio = () => {
+  if (audio.unlock(traffic)) {
+    window.removeEventListener('pointerdown', unlockAudio, true);
+    window.removeEventListener('touchend', unlockAudio, true);
+    window.removeEventListener('keydown', unlockAudio, true);
+  }
+};
+window.addEventListener('pointerdown', unlockAudio, true);
+// touchend as well as pointerdown: some iOS versions honour the gesture on the
+// touch events and not on the pointer ones.
+window.addEventListener('touchend', unlockAudio, true);
+window.addEventListener('keydown', unlockAudio, true);
 
 const start = new StartScreen(document.body, () => {
   audio.start(traffic);
@@ -453,7 +485,7 @@ if (wantsGod) {
   setAutopilot(true);
   start.skip();
   const wake = () => {
-    audio.start(traffic);
+    audio.unlock(traffic);
     if (controls.mode === 'tilt') controls.request();
     window.removeEventListener('pointerdown', wake);
     window.removeEventListener('keydown', wake);
@@ -486,6 +518,9 @@ if (import.meta.env && import.meta.env.DEV) {
 function disposeAll() {
   loop.dispose();
   hotkeys.dispose();
+  window.removeEventListener('pointerdown', unlockAudio, true);
+  window.removeEventListener('touchend', unlockAudio, true);
+  window.removeEventListener('keydown', unlockAudio, true);
   audio.dispose();
   comfort.dispose();
   start.dispose();

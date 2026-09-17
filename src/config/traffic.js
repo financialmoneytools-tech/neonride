@@ -145,7 +145,7 @@ export const traffic = {
       // lights, and at 0.4 it was still the only thing anyone could see. A
       // truck does not need them to be visible at distance - it has marker
       // lights and the largest silhouette on the road.
-      outlineGain: 0.16,
+      outlineGain: 0, // see VehicleMesh: it framed the chassis, not the box
       rearGlow: 0.12,
       stripColor: 0xffb42a, // amber, as a truck's marker lights are
       markers: {
@@ -153,7 +153,11 @@ export const traffic = {
         // Down both flanks as well. A rider on a four lane road spends the pass
         // ALONGSIDE a truck rather than behind it, so the side row is what
         // makes one read as a truck most of the time.
-        side: { count: 5, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.2, margin: 0.5 },
+        // DROPPED WELL CLEAR OF THE TOP ROW. At 0.2 the side row sat just
+        // under the roof line, and from beside the truck the two merged into
+        // one broken dashed line that looked like a fault rather than like
+        // marker lights.
+        side: { count: 5, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.62, margin: 0.5 },
       },
       // THE HARDWARE, built by world/traffic/truckParts.js. All of it lands in
       // the body geometry painted dark with vertex colours, so a truck still
@@ -193,12 +197,12 @@ export const traffic = {
       speed: { min: 0.3, max: 0.5 },
       minLane: 2, // a semi keeps to the two inside lanes
       rideHeight: 0.58,
-      outlineGain: 0.15,
+      outlineGain: 0,
       rearGlow: 0.1,
       stripColor: 0xff6a1f,
       markers: {
         count: 7, spacing: 0.4, size: [0.16, 0.12, 0.16],
-        side: { count: 8, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.22, margin: 0.6 },
+        side: { count: 8, size: [0.06, 0.11, 0.3], out: 0.02, drop: 0.7, margin: 0.6 },
       },
       // THE HARDWARE, built by world/traffic/truckParts.js. All of it lands in
       // the body geometry painted dark with vertex colours, so a truck still

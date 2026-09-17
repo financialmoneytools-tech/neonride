@@ -21,6 +21,7 @@
  *   - a pause button that does not open the pause card
  *   - any button on the pause card sitting outside the viewport
  *   - tilt steering inverted between the two landscape orientations
+ *   - an audio context still suspended after the tap
  *
  * The black-canvas check is a pixel check on purpose. "Did it throw" and "is
  * anything on screen" are different questions, and the failure this was written
@@ -530,6 +531,21 @@ async function main() {
 
   const fault = await pictureFault(page);
   if (fault) failures.push(fault);
+
+  // AUDIO HAS TO BE RUNNING AFTER A GESTURE. Silence on a phone had exactly
+  // this shape: a context built inside the tap, coming up suspended, and
+  // Audio.start() setting its own _started flag before resuming - so the one
+  // attempt was the only attempt and nothing ever tried again.
+  const sound = await page.evaluate(() => {
+    const a = window.NEON && window.NEON.audio;
+    if (!a) return null;
+    return { state: a.state, gestures: a.gestures, muted: a.muted, gain: a.gain };
+  });
+  if (!sound) failures.push('no audio on window.NEON');
+  else if (sound.gestures === 0) failures.push('no gesture reached the audio unlock');
+  else if (sound.state !== 'running') {
+    failures.push(`audio context is ${sound.state} after ${sound.gestures} gestures`);
+  }
 
   const statsText = await page.textContent('.stats-overlay').catch(() => null);
   if (statsText === null) failures.push('no stats overlay');

@@ -29,6 +29,10 @@ const query = process.argv[5] ? '?' + process.argv[5].replace(/^\?/, '') : '';
 // and hoping - it has to be waited FOR.
 const NEAR_TYPE = process.argv[6] || '';
 const NEAR_MAX = Number(process.argv[7] || 26);
+// 'side' waits for one in an ADJACENT lane instead of directly ahead, which is
+// the view that shows a truck's flank - the marker lights down the side and the
+// wheels under it.
+const NEAR_WHERE = process.argv[8] === 'side' ? 'side' : 'ahead';
 
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
 
@@ -75,7 +79,7 @@ await page.waitForTimeout(4000);
 
 if (NEAR_TYPE) {
   const found = await page.waitForFunction(
-    ([name, max]) => {
+    ([name, max, where]) => {
       const NEON = window.NEON;
       if (!NEON) return false;
       const distance = NEON.loop.state.distance || 0;
@@ -83,17 +87,22 @@ if (NEAR_TYPE) {
         if (fleet.type.name !== name) continue;
         for (const vehicle of fleet.vehicles) {
           if (!vehicle.active) continue;
+          // CENTRE TO CENTRE, so a long vehicle needs a bigger one. A 16 m
+          // semi at a gap of 10 has its rear axle level with the camera, which
+          // photographs as a wall rather than as a truck.
+          const clear = fleet.type.size.length * 0.5 + 7;
           const gap = vehicle.distance - distance;
           // AHEAD AND IN LINE. Distance alone finds one in the next lane over,
           // which shows its flank - and the flank is not the face with the
           // doors, the plate and the tail lights on it.
           const across = Math.abs((vehicle.lateral || 0) - (NEON.loop.state.lateral || 0));
-          if (gap > 4 && gap < max && across < 2.2) return true;
+          const placed = where === 'side' ? across > 2.6 && across < 6.0 : across < 2.2;
+          if (gap > clear && gap < max && placed) return true;
         }
       }
       return false;
     },
-    [NEAR_TYPE, NEAR_MAX],
+    [NEAR_TYPE, NEAR_MAX, NEAR_WHERE],
     { timeout: 60000, polling: 100 },
   ).catch(() => null);
   if (!found) console.log('  (never saw a ' + NEAR_TYPE + ' within ' + NEAR_MAX + ' units)');

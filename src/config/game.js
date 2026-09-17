@@ -27,7 +27,24 @@ export const game = {
   // shove a crash already costs a great deal, and a game that ends on the first
   // mistake is what makes the near miss bonus a decision rather than a freebie.
   // The autopilot manages ten minutes without a single hit, so it is survivable.
-  crashesAllowed: 1,
+  // THREE LIVES, not one. One-hit-and-over paired badly with a road that was
+  // too dense to ride: the run ended before it began, over and over. A crash
+  // still costs 45 per cent of speed and a shove sideways, which is a real
+  // penalty; losing the whole run on top of that is what made it a chore.
+  //
+  // God mode never fails at all - see game/Session.js - so footage is
+  // unaffected either way.
+  crashesAllowed: 3,
+
+  // After a crash the rider cannot be hit again for this long. Without it a
+  // collision that leaves the bike still inside the vehicle costs every life
+  // in the same second, which reads as the game taking three lives for one
+  // mistake. Long enough to be shoved clear and to see what happened.
+  invulnerable: 1.6, // seconds
+
+  // The bike blinks while it is invulnerable, so the window is visible rather
+  // than a thing that silently is or is not in force.
+  invulnerableBlink: 9, // blinks a second
 
   // Where the best score is kept. localStorage can throw outright - a browser
   // with site data blocked, or private mode on some versions - so every access

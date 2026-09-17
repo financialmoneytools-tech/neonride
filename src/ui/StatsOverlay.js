@@ -12,9 +12,13 @@ export class StatsOverlay {
    *   diagnostics block. There is no console on a phone and no keyboard to open
    *   one with, so anything that has to be read on the device has to be on the
    *   screen.
+   * @param {import('../audio/Audio.js').Audio} [audio] adds the audio block,
+   *   for the same reason: silence on a phone has four different causes that
+   *   look identical from outside.
    */
-  constructor(parent = document.body, controls = null) {
+  constructor(parent = document.body, controls = null, audio = null) {
     this.controls = controls;
+    this.audio = audio;
     this.el = document.createElement('div');
     this.el.className = 'stats-overlay';
     this.el.textContent = 'measuring...';
@@ -109,6 +113,19 @@ export class StatsOverlay {
         + '  ang ' + controls.angle);
       lines.push('tilt ' + (controls.steer >= 0 ? '+' : '') + controls.steer.toFixed(3)
         + (controls.fellBack ? '  FELL BACK' : ''));
+    }
+
+    // AUDIO, because "there is no sound" has several causes that look identical
+    // from outside: a context that was never created, one created and left
+    // suspended, a master gain sitting at zero, and a mute nobody remembers
+    // setting. `gest` is how many gestures have tried to unlock it - zero means
+    // nothing has even attempted.
+    const audio = this.audio;
+    if (audio) {
+      lines.push('audio ' + audio.state
+        + '  gain ' + audio.gain.toFixed(2)
+        + '  gest ' + audio.gestures
+        + (audio.muted ? '  MUTED' : ''));
     }
 
     this.el.textContent = lines.join('\n');

@@ -46,6 +46,8 @@ export const ui = {
     bannerSeconds: 3,
 
     sensitivity: 'HASSASİYET: ',
+    soundOn: 'SES: AÇIK',
+    soundOff: 'SES: KAPALI',
     recentre: 'MERKEZİ SIFIRLA',
     recentred: 'SIFIRLANDI',
 
@@ -61,6 +63,14 @@ export const ui = {
     tiltDenied: 'Eğim izni verilmedi. Dokunmatik kontrole geçildi.',
     tiltInsecure: 'Eğim sensörü yalnızca HTTPS üzerinde çalışır. '
       + 'Dokunmatik kontrole geçildi.',
+  },
+
+  // Lives, on the HUD. A crash costs one and the ride continues; the run ends
+  // when the third is gone.
+  lives: {
+    label: 'CAN',
+    full: '●',
+    empty: '○',
   },
 
   // The score readout during a run.

@@ -28,13 +28,36 @@ import { TrafficVoices } from './TrafficVoices.js';
  * so that a handful of doppler passes arriving on the same frame cannot clip a
  * recording, which is not something that can be fixed afterwards.
  */
+/** The stored mute preference, or false when there is nothing to read. */
+function read() {
+  try {
+    return window.localStorage.getItem(config.audio.storageKey) === '1';
+  } catch (error) {
+    // Private mode or blocked site data. A preference that cannot be read is
+    // not a reason to fail to start.
+    return false;
+  }
+}
+
+/** @param {boolean} muted */
+function write(muted) {
+  try {
+    window.localStorage.setItem(config.audio.storageKey, muted ? '1' : '0');
+  } catch (error) {
+    // Nothing to do and nothing worth saying.
+  }
+}
+
 export class Audio {
   constructor() {
     this.ctx = null;
     this.engine = null;
     this.wind = null;
     this.traffic = null;
-    this.muted = false;
+    // Remembered across sessions: somebody who muted the game once meant it.
+    this.muted = read();
+    /** Gestures seen, for the stats overlay. Zero means nothing has tried. */
+    this.gestures = 0;
     this._paused = false;
     this._started = false;
   }
@@ -42,6 +65,46 @@ export class Audio {
   /** @returns {boolean} */
   get running() {
     return this._started && !!this.ctx && this.ctx.state === 'running';
+  }
+
+  /** For the stats overlay: 'none' until a context exists. */
+  get state() {
+    return this.ctx ? this.ctx.state : 'none';
+  }
+
+  /** For the stats overlay: where the master gain actually is. */
+  get gain() {
+    return this.master ? this.master.gain.value : 0;
+  }
+
+  /**
+   * A user gesture happened. Build if nothing is built, and RESUME whether or
+   * not it is, every single time, until the context is running.
+   *
+   * THIS IS THE ONE THAT MATTERS ON A PHONE. start() sets _started before it
+   * resumes, so a context that came up suspended - which is the normal case on
+   * mobile, and on iOS is guaranteed unless resume() is called inside the touch
+   * handler itself - left the game silent forever: every later gesture hit the
+   * `if (this._started) return` at the top of start() and did nothing. One
+   * attempt, no retry, no way back.
+   *
+   * Called synchronously from the listener, never from a promise or a timeout.
+   * iOS counts the gesture only while its handler is on the stack.
+   * @param {import('../world/Traffic.js').Traffic} [traffic]
+   * @returns {boolean} whether the context is running now
+   */
+  unlock(traffic) {
+    this.gestures++;
+    if (!this._started) this.start(traffic);
+    const ctx = this.ctx;
+    if (!ctx) return false;
+    if (ctx.state !== 'running') {
+      // No await: the resume has to be ISSUED inside the gesture. Whether it
+      // lands is read back on the next gesture, or off the stats overlay.
+      const resumed = ctx.resume();
+      if (resumed && resumed.catch) resumed.catch(() => {});
+    }
+    return ctx.state === 'running';
   }
 
   /**
@@ -87,8 +150,12 @@ export class Audio {
     // Fades in rather than barking. The ramp starts from the current time
     // explicitly, because a value set with .value is not on the automation
     // timeline and a later ramp would jump from wherever it happens to be.
+    // A stored mute is honoured from the first sample rather than fading in
+    // and then being pulled down, which is audible.
     this.master.gain.setValueAtTime(0, ctx.currentTime);
-    this.master.gain.linearRampToValueAtTime(cfg.gain, ctx.currentTime + cfg.startFade);
+    if (!this.muted) {
+      this.master.gain.linearRampToValueAtTime(cfg.gain, ctx.currentTime + cfg.startFade);
+    }
 
     // Some browsers still hand back a suspended context from inside a gesture.
     // Resuming is harmless when it is already running.
@@ -121,12 +188,17 @@ export class Audio {
   }
 
   /** Toggles the master mute. The M key. @returns {boolean} muted */
-  toggleMute() {
-    this.muted = !this.muted;
+  /**
+   * @param {boolean} [force] set outright rather than toggling, for restoring
+   *   a stored preference at startup
+   */
+  toggleMute(force) {
+    this.muted = force === undefined ? !this.muted : !!force;
     if (this.master) {
       const cfg = config.audio.master;
       this.master.gain.setTargetAtTime(this.muted ? 0 : cfg.gain, this.ctx.currentTime, 0.05);
     }
+    write(this.muted);
     return this.muted;
   }
 

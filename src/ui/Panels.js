@@ -29,7 +29,7 @@ export class Panels {
    * @param {import('../core/Controls.js').Controls} [controls] adds the control
    *   mode switch to the pause card when given
    */
-  constructor(parent, session, comfort = null, controls = null) {
+  constructor(parent, session, comfort = null, controls = null, audio = null) {
     this.session = session;
 
     this.el = document.createElement('div');
@@ -72,7 +72,7 @@ export class Panels {
     // the only screen a rider can reach without a keyboard and without ending
     // the run. Pause only - a game over card is not where anybody retunes
     // steering.
-    this.controlsPanel = controls ? new ControlsPanel(this.actionsEl, controls) : null;
+    this.controlsPanel = controls ? new ControlsPanel(this.actionsEl, controls, audio) : null;
 
     parent.appendChild(this.el);
 

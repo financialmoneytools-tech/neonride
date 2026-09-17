@@ -36,6 +36,10 @@
 
 // --- Sound ---
 export const audio = {
+  // Where the mute preference lives. Same shape as the controls and comfort
+  // keys; somebody who muted the game once meant it.
+  storageKey: 'neon-ride.muted',
+
   enabled: true,
 
   // Nothing is built until the title card is dismissed. A browser will not

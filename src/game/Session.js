@@ -42,12 +42,17 @@ export class Session {
     this.distance = 0;
     this.nearMisses = 0;
     this.best = readBest();
+    /** Crashes left before the run ends. Shown on the HUD. */
+    this.lives = config.game.crashesAllowed;
+    /** Seconds of grace left after a crash; traffic cannot take a life. */
+    this.invulnerable = 0;
     /** Counts up per run, so the game over panel can say whether it is a record. */
     this.isRecord = false;
 
     this._startDistance = 0;
     this._startHits = 0;
     this._startNearMisses = 0;
+    this._countedHits = 0;
     this._overAt = 0;
     /** True once the panel should be shown; see `overDelay` in config/game.js. */
     this.overShown = false;
@@ -70,9 +75,12 @@ export class Session {
     this.nearMisses = 0;
     this.isRecord = false;
     this.overShown = false;
+    this.lives = config.game.crashesAllowed;
+    this.invulnerable = 0;
     this._startDistance = state.distance || 0;
     this._startHits = state.hits || 0;
     this._startNearMisses = state.nearMisses || 0;
+    this._countedHits = 0;
   }
 
   /**
@@ -118,12 +126,28 @@ export class Session {
       this.distance * cfg.pointsPerUnit + this.nearMisses * cfg.nearMissPoints,
     );
 
-    // Counted, not sampled. `state.impact` is a level that decays over a third
-    // of a second, so testing it would either miss a hit between two frames or
-    // count one hit several times depending on the frame rate. A total that
-    // only goes up cannot do either.
+    // LIVES, and the invulnerable window is not decoration. Counted, not
+    // sampled: `state.impact` is a level that decays over a third of a second,
+    // so testing it would either miss a hit between two frames or count one hit
+    // several times depending on the frame rate. A total that only goes up
+    // cannot do either.
+    //
+    // The window exists because a collision often leaves the bike still inside
+    // the vehicle: without it the next few frames take the second and third
+    // life as well, and the game appears to charge three lives for one mistake.
+    this.invulnerable = Math.max(0, this.invulnerable - dt);
+    state.invulnerable = this.invulnerable;
+
     const crashes = (state.hits || 0) - this._startHits;
-    if (crashes >= cfg.crashesAllowed) this._end();
+    if (crashes > this._countedHits) {
+      this._countedHits = crashes;
+      if (this.invulnerable <= 0) {
+        this.lives -= 1;
+        this.invulnerable = cfg.invulnerable;
+        state.invulnerable = this.invulnerable;
+        if (this.lives <= 0) this._end();
+      }
+    }
   }
 
   _end() {
