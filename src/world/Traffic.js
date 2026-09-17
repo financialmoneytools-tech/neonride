@@ -62,6 +62,10 @@ export class Traffic {
 
     this.impact = 0;
     this.nearMiss = 0;
+    // The player's speed, kept for the spawner: the gap between two vehicles
+    // in a lane grows with it, so a spawn needs to know how fast the rider is
+    // going right now rather than what the maximum is.
+    this._playerSpeed = 0;
     // Running totals for the run's score and its fail state. The two above are
     // decaying levels for the post chain; these are events.
     this.hits = 0;
@@ -143,11 +147,17 @@ export class Traffic {
     const playerDistance = state.distance || 0;
     const playerLateral = state.lateral || 0;
     const maxSpeed = config.player.bike.maxSpeed;
+    this._playerSpeed = state.speed || 0;
 
-    // Density ramp: the road starts sparse and fills out as the run goes on.
-    const density = cfg.density;
+    // Density ramp: the road starts sparse and fills out as the run goes on,
+    // and stops at a cap. The cap is the part that matters - a curve that keeps
+    // climbing arrives back at the density that was unplayable to begin with.
+    const density = this.model.density;
     const progress = THREE.MathUtils.clamp(playerDistance / density.fullAt, 0, 1);
-    const fraction = density.start + (1 - density.start) * Math.pow(progress, density.curve);
+    const fraction = Math.min(
+      density.max,
+      density.start + (density.max - density.start) * Math.pow(progress, density.curve),
+    );
 
     for (let f = 0; f < this.fleets.length; f++) {
       const fleet = this.fleets[f];
@@ -189,7 +199,8 @@ export class Traffic {
         const weave = fleet.type.weave;
         if (weave) {
           vehicle.weavePhase += dt * ((Math.PI * 2) / weave.period);
-          vehicle.lateral = vehicle.laneLateral + Math.sin(vehicle.weavePhase) * weave.amount;
+          vehicle.lateral = vehicle.laneLateral
+            + Math.sin(vehicle.weavePhase) * weave.amount * this.model.weaveScale;
         }
 
         if (playerDistance - vehicle.distance > cfg.recycleBehind) {
@@ -228,6 +239,85 @@ export class Traffic {
     if (fleet.mesh.beacon.instanceColor) fleet.mesh.beacon.instanceColor.needsUpdate = true;
   }
 
+  /**
+   * Which traffic model is in force.
+   *
+   * Read every time rather than cached: god mode can be armed mid-run, and the
+   * road should fill in behind that rather than need a reload.
+   */
+  get model() {
+    const models = config.world.traffic.models;
+    return config.autopilot.enabled ? models.god : models.player;
+  }
+
+  /**
+   * Whether a vehicle may be placed in this lane at this distance.
+   *
+   * THE ESCAPE GUARANTEE, and it is enforced here because here is the only
+   * place that can enforce it. Nothing downstream can open a gap that was never
+   * left: the guard behind the autopilot can steer round a wall, but it is
+   * inert outside god mode, and a player meeting four blocked lanes has no
+   * move. So a placement that would close the road is REFUSED.
+   *
+   * Three rules, all measured over one stretch of road:
+   *   - at most `maxAbreast` lanes occupied, so free lanes always remain
+   *   - at most `trucksAbreast` of those may be a truck
+   *   - same lane spacing that grows with the player's speed
+   *
+   * @param {object} type the type being placed
+   * @param {number} lane
+   * @param {number} distance
+   * @param {object} vehicle the one being placed, excluded from the scan
+   * @param {number} playerSpeed
+   */
+  _admits(type, lane, distance, vehicle, playerSpeed) {
+    const model = this.model;
+    const escape = model.escape;
+    const gap = model.gap.base + model.gap.reaction * playerSpeed;
+
+    const lanes = new Set([lane]);
+    let trucks = type.truck ? 1 : 0;
+
+    for (let f = 0; f < this.fleets.length; f++) {
+      const fleet = this.fleets[f];
+      const isTruck = !!fleet.type.truck;
+      for (let i = 0; i < fleet.vehicles.length; i++) {
+        const other = fleet.vehicles[i];
+        if (other === vehicle || !other.active) continue;
+
+        const along = Math.abs(other.distance - distance);
+
+        // Same lane: the spacing rule, which is the one that gives a player
+        // time to see a thing and go round it.
+        if (other.lane === lane && along < gap) return false;
+        if (!escape.enabled) continue;
+
+        if (along >= escape.window) continue;
+        lanes.add(other.lane);
+        if (isTruck) trucks++;
+        if (lanes.size > escape.maxAbreast) return false;
+        if (trucks > escape.trucksAbreast) return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * The lane it wants, then the rest, nearest first.
+   *
+   * Nearest first so a refused placement lands beside where it meant to be
+   * rather than across the road, which keeps the speed-sorted lanes readable.
+   * @param {number} wanted
+   * @param {number} lowest the type's minLane
+   */
+  _laneOrder(wanted, lowest) {
+    const order = [];
+    for (let i = lowest; i < this.lanes.length; i++) order.push(i);
+    order.sort((a, b) => Math.abs(a - wanted) - Math.abs(b - wanted));
+    return order;
+  }
+
   /** Sends one vehicle back out ahead of the player with fresh properties. */
   _respawn(fleet, vehicle, distance, index) {
     const cfg = config.world.traffic;
@@ -249,27 +339,51 @@ export class Traffic {
     // line anywhere, which the god mode guard reports as a trapped frame and
     // then, sometimes, as an overlap.
     const lowest = type.minLane || 0;
-    vehicle.lane = Math.min(this.lanes.length - 1, Math.max(lowest, Math.round(pick)));
-    vehicle.laneLateral = this.lanes[vehicle.lane];
-    vehicle.lateral = vehicle.laneLateral;
-    vehicle.speed = rng.range(type.speed.min, type.speed.max);
+    const wanted = Math.min(this.lanes.length - 1, Math.max(lowest, Math.round(pick)));
+
+    // SPEED, squeezed toward the type's own midpoint by the model. A player
+    // needs closing speeds they can predict; god mode wants the full spread.
+    const model = this.model;
+    const mid = (type.speed.min + type.speed.max) * 0.5;
+    const half = (type.speed.max - type.speed.min) * 0.5 * model.speedSpread;
+    vehicle.speed = rng.range(mid - half, mid + half);
+
     vehicle.scale = 1 + (rng.next() * 2 - 1) * cfg.vehicle.scaleJitter;
-    vehicle.distance = distance + rng.next() * cfg.spawnJitter;
     vehicle.weavePhase = rng.next() * Math.PI * 2;
     vehicle.wasBehind = true;
     vehicle.hit = false;
 
-    // Keep a lane from stacking, across every fleet rather than just this one.
-    for (let f = 0; f < this.fleets.length; f++) {
-      const others = this.fleets[f].vehicles;
-      for (let i = 0; i < others.length; i++) {
-        const other = others[i];
-        if (other === vehicle || other.lane !== vehicle.lane) continue;
-        if (Math.abs(other.distance - vehicle.distance) < cfg.minGap) {
-          vehicle.distance = other.distance + cfg.minGap;
-        }
+    // WHERE IT MAY GO. The lane it wants is tried first, then the others, then
+    // the whole thing is pushed further along and tried again - because
+    // refusing a placement has to end in a placement, and a vehicle that ends
+    // up further away is invisible while a vehicle inside a wall is not.
+    const escape = model.escape;
+    const attempts = escape.enabled ? escape.attempts : 1;
+    const order = this._laneOrder(wanted, lowest);
+    let at = distance + rng.next() * cfg.spawnJitter;
+    let placed = false;
+
+    for (let attempt = 0; attempt < attempts && !placed; attempt++) {
+      for (const lane of order) {
+        if (!this._admits(type, lane, at, vehicle, this._playerSpeed)) continue;
+        vehicle.lane = lane;
+        vehicle.distance = at;
+        placed = true;
+        break;
       }
+      if (!placed) at += escape.enabled ? escape.push : cfg.minGap;
     }
+
+    if (!placed) {
+      // Nowhere legal within reach. Sent well beyond the spawn window rather
+      // than forced into a gap that does not exist: it is out of sight there,
+      // and it will be offered a place again the next time it recycles.
+      vehicle.lane = wanted;
+      vehicle.distance = at + cfg.spawnAhead;
+    }
+
+    vehicle.laneLateral = this.lanes[vehicle.lane];
+    vehicle.lateral = vehicle.laneLateral;
 
     // Paint: the ambulance keeps its own, everything else draws the palette.
     _color.set(type.bodyColor || cfg.bodyPalette[Math.floor(rng.next() * cfg.bodyPalette.length)]);

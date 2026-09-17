@@ -20,6 +20,7 @@
  *     never completed a tick
  *   - a pause button that does not open the pause card
  *   - any button on the pause card sitting outside the viewport
+ *   - tilt steering inverted between the two landscape orientations
  *
  * The black-canvas check is a pixel check on purpose. "Did it throw" and "is
  * anything on screen" are different questions, and the failure this was written
@@ -325,6 +326,147 @@ async function checkShortViewport(browser, base) {
   return failures;
 }
 
+/**
+ * Tilt has to steer the way the rider leans, in BOTH landscape orientations.
+ *
+ * The device reports gravity in its own portrait frame, so the same physical
+ * roll arrives as completely different numbers at angle 90 and at angle 270 -
+ * and core/Controls.js rotates them into screen space before reading a sign.
+ * That rotation is the thing worth testing: get it wrong and the steering is
+ * inverted for riders who happened to turn their phone the other way, which is
+ * a bug that reads as "the bike is broken" rather than as an axis error.
+ *
+ * The roll is defined in SCREEN space and converted into each orientation's
+ * device frame, which is exactly what a rider leaning left does. Both must come
+ * out with the same sign, and it must be the sign config.controls.tilt.invert
+ * asks for.
+ * @returns {Promise<string[]>} failures
+ */
+async function checkTiltDirection(browser, base) {
+  const failures = [];
+  const readings = {};
+
+  for (const angle of [90, 270]) {
+    const context = await browser.newContext({
+      ...devices['Pixel 7'], viewport: { width: 900, height: 414 },
+      isMobile: true, hasTouch: true,
+    });
+    await context.addInitScript(([lockAngle]) => {
+      try {
+        window.localStorage.setItem('neon-ride.controls',
+          JSON.stringify({ mode: 'tilt', sensitivity: 1 }));
+      } catch (error) { /* the events below still arrive */ }
+
+      // Pin the orientation this run is pretending to be in.
+      try {
+        Object.defineProperty(window.screen.orientation, 'angle',
+          { get: () => lockAngle, configurable: true });
+      } catch (error) {
+        window.__angleLocked = false;
+      }
+
+      const G = 9.81;
+      const ROLL = -25 * Math.PI / 180;
+      const a = lockAngle * Math.PI / 180;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+
+      // LEVEL FIRST, THEN LEAN, AND THE TEST SAYS WHEN. The neutral is wherever
+      // the phone was being held when the first reading arrived - that is the
+      // whole design - so a constant lean IS the neutral and steers nothing.
+      // A timer is not good enough either: the game is constructed some way
+      // into page load, and if the lean has already started by then the neutral
+      // is captured leaning. So the page holds level until the test has
+      // confirmed a neutral exists and calls this.
+      window.__roll = 0;
+      window.__lean = () => { window.__roll = ROLL; };
+      setInterval(() => {
+        const roll = window.__roll;
+        // The rider's roll lives in screen space; the device reports it in the
+        // portrait frame, so it is rotated into that frame here - the inverse
+        // of what Controls does when it reads it back.
+        const sx = Math.sin(roll) * G;
+        const sy = Math.cos(roll) * G;
+        const x = sx * cos - sy * sin;
+        const y = sx * sin + sy * cos;
+
+        let event;
+        const detail = { accelerationIncludingGravity: { x, y, z: 0.4 } };
+        try {
+          event = new window.DeviceMotionEvent('devicemotion', detail);
+        } catch (error) {
+          event = new Event('devicemotion');
+          event.accelerationIncludingGravity = detail.accelerationIncludingGravity;
+        }
+        window.dispatchEvent(event);
+      }, 40);
+    }, [angle]);
+
+    const page = await context.newPage();
+    try {
+      await page.goto(base, { waitUntil: 'load', timeout: 30000 });
+      await page.waitForTimeout(700);
+      await page.tap('body', { position: { x: 800, y: 60 }, force: true }).catch(() => {});
+
+      // Wait for a neutral to exist before leaning, so the zero is the level
+      // hold rather than the lean itself.
+      await page.waitForFunction(() => {
+        const c = window.NEON && window.NEON.controls;
+        return !!c && c.live && c._neutral !== null;
+      }, null, { timeout: 15000 }).catch(() => null);
+
+      await page.evaluate(() => window.__lean && window.__lean());
+      await page.waitForTimeout(1200); // the low pass filter settling
+
+      const state = await page.evaluate(() => {
+        const c = window.NEON && window.NEON.controls;
+        if (!c) return null;
+        return {
+          steer: c.steer, source: c.source, mode: c.mode,
+          angle: c.angle, locked: window.__angleLocked !== false,
+          invert: window.NEON.config.controls.tilt.invert,
+          raw: c._raw, neutral: c._neutral, live: c.live,
+          reads: c.motionReadings, grav: { x: c.gravity.x, y: c.gravity.y },
+        };
+      });
+
+      if (!state) { failures.push('no controls on window.NEON'); continue; }
+      if (!state.locked || state.angle !== angle) {
+        // Not a failure of the game: this browser would not let the test pin
+        // the orientation, so it has nothing to say about that orientation.
+        console.log(`  (could not pin screen angle ${angle}; skipped)`);
+        continue;
+      }
+      if (state.source !== 'motion') {
+        failures.push(`angle ${angle}: tilt source ${state.source}, expected motion`);
+        continue;
+      }
+      readings[angle] = state.steer;
+      console.log('  angle ' + angle + ' raw ' + Number(state.raw).toFixed(2)
+        + ' neutral ' + Number(state.neutral).toFixed(2)
+        + ' steer ' + Number(state.steer).toFixed(3)
+        + ' mode ' + state.mode + ' reads ' + state.reads
+        + ' g ' + state.grav.x.toFixed(2) + ',' + state.grav.y.toFixed(2));
+    } finally {
+      await context.close();
+    }
+  }
+
+  const a = readings[90];
+  const b = readings[270];
+  if (a === undefined || b === undefined) return failures;
+
+  if (Math.abs(a) < 0.15 || Math.abs(b) < 0.15) {
+    failures.push(`a held 25 degree lean barely steered: ${a.toFixed(3)} at 90, `
+      + `${b.toFixed(3)} at 270`);
+  }
+  if (Math.sign(a) !== Math.sign(b)) {
+    failures.push(`tilt is INVERTED between landscape orientations: ${a.toFixed(3)} at 90 `
+      + `versus ${b.toFixed(3)} at 270 for the same physical lean`);
+  }
+  return failures;
+}
+
 async function main() {
   let server = null;
   let base = BASE;
@@ -419,6 +561,7 @@ async function main() {
   }
 
   for (const line of await checkShortViewport(browser, `${base}${query}`)) failures.push(line);
+  for (const line of await checkTiltDirection(browser, `${base}${query}`)) failures.push(line);
 
   const late = await readErrorPanel(page);
   if (late && !early) {

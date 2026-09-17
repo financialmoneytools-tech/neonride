@@ -74,10 +74,12 @@ export class Device {
     if (!preset) return;
 
     if (!this._base) {
-      const density = config.world.traffic.density;
+      const density = config.world.traffic.models.god.density;
       this._base = {
         trafficStart: density.start,
         trafficFullAt: density.fullAt,
+        playerStart: config.world.traffic.models.player.density.start,
+        playerMax: config.world.traffic.models.player.density.max,
         oncomingCount: config.world.oncoming.count,
         starCounts: config.sky.stars.layers.map((layer) => layer.count),
       };
@@ -93,9 +95,14 @@ export class Device {
 
     // Fewer vehicles live at once. The pools keep their shape, so nothing about
     // spawning or collision changes - there is simply less of it on screen.
-    const density = config.world.traffic.density;
-    density.start = this._base.trafficStart * preset.trafficScale;
-    density.fullAt = this._base.trafficFullAt / preset.trafficScale;
+    // BOTH MODELS. They are separate ramps with separate caps - see
+    // config/traffic.js - and a preset that thinned only one of them would
+    // leave a phone with the dense road on whichever mode it was not scaling.
+    const models = config.world.traffic.models;
+    models.god.density.start = this._base.trafficStart * preset.trafficScale;
+    models.god.density.fullAt = this._base.trafficFullAt / preset.trafficScale;
+    models.player.density.start = this._base.playerStart * preset.trafficScale;
+    models.player.density.max = this._base.playerMax * preset.trafficScale;
 
     // The far carriageway thins out with the near one. Its pool IS its count -
     // unlike traffic, which keeps its pool and turns vehicles off - because

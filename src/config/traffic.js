@@ -275,6 +275,71 @@ export const traffic = {
     },
   },
 
+  // TWO TRAFFIC MODELS, and they want opposite things.
+  //
+  // God mode is a camera. The road should look BUSY, and the guard standing
+  // behind the autopilot makes any density survivable - it is a cheat and it
+  // is meant to be one. A player has no guard: player/autopilot/Guard.js is
+  // inert outside god mode, and nothing else in the system has ever
+  // guaranteed a passable gap. So the road that produces good footage is a
+  // road a human crashes on constantly, which is exactly what it turned out
+  // to be.
+  //
+  // Chosen at SPAWN TIME from config.autopilot.enabled, so ?god=1 and the
+  // G-O-D sequence both keep the dense road and everyone else gets the
+  // playable one. Spawn time rather than construction because god mode can be
+  // armed mid-run, and the road should fill in behind that rather than need a
+  // reload.
+  models: {
+    god: {
+      // Exactly what the road has always been. Footage is tuned against this
+      // and the measured autopilot figures refer to it.
+      density: { start: 0.72, fullAt: 9000, curve: 1.2, max: 1 },
+      gap: { base: 26, reaction: 0 },
+      speedSpread: 1,
+      weaveScale: 1,
+      escape: { enabled: false },
+    },
+
+    player: {
+      // Sparse at the start, rising slowly, capped well below full. At 16 per
+      // cent of a 79 vehicle pool that is about 13 vehicles spread over the
+      // kilometre of road ahead - roughly one per lane every 300 units, which
+      // at a 100 unit per second closing speed is one every three seconds.
+      // The cap matters more than the ramp: a curve that keeps climbing
+      // eventually reaches the density that was unplayable to begin with.
+      density: { start: 0.16, fullAt: 16000, curve: 0.85, max: 0.5 },
+
+      // SPEED AWARE SPACING. The gap between two vehicles in a lane is
+      // base + reaction * the player's current speed, so at a standstill it is
+      // 30 units and at 235 it is 159 - about two thirds of a second of
+      // reaction time either way, instead of the fixed 26 that gave a tenth of
+      // a second at speed.
+      gap: { base: 30, reaction: 0.55 },
+
+      // Traffic that can be READ. Each type's speed range is squeezed toward
+      // its own midpoint, so a sedan is reliably a bit quicker than a van
+      // rather than sometimes slower than a truck - closing speeds a player
+      // cannot predict are closing speeds they cannot plan around.
+      speedSpread: 0.55,
+      // And a motorcycle wanders less, for the same reason.
+      weaveScale: 0.4,
+
+      // THE GUARANTEE. No stretch of road may have more than two lanes
+      // occupied, so there are always at least two free lanes to aim at - and
+      // never three abreast, and never two trucks side by side. Enforced when
+      // a vehicle is placed, by refusing the placement and trying elsewhere.
+      escape: {
+        enabled: true,
+        window: 58, // metres of road counted as "level with each other"
+        maxAbreast: 2, // occupied lanes allowed in one stretch, of four
+        trucksAbreast: 1, // and only ever one truck among them
+        attempts: 10, // lanes and pushes tried before giving up
+        push: 80, // how much further along to try on each attempt
+      },
+    },
+  },
+
   // Traffic thins out at the start of a run and builds as it goes, so the
   // opening is clean and the road gets busier the further you get.
   //   fraction = start + (1 - start) * (distance / fullAt) ^ curve

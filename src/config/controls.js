@@ -43,7 +43,16 @@ export const controls = {
     // accelerationIncludingGravity with the opposite polarity to Android, and
     // the neutral is captured by calibration, so an inverted axis does not
     // break tilt - it just steers the wrong way. One flag beats one edit.
-    invert: false
+    // TRUE, measured on the device: with it false, tilting left steered right.
+    // The neutral is captured by calibration and the delta is what steers, so
+    // an inverted axis never broke tilt - it just drove the wrong way, and one
+    // flag was always going to be the fix.
+    //
+    // It is a single sign applied AFTER the screen rotation, so it is correct
+    // in both landscape orientations by construction rather than by luck: 90
+    // and 270 go through the same rotation and come out agreeing.
+    // tools/smoke-mobile.mjs checks exactly that.
+    invert: true
   },
 
   touch: {

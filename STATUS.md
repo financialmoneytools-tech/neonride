@@ -526,6 +526,61 @@ Two things worth knowing rather than discovering:
   else - autopilot, capture mode, the world - is already running before the
   phone is picked up.
 
+### Traffic: two models, and why
+
+**A player has no guard.** `player/autopilot/Guard.js` makes a collision
+impossible while the autopilot is driving - it is a cheat and it says so - and
+it is inert outside god mode. Nothing else in the system ever guaranteed a
+passable gap: `minGap` only stopped two vehicles stacking in the SAME lane, and
+nothing at all coordinated across lanes. So the density that produces good
+footage is a road a human crashes on constantly, which is what it turned out to
+be.
+
+`config/traffic.js` -> `models`, chosen at spawn time from
+`config.autopilot.enabled`, so `?god=1` and the G-O-D sequence keep the dense
+road and everyone else gets the playable one.
+
+| | god | player |
+|---|---|---|
+| density start | 0.72 of the pool | **0.16** |
+| rises to | 1.0 by 9 km | **0.5, capped** |
+| curve / fullAt | 1.2 / 9000 | **0.85 / 16000** |
+| same-lane gap | 26, fixed | **30 + 0.55 x speed** (159 at top speed) |
+| speed spread | full | **0.55 of each type's range** |
+| motorcycle weave | full | **0.4** |
+| lanes occupied per 58 m | unlimited | **at most 2 of 4** |
+| trucks abreast | unlimited | **1** |
+
+The cap matters more than the ramp: a curve that keeps climbing arrives back at
+the density that was unplayable to begin with.
+
+THE ESCAPE GUARANTEE IS ENFORCED AT SPAWN, because that is the only place it
+can be. Nothing downstream can open a gap that was never left. A placement that
+would put a third lane in use over any 58 metre stretch is REFUSED, and the
+vehicle tries the next lane, then 80 metres further along, ten times - and if
+there is genuinely nowhere, it is sent beyond the spawn window rather than
+forced into a wall. At most two of four lanes occupied means at least two free
+lanes to aim at, always.
+
+Measured with `tools/bot-run.mjs`, which drives the ordinary input path with no
+guard at all - full throttle, steer at the freest lane:
+
+| | distance | crashes | per km | live vehicles |
+|---|---|---|---|---|
+| opening density | 3.09 km | **0** | 0.00 | 22 |
+| capped maximum | 1.07 km | **0** | 0.00 | 40 |
+
+It held 234 and 221 of a 235 top speed. The bot is deliberately stupid: a road a
+dumb bot can hold at full speed is a road a person has room to make decisions
+on.
+
+### On a crash
+
+One collision ends the run - `config/game.js` -> `crashesAllowed: 1`. There are
+no lives and no checkpoints. The crash itself costs 45 per cent of speed and a
+sideways shove, the panel arrives after `overDelay` 0.9 s so the flash is seen
+first, and any key or tap restarts from zero. God mode never fails.
+
 ### The highway
 
 Four lanes our way, a median barrier, four more coming the other way. Every
