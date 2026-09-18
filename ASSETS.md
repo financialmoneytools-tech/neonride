@@ -188,6 +188,46 @@ Three things it does not assume:
   filled 57 per cent of its own bounding box. A seeded colour flood comes back
   at 1.000, because the panel really is one flat rectangle.
 
+### THIS SOURCE CARRIES A DRAWN CLUSTER, AND IT IS PUNCHED OUT
+
+**A future redraw should leave the cluster area blank instead.** Read this
+before generating new cockpit art.
+
+The redraw of 18 September 2026 came back with a fully drawn analogue
+tachometer - needle, scale, numbers - and a small LCD, despite the brief asking
+in capitals for a single flat blank rectangle. `cut-cockpit.py` refused it
+correctly: it finds the instrument panel by flooding from a seed and checks that
+what it found is a rectangle, and it reported a fill of **0.52** against the
+**1.000** a real blank panel gives.
+
+The art was kept anyway, because its landmarks matched the framing contract to
+within **0.03 points** and regenerating art that fits that well in order to fix
+a hole is the wrong trade. So the rectangle is now **authored** for this source,
+in `cut-cockpit.py` -> `SOURCES['wide']['face']`, and copied into
+`config/cockpit.js` -> `screen`. The two are still checked against each other;
+`CONFIG_DISAGREES` still fires if they drift.
+
+What that costs, so nobody has to work it out again:
+
+- The hole is **authored, not measured**. A redraw moves the cluster and the
+  number has to be re-read by hand off the punched sprite. With a blank panel it
+  would move by itself.
+- **The small LCD beside the dial is left drawn.** It sits at x 0.545-0.565, and
+  a hole wide enough to reach it is 0.125 wide - which at the dash's 16:9 makes
+  it 0.126 tall, cutting through the housing bezel at 0.525 and swallowing the
+  green and amber warning lamps at 0.632-0.642. The housing and the lamps were
+  worth more than the LCD, which reads as a static trip meter beside a live
+  gauge - which is what a real cluster looks like.
+
+What survives and is meant to: the housing, its bezel, the surrounding fairing,
+the brake reservoir, the left hand column of warning lamps, and the green and
+amber lamps under the dial. The punched hole is **209 x 117 px** on the shipped
+sprite against the previous drawing's 126 x 71, so the live dash is 66 per cent
+larger - which is what the redraw was for.
+
+**If the cluster is drawn blank next time**, delete `face` from `SOURCES` and the
+seeded measurement comes back on its own.
+
 The hole is narrowed to the dash's own 16:9 before it is punched - the panel is
 drawn at 2.10 - so nothing is stretched. What is left over is a sliver of the
 panel's own grey down each side, which reads as part of the instrument.

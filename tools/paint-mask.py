@@ -100,17 +100,28 @@ EXCLUSION_REACH = 5
 # is what the drift check above compares against.
 PARTS = [
     # --- R: the painted bodywork -------------------------------------------
-    {'name': 'fairing', 'channel': 'body', 'at': (0.6030, 0.6212), 'size': 49842},
-    {'name': 'tank', 'channel': 'body', 'at': (0.3770, 0.9790), 'size': 66986},
-    {'name': 'frameBlock', 'channel': 'body', 'at': (0.4438, 0.7524), 'size': 10978},
-    {'name': 'nosePanelLeft', 'channel': 'body', 'at': (0.3628, 0.8618), 'size': 8013},
-    {'name': 'nosePanelRight', 'channel': 'body', 'at': (0.6367, 0.8618), 'size': 7780},
-    {'name': 'tankSideLeft', 'channel': 'body', 'at': (0.3340, 0.9353), 'size': 7327},
-    {'name': 'tankSideRight', 'channel': 'body', 'at': (0.6655, 0.9335), 'size': 7352},
-    {'name': 'fuelCapRing', 'channel': 'body', 'at': (0.4775, 0.9431), 'size': 10455},
-    {'name': 'fuelCapFace', 'channel': 'body', 'at': (0.5464, 0.9388), 'size': 9910},
+    # THE FAIRING IS NO LONGER ONE REGION. The richer drawing gives it panel
+    # lines, and a panel line is an ink boundary, so it cuts the fairing into
+    # separate fills - which is exactly what docs/COCKPIT-REDRAW.md warned
+    # would happen and why the tool checks its seeds instead of trusting them.
+    # The old single `fairing` seed found a 5,243 px offcut where it used to
+    # find 49,842, and said so.
+    #
+    # It is also ASYMMETRIC now: the left panel wraps under the cluster and the
+    # right one is a narrow strip, because the brake reservoir takes the space
+    # on that side. Seeds are per panel rather than mirrored for that reason.
+    {'name': 'fairingLeft', 'channel': 'body', 'at': (0.3965, 0.6142), 'size': 19865},
+    {'name': 'fairingUpper', 'channel': 'body', 'at': (0.5737, 0.5564), 'size': 5301},
+    {'name': 'tank', 'channel': 'body', 'at': (0.3848, 0.9501), 'size': 65697},
+    {'name': 'frameBlock', 'channel': 'body', 'at': (0.4438, 0.7515), 'size': 21587},
+    {'name': 'nosePanelLeft', 'channel': 'body', 'at': (0.3628, 0.8609), 'size': 8068},
+    {'name': 'nosePanelRight', 'channel': 'body', 'at': (0.6367, 0.8609), 'size': 8066},
+    {'name': 'tankSideLeft', 'channel': 'body', 'at': (0.3340, 0.9344), 'size': 7298},
+    {'name': 'tankSideRight', 'channel': 'body', 'at': (0.6660, 0.9353), 'size': 7291},
+    {'name': 'fuelCapRing', 'channel': 'body', 'at': (0.4775, 0.9423), 'size': 10466},
+    {'name': 'fuelCapFace', 'channel': 'body', 'at': (0.5464, 0.9379), 'size': 10209},
     # --- B: the windscreen --------------------------------------------------
-    {'name': 'windscreen', 'channel': 'glass', 'at': (0.4854, 0.4339), 'size': 82555},
+    {'name': 'windscreen', 'channel': 'glass', 'at': (0.4336, 0.4637), 'size': 82178},
 ]
 
 # A SEED IS THE DEEPEST POINT INSIDE ITS PART, not the part's centroid. The
@@ -127,14 +138,16 @@ PARTS = [
 # exclusions the brief names: gloves, sleeves, bars, levers, switch blocks,
 # dash screen and mirror glass.
 FORBIDDEN = [
-    {'name': 'sleeveLeft', 'at': (0.099, 0.922)},
-    {'name': 'sleeveRight', 'at': (0.901, 0.922)},
-    {'name': 'gloveLeft', 'at': (0.196, 0.739)},
-    {'name': 'gloveRight', 'at': (0.799, 0.707)},
-    {'name': 'mirrorLeft', 'at': (0.302, 0.470)},
-    {'name': 'mirrorRight', 'at': (0.698, 0.470)},
-    {'name': 'barLeft', 'at': (0.391, 0.703)},
-    {'name': 'barRight', 'at': (0.607, 0.703)},
+    {'name': 'sleeveLeft', 'at': (0.0894, 0.9160)},
+    {'name': 'sleeveRight', 'at': (0.9106, 0.9151)},
+    {'name': 'gloveLeft', 'at': (0.2041, 0.6877)},
+    {'name': 'gloveRight', 'at': (0.7964, 0.6877)},
+    {'name': 'gloveLeftLower', 'at': (0.1860, 0.7550)},
+    {'name': 'gloveRightLower', 'at': (0.8135, 0.7550)},
+    {'name': 'mirrorLeft', 'at': (0.3125, 0.4698)},
+    {'name': 'mirrorRight', 'at': (0.6870, 0.4698)},
+    {'name': 'barLeft', 'at': (0.4111, 0.7060)},
+    {'name': 'barRight', 'at': (0.5840, 0.7069)},
 ]
 
 

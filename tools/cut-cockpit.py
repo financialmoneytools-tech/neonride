@@ -75,11 +75,46 @@ SOURCES = {
     'wide': {
         'source': 'art/cockpit/cockpit-wide-source.jpg',
         'target': 'public/sprites/cockpit.png',
-        # Somewhere inside the blank panel. Only the seed is authored; the
-        # rectangle is measured out from it, so a redrawn source moves the hole
-        # without anybody editing a number - and if the seed stops landing on a
-        # rectangle the script refuses to cut rather than punching a hole
-        # through the fairing, which is how the last redraw was caught.
+
+        # ================= THIS SOURCE HAS NO BLANK PANEL =================
+        #
+        # `seed` is the original mechanism and the better one: a point inside a
+        # blank instrument panel, from which the rectangle is MEASURED, so a
+        # redraw moves the hole without anybody editing a number. It needs the
+        # artist to leave the cluster blank.
+        #
+        # This drawing does not. It carries a fully drawn analogue tachometer -
+        # needle, scale, numbers - and a small LCD, so there is no flat panel to
+        # find and the seeded flood correctly refuses: it reported a fill of
+        # 0.52 against the 1.000 a real panel gives. The art was kept anyway
+        # because its landmarks matched the framing contract to within 0.03
+        # points, and regenerating art that fits that well to fix a hole is the
+        # wrong trade.
+        #
+        # So the rectangle is AUTHORED for this source, measured off the
+        # punched sprite rather than eyeballed. It covers THE TACHO DIAL. The
+        # housing, its bezel, the surrounding fairing, the brake reservoir, the
+        # left hand column of warning lamps and the green and amber lamps below
+        # the dial all survive, which is what makes the live dash read as
+        # sitting inside real instrument housing rather than in a hole cut
+        # through the bike.
+        #
+        # THE SMALL LCD BESIDE THE DIAL IS NOT PUNCHED, and that is a trade
+        # rather than an oversight. It sits at x 0.545 to 0.565. Reaching it
+        # means a hole 0.125 wide, and the dash is 16:9, so the height goes with
+        # it: y 0.520 to 0.646. That cuts through the housing bezel at 0.525 AND
+        # swallows the green and amber lamps at 0.632 to 0.642. Keeping the
+        # housing and the warning lamps was the stated requirement and the LCD
+        # was not worth either of them - left drawn, it reads as a static trip
+        # meter beside a live gauge, which is what a real cluster looks like.
+        #
+        # The hole is 209 x 117 px on the shipped sprite against the old
+        # drawing's 126 x 71: the dash is 66 per cent larger, which is what the
+        # redraw was for.
+        #
+        # A FUTURE REDRAW SHOULD LEAVE THE CLUSTER BLANK and delete this, which
+        # puts the seeded measurement back. See ASSETS.md.
+        'face': (0.4420, 0.5316, 0.5440, 0.6345),
         'seed': (0.50, 0.59),
     },
 }
@@ -246,7 +281,14 @@ def cut(name, spec, debug=False):
     unpremultiplied = (rgb - level * (1.0 - alpha[..., None])) / safe
     rgb = np.where(band[..., None], np.clip(unpremultiplied, 0, 255), rgb)
 
-    panel, fill = find_panel(rgb, spec['seed'])
+    if spec.get('face'):
+        # Authored, because this drawing has no blank panel to find. Still
+        # narrowed to the dash's own aspect below, so nothing is stretched.
+        face = spec['face']
+        panel = (face[0] * width, face[1] * height, face[2] * width, face[3] * height)
+        fill = None
+    else:
+        panel, fill = find_panel(rgb, spec['seed'])
     screen = dash_hole(panel, width, height)
     # Punched last, so nothing upstream mistakes it for background that leaked.
     alpha[int(screen[1] * height):int(screen[3] * height),
@@ -295,7 +337,8 @@ def cut(name, spec, debug=False):
             'top': round(rows.min() / height * 100, 1),
             'bottom': round((height - rows.max()) / height * 100, 1),
         },
-        'panel_fill': round(fill, 3),
+        'panel': 'authored gauge face' if fill is None else 'measured from the seed',
+        'panel_fill': None if fill is None else round(fill, 3),
         'screen': rounded,
         'screen_pct': {
             'across': [round(screen[0] * 100, 1), round(screen[2] * 100, 1)],

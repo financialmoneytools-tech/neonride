@@ -111,11 +111,34 @@ export const cockpit = {
   // The hole cut in the alpha, in the image's own texture coordinates:
   // [u0, v0, u1, v1] from the top left.
   //
-  // MEASURED, not read off a grid. tools/cut-cockpit.py grows the blank panel
-  // from a seed inside it, narrows the result to the dash's own 16:9 so nothing
-  // is stretched, punches that, and prints it. It also reads this number back
-  // and says CONFIG_DISAGREES if it has drifted from what was just cut, which
-  // is the failure this duplication invites and the reason it is checked rather
-  // than merely warned about in a comment.
-  screen: [0.4697, 0.5703, 0.5310, 0.6322],
+  // AUTHORED FOR THIS SOURCE, and that is a step backwards taken deliberately.
+  //
+  // It used to be MEASURED: cut-cockpit.py grew the blank instrument panel from
+  // a seed inside it, narrowed the result to the dash's own 16:9 so nothing was
+  // stretched, and printed it - so a redraw moved the hole without anybody
+  // editing a number. That needs the artist to leave the cluster blank.
+  //
+  // This drawing does not. It carries a fully drawn analogue tachometer and a
+  // small LCD, so there is no flat panel to find and the seeded flood correctly
+  // refused, reporting a fill of 0.52 against the 1.000 a real panel gives. The
+  // art was kept because its landmarks matched the framing contract to within
+  // 0.03 points, and regenerating art that fits that well to fix a hole is the
+  // wrong trade. So the rectangle is written down, in cut-cockpit.py's SOURCES
+  // under `face`, and copied here.
+  //
+  // It covers THE TACHO DIAL. The housing, its bezel, the surrounding fairing,
+  // the brake reservoir, the left hand warning column and the green and amber
+  // lamps below the dial all survive, which is what makes the live dash read as
+  // sitting inside real instrument housing rather than in a hole cut through
+  // the bike. The small LCD beside the dial is deliberately left drawn - see
+  // tools/cut-cockpit.py for what reaching it would have cost. 209 x 117 px on
+  // the shipped sprite against the old drawing's 126 x 71.
+  //
+  // cut-cockpit.py still reads this number back and still says
+  // CONFIG_DISAGREES if the two drift apart. One punches the alpha and the
+  // other places the dash; a comment asking them to match is not a check.
+  //
+  // A FUTURE REDRAW SHOULD LEAVE THE CLUSTER BLANK, which puts the measurement
+  // back and makes this comment deletable. See ASSETS.md.
+  screen: [0.442, 0.5317, 0.544, 0.6344],
 };
