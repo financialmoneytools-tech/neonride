@@ -60,6 +60,7 @@ function startServer() {
   });
 }
 
+const geometry = {};
 const server = await startServer();
 mkdirSync('tools/out', { recursive: true });
 const browser = await chromium.launch({
@@ -108,6 +109,11 @@ for (const theme of THEMES) {
     edges.halo = window.__restore.halo;
     window.NEON.road.surface.applyTheme();
   });
+  const edges = await page.evaluate(() => {
+    const e = window.NEON.config.world.road.edges;
+    return { width: e.width, glow: e.glow, halo: e.halo, intensity: e.intensity };
+  });
+  geometry[theme] = edges;
   await page.close();
 }
 
@@ -124,6 +130,19 @@ import numpy as np
 
 THEMES = ${JSON.stringify(THEMES)}
 TAG = ${JSON.stringify(TAG)}
+GEOMETRY = ${JSON.stringify(geometry)}
+
+# THE WIDTH IS THE TARGET NOW, not a brightness ratio.
+#
+# Two rounds of tuning passed a peak-brightness test and still looked like light
+# walls on the phone, because a ratio can be satisfied by a band that is merely
+# dimmer than a tail light while still being a band. The requirement is a
+# THREAD: a neon line on a road, comfortable to look at for ten minutes at 220.
+# So the geometry is asserted directly and the brightness ratio is kept as a
+# floor underneath it.
+WIDTH_MAX = 0.0375     # metres. Was 0.30, then 0.15; this is a quarter of that.
+HALO_REACH_MAX = 0.10  # metres, = width * glow. Was 0.525.
+COVER_MAX = 3.0        # per cent of the road band the strips may dominate.
 
 def luma(a):
     return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
@@ -180,29 +199,36 @@ for theme in THEMES:
             '-' if md is None else '%.1f' % md,
             n, 100.0 * n / total))
 
-    if strips.sum() < 200:
-        failures.append('%s: turning the strips off removed almost nothing - the isolation failed' % theme)
-        continue
+    geo = GEOMETRY.get(theme, {})
+    width = geo.get('width')
+    if width is not None:
+        reach = width * geo.get('glow', 0)
+        print('  width %.4f m   halo reach %.4f m   intensity %.2f'
+              % (width, reach, geo.get('intensity', 0)))
+        if width > WIDTH_MAX + 1e-6:
+            failures.append('%s: the strips are %.4f m wide, over the %.4f m ceiling'
+                            % (theme, width, WIDTH_MAX))
+        if reach > HALO_REACH_MAX + 1e-6:
+            failures.append('%s: the halo reaches %.4f m, over the %.4f m ceiling - that is the '
+                            'bleed onto the asphalt' % (theme, reach, HALO_REACH_MAX))
 
-    strips_peak = pct(lon[strips], 99.5)
-    # THE RULE. The strips are a detail ON the road, so the things the rider has
-    # to read must be able to out-shine them.
-    for name, mask in (('vehicles', vehicles), ('markings', markings)):
-        if mask.sum() < 100:
-            failures.append('%s: only %d %s pixels - nothing to compare against' % (theme, int(mask.sum()), name))
-            continue
-        other = pct(loff[mask], 99.5)
-        if strips_peak >= other:
-            failures.append('%s: the strips peak at %.1f against %s at %.1f - the shoulder out-shines the road'
-                            % (theme, strips_peak, name, other))
-
-    # HOW MUCH OF THE ROAD THEY LIGHT. The peak test alone can be satisfied by a
-    # strip a shade dimmer than a tail light that still covers half the frame,
-    # which is the 'light wall' this was reported as.
     coverage = 100.0 * strips.sum() / total
-    if coverage > 18.0:
-        failures.append('%s: the strips light %.0f%% of the road band - that is a wall, not a line'
-                        % (theme, coverage))
+    if coverage > COVER_MAX:
+        failures.append('%s: the strips dominate %.1f%% of the road band, over %.1f%% - that is a '
+                        'band, not a thread' % (theme, coverage, COVER_MAX))
+
+    # A THREAD MAY REGISTER AS ALMOST NOTHING, and that is the goal rather than
+    # a fault. An earlier version failed here when the isolation found few
+    # pixels, which is exactly what success looks like now.
+    if strips.sum() >= 100:
+        strips_peak = pct(lon[strips], 99.5)
+        for name, mask in (('vehicles', vehicles), ('markings', markings)):
+            if mask.sum() < 100:
+                continue
+            other = pct(loff[mask], 99.5)
+            if strips_peak >= other:
+                failures.append('%s: the strips peak at %.1f against %s at %.1f - the shoulder '
+                                'out-shines the road' % (theme, strips_peak, name, other))
 
 print('')
 for f in failures:

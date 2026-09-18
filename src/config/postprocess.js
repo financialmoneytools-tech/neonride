@@ -37,7 +37,19 @@ export const postprocess = {
   // highlights, which is why strength and radius are kept low: at 0.9 and 0.5
   // the edge lines stop being lines and become a wash that swallows the hands.
   bloom: {
-    strength: 0.45,
+    // CUT FOR LONG-SESSION COMFORT, and it is the measured cause rather than a
+    // taste change. With the edge strips reduced to a thread, an ablation from
+    // one frozen frame showed bloom was still the largest single contributor of
+    // light to the road band - 13.0 mean against the strips' 0.8 - and what it
+    // was amplifying was the pale snow verge, which came back as a wide glowing
+    // band along the shoulder. That is the 'light wall' that survived two
+    // rounds of narrowing the strips, because the strips were never the whole
+    // of it.
+    //
+    // 0.45 -> 0.28 and the speed gain 0.15 -> 0.08. A ten minute ride at 220
+    // is the requirement, not a peak brightness ratio, and a frame that is
+    // uniformly hazed with glow is the thing that becomes tiring.
+    strength: 0.28,
     radius: 0.3,
     threshold: 0.8, // luminance a pixel must beat before it glows at all
 
@@ -50,7 +62,7 @@ export const postprocess = {
     // Added to strength at full speed. Small on purpose: the road fills more of
     // the frame as the speed field of view opens up, so the same bloom setting
     // is already doing more work at speed than it is at rest.
-    speedGain: 0.15,
+    speedGain: 0.08,
   },
 
   // Darkening toward the edges. `start` is where it begins, as a fraction of

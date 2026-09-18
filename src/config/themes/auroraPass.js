@@ -44,8 +44,13 @@ export const auroraPass = {
         // theme read: a pale verge throwing cool light back up, with a
         // brighter ploughed ridge hard against each edge of each carriageway.
         // Everything else here is detail on top of it.
-        groundColor: 0x3f5d70,
-        bankColor: 0x30475a,
+        // DIMMED. A pale verge is what makes this theme read, and under bloom
+        // it was the brightest thing in the frame - a wide glowing band along
+        // both shoulders that out-shone the road it was supposed to edge. Snow
+        // at night is not luminous; it is dark grey that happens to be paler
+        // than tarmac.
+        groundColor: 0x25333d,
+        bankColor: 0x1d2a35,
         bankWidth: 3.2,
 
         // Snow lies in the median too, so the barrier stands in white.

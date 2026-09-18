@@ -43,7 +43,7 @@ await p.evaluate(() => {
 await p.waitForTimeout(500);
 await p.screenshot({ path: `tools/out/ab-${theme}-base.png` });
 
-const names = ['edges', 'markings', 'roadside', 'bloom', 'sheen', 'oncoming'];
+const names = ['edges', 'markings', 'roadside', 'bloom', 'sheen', 'oncoming', 'banks', 'ground', 'streaks'];
 for (const name of names) {
   await p.evaluate((which) => {
     const road = window.NEON.config.world.road;
@@ -71,6 +71,18 @@ for (const name of names) {
     } else if (which === 'sheen') {
       const v = road.surface.sheenStrength; road.surface.sheenStrength = 0; N.road.surface.applyTheme();
       window.__undo.push(() => { road.surface.sheenStrength = v; N.road.surface.applyTheme(); });
+    } else if (which === 'streaks') {
+      const st = N.config.postprocess.streaks; const v = st.strength;
+      st.strength = 0;
+      window.__undo.push(() => { st.strength = v; });
+    } else if (which === 'banks') {
+      const su = road.surface; const c = su.bankColor; const w = su.bankWidth;
+      su.bankColor = 0x000000; su.bankWidth = 0; N.road.surface.applyTheme();
+      window.__undo.push(() => { su.bankColor = c; su.bankWidth = w; N.road.surface.applyTheme(); });
+    } else if (which === 'ground') {
+      const su = road.surface; const c = su.groundColor;
+      su.groundColor = 0x000000; N.road.surface.applyTheme();
+      window.__undo.push(() => { su.groundColor = c; N.road.surface.applyTheme(); });
     } else if (which === 'oncoming') {
       N.oncoming.group.visible = false;
       window.__undo.push(() => { N.oncoming.group.visible = true; });

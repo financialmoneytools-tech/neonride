@@ -139,8 +139,21 @@ What causes it here, in the order that matters:
    speed cue and a strong trigger, and the one nobody thinks to name.
 4. **Speed shake.** Small, fast, unpredictable; the hardest to ignore.
 
+5. **Sustained brightness.** Not a flash and not motion: a frame that is
+   uniformly bright or hazed with glow is tiring to look at for ten minutes at
+   220 km/h, which is the length of a real session and the length of a
+   recording. The edge lines were reported as "wide white-hot bands along both
+   shoulders" THREE TIMES before this was written down as a rule rather than
+   treated as a taste argument.
+
 Rules:
 
+- **The neon edge lines are a THREAD, and `npm run bright` holds them to it.**
+  Width at most 0.0375 m, halo reach - `width * glow` - at most 0.10 m, and they
+  may dominate at most 3 per cent of the road band. They must never out-shine
+  the vehicle lights or the lane markings. A brightness RATIO alone is not
+  enough and was tried twice: a band merely dimmer than a tail light is still a
+  band, so the geometry is asserted directly.
 - `config/comfort.js` owns the reduced motion scales. Anything new that moves
   the camera or scrolls a pattern **must go through `motionScale()`** in
   `core/Comfort.js`, not read its amplitude straight from config.

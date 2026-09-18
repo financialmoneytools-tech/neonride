@@ -141,10 +141,20 @@ export const road = {
   edges: {
     leftColor: 0x22f7ff, // cyan, the median side
     rightColor: 0xff2bd0, // magenta, the shoulder side
-    width: 0.15, // halved
-    glow: 3.5, // halo reach as a multiple of width; was 7.0
-    intensity: 0.55, // under bloom.threshold 0.8 once encoded
-    halo: 0.14,
+    // THREAD THIN, IN METRES. 0.30 -> 0.15 -> 0.0375: a quarter of the last
+    // value and an eighth of the original. A real motorway edge line is about
+    // 0.15 m of paint, so this is deliberately NARROWER than real paint - it is
+    // a lit thread laid on the road, not a painted line, and the painted line
+    // beside it (markings.edgeWidth 0.2) is what carries the road's own edge.
+    width: 0.0375,
+    // AND THE HALO REACHES width * glow. That is what actually widened them:
+    // at 0.15 x 3.5 the glow bled 0.525 m across the asphalt either side, which
+    // is a third of a lane. Now 0.0375 x 2.0 = 0.075 m - seven times tighter.
+    glow: 2.0,
+    // Under bloom.threshold 0.8 once encoded, so the strips contribute nothing
+    // to the bloom pass and their own emissive colour is all that carries them.
+    intensity: 0.55,
+    halo: 0.05,
   },
 
   // PAINTED LANE MARKINGS. Plain white road paint, world-locked: they do not
