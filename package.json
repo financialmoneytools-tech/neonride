@@ -13,7 +13,8 @@
     "dev:tunnel:server": "vite --config vite.tunnel.config.js --host",
     "smoke": "node tools/smoke-mobile.mjs",
     "flash": "node tools/flash-probe.mjs",
-    "themes": "node tools/theme-check.mjs"
+    "themes": "node tools/theme-check.mjs",
+    "gate": "node tools/gate-probe.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

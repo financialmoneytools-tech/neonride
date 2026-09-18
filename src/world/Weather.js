@@ -187,14 +187,17 @@ export class Weather {
    * @param {'snow'|'rain'|'dust'|null} kind
    */
   setKind(kind) {
+    if (this.fade === undefined) this.fade = 1;
     const preset = kind && config.world.weather.kinds[kind];
     this.kind = preset ? kind : null;
     this.preset = preset || null;
     this.flakes.visible = !!preset;
+    // A new kind arrives at full strength unless a blend is driving `fade`.
+    this.fade = preset ? 1 : 0;
     if (!preset) return;
 
     this.material.uniforms.uColor.value.set(preset.color);
-    this.material.uniforms.uOpacity.value = preset.opacity;
+    this.material.uniforms.uOpacity.value = preset.opacity * this.fade;
     this.material.uniforms.uSize.value = preset.size;
 
     // Per particle velocity, scattered so the fall is not a single sheet. The
@@ -206,6 +209,25 @@ export class Weather {
       this._velocity[at + 2] = preset.drift[1] * (this.rng.next() * 2 - 1);
     }
     this.geometry.attributes.aVelocity.needsUpdate = true;
+  }
+
+  /**
+   * Ramps the weather in or out, 0..1. A road change is a BLEND, and snow that
+   * appears in one frame is a cut - so the fall is faded rather than switched.
+   *
+   * Two things this has to get right. The particles are kept alive while the
+   * fade runs, because update() returns early with no preset and a field frozen
+   * mid air is more obvious than one that is thinning. And the mesh is switched
+   * off outright at zero rather than left transparent: a Points cloud still
+   * submits its draw call and all of its vertices however invisible it is, and
+   * that was measured on the scenery.
+   * @param {number} fade
+   */
+  setFade(fade) {
+    this.fade = Math.max(0, Math.min(1, fade));
+    if (!this.preset) return;
+    this.material.uniforms.uOpacity.value = this.preset.opacity * this.fade;
+    this.flakes.visible = this.fade > 0.004;
   }
 
   /**

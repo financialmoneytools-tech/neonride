@@ -45,6 +45,18 @@ export class Sky {
   }
 
   /**
+   * Pushes the current config into every sky element. Called when a road
+   * changes: the blend animates config, and this is the one call that copies it
+   * onto the GPU.
+   */
+  applyTheme() {
+    this.dome.applyTheme();
+    this.starfield.applyTheme();
+    this.nebula.applyTheme();
+    this.aurora.applyTheme();
+  }
+
+  /**
    * @param {number} dt
    */
   update(dt) {

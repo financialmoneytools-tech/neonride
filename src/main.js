@@ -35,6 +35,10 @@ import { Orientation } from './core/Orientation.js';
 import { Rider } from './player/Rider.js';
 import { Cockpit } from './player/Cockpit.js';
 import { Postprocess } from './fx/Postprocess.js';
+import { Selection } from './game/Selection.js';
+import { SelectFlow } from './ui/SelectFlow.js';
+import { ThemeBlend } from './world/ThemeBlend.js';
+import { ThemeGate } from './world/ThemeGate.js';
 import { Flash } from './fx/Flash.js';
 
 /**
@@ -75,8 +79,25 @@ const device = new Device();
 // parameter is a starting position, not a lock.
 const params = new URLSearchParams(location.search);
 
+// WHAT THE PLAYER CHOSE, read before anything is built. The bike's patch
+// changes how the machine behaves and the road decides what is constructed, so
+// both have to land before the world does. `?theme=` and `?bike=` override the
+// stored choice, for a phone with no keyboard and for every tool that drives
+// this build.
+const selection = new Selection();
+const forcedBike = params.get('bike');
+if (forcedBike && config.bikes[forcedBike]) selection.bike = forcedBike;
+selection.applyBike();
+
+// `?theme=mixed` asks for the changing road, which is not a theme and cannot be
+// handed to the selector - it is a request to keep changing. Handled here so
+// every tool can reach it, since god mode skips the screen that would set it.
+const askedTheme = params.get('theme');
+if (askedTheme === config.MIXED) selection.road = config.MIXED;
+else if (askedTheme && config.themes[askedTheme]) selection.road = askedTheme;
+
 const themes = new PatchSelector(config, config.themes, config.theme);
-themes.select(params.get('theme') || config.theme);
+themes.select(selection.startingRoad);
 
 // Motion comfort. NOT a theme: it has to work mid-run, from a toggle somebody
 // reaches for because they have started to feel unwell, so every value it
@@ -104,6 +125,23 @@ const scenery = new Scenery(engine.scene, road);
 const weather = new Weather(engine.scene, engine.camera, engine.renderer);
 const oncoming = new Oncoming(engine.scene, road);
 const mountains = new Mountains(engine.scene);
+
+// THE ROAD CAN CHANGE WITHOUT A RELOAD. ThemeBlend interpolates every
+// continuous value straight into config and asks each module to copy it onto
+// the GPU; ThemeGate is the lit arch that announces the change and the shape
+// the staged run's checkpoints will be placed with. See world/ThemeBlend.js for
+// what it refuses to touch and why.
+const gate = new ThemeGate(engine.scene, road);
+const themeBlend = new ThemeBlend({
+  sky,
+  roadMaterial: road.surface,
+  roadside,
+  median,
+  mountains,
+  weather,
+  scenery,
+  fog: engine.scene.fog,
+});
 const bike = new BikePhysics(engine.camera, road.path, framing);
 // THE COCKPIT, either photographed or built. Both present the same three
 // things - a group on the camera, update(dt, state) and dispose() - so nothing
@@ -247,6 +285,10 @@ loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
 // AFTER traffic, which raises the hit and near miss totals it watches, and
 // BEFORE post, which only paints whatever it resolved this frame.
+// The gate watches for the crossing and the blend runs from it. Both before
+// the flash, so a crossing lights the frame on the frame it happens.
+loop.add((dt, state) => gate.update(dt, state));
+loop.add((dt) => themeBlend.update(dt));
 loop.add((dt, state) => flash.update(dt, state));
 loop.add((dt, state) => post.update(dt, state));
 // After everything that writes to state, because every voice in it is driven
@@ -256,7 +298,13 @@ if (stats) loop.add((dt, state) => stats.update(dt, state));
 // The hints fade on their own, and vanish outright once a recording starts.
 loop.add((dt) => {
   hints.update(dt);
-  const clean = controls.enabled && !config.autopilot.enabled && !config.capture.enabled;
+  // NOT WHILE A CARD IS UP. The hints are pictures of the driving controls -
+  // FREN, GAZ and the touch bands - and a selection screen is a card over a
+  // world that is still running, so without this they sit across the bike and
+  // road screens telling somebody how to brake while they are choosing a
+  // motorcycle.
+  const clean = controls.enabled && !config.autopilot.enabled
+    && !config.capture.enabled && !menuOpen();
   hints.setVisible(clean);
   // Same rule: nothing of ours in a recording. Also hidden while the card is
   // already up, where it would sit on top of the panel it opened.
@@ -442,6 +490,82 @@ window.addEventListener('pointerdown', unlockAudio, true);
 window.addEventListener('touchend', unlockAudio, true);
 window.addEventListener('keydown', unlockAudio, true);
 
+/**
+ * THE MIXED ROAD: TÜM YOLLAR.
+ *
+ * Every few kilometres a gate is placed ahead; passing through it flashes and
+ * blends the world into the next built road. The change is announced rather
+ * than sprung, and it happens AS the rider goes through rather than when the
+ * arch appears, so the road behind the gate is the old one and the road beyond
+ * it is the new one.
+ *
+ * It runs in god mode too, and deliberately: a road changing under a light gate
+ * is the single best thing this game has to record, and a gate that only
+ * existed inside a scored run could never be filmed.
+ */
+let nextGateAt = 0;
+
+function roadAfter(current) {
+  const names = Object.keys(config.themes);
+  const at = names.indexOf(current);
+  return names[(at + 1) % names.length];
+}
+
+function armNextGate(fromDistance) {
+  nextGateAt = fromDistance + config.world.gate.everyMeters;
+}
+
+gate.onCross = () => {
+  const from = themes.name;
+  const next = roadAfter(from);
+  // ORDER MATTERS. The blend needs to be told where it is coming FROM before
+  // the selector is moved on, and the selector has to be moved on so that a
+  // pause, a stats readout or the next gate all agree with what is on screen.
+  themeBlend.start(from, next, config.world.gate.blendSeconds);
+  themes.select(next);
+  flash.fire('themeGate', loop.state);
+  armNextGate(loop.state.distance || 0);
+};
+
+loop.add((dt, state) => {
+  if (!selection.mixed) return;
+  const distance = state.distance || 0;
+  if (!nextGateAt) armNextGate(distance);
+  if (!gate.armed && distance >= nextGateAt - config.world.gate.ahead) {
+    gate.arm(distance);
+  }
+});
+
+/**
+ * Shows a road without committing to it, for the road screen. A preview of a
+ * place has to BE the place: a swatch would be a promise, and the whole reason
+ * this flow sits over a running world is that it does not have to make one.
+ */
+function previewRoad(name) {
+  const target = name === config.MIXED ? selection.startingRoad : name;
+  if (!config.themes[target] || target === themes.name) return;
+  themeBlend.start(themes.name, target, config.world.gate.blendSeconds * 0.5);
+  themes.select(target);
+}
+
+/** True while any card that owns the screen is up. */
+function menuOpen() {
+  return !start.started || selectFlow.open;
+}
+
+const selectFlow = new SelectFlow(document.body, selection, {
+  onBikePreview: (key) => {
+    // Colour only, and instant: four uniform writes on the cockpit sprite.
+    if (rider.setBike) rider.setBike(key);
+  },
+  onRoadPreview: previewRoad,
+  onDone: () => {
+    selection.applyBike();
+    nextGateAt = 0;
+    beginRun();
+  },
+});
+
 const start = new StartScreen(document.body, () => {
   audio.start(traffic);
   // iOS refuses DeviceOrientationEvent outside a user gesture, and this tap is
@@ -449,7 +573,7 @@ const start = new StartScreen(document.body, () => {
   // falls back to touch and says so once.
   if (controls.mode === 'tilt') controls.request();
   if (wantsGod) setAutopilot(true);
-  else beginRun();
+  else selectFlow.start();
 }, comfort);
 
 /**
@@ -477,7 +601,11 @@ function beginRun() {
  * rules, and the two would disagree the first time either changed.
  */
 function onPress(event) {
-  if (!start.started) return; // the card has its own listener until it is gone
+  // A selection screen owns the frame while it is up, and its buttons stop
+  // their own events - but a tap on the BACKGROUND would otherwise reach here
+  // and be read as "restart the run". The screens are a card over a running
+  // world, so there is always background to hit.
+  if (menuOpen()) return; // the cards have their own listeners until they are gone
   if (event.type === 'keydown') {
     const key = event.key;
     if (key === 'Shift' || key === 'Control' || key === 'Alt' || key === 'Meta') return;
@@ -530,7 +658,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, themeBlend, selection, selectFlow, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -552,6 +680,9 @@ function disposeAll() {
   viewport.dispose();
   post.dispose();
   flash.dispose();
+  selectFlow.dispose();
+  themeBlend.dispose();
+  gate.dispose();
   rider.dispose();
   autopilot.dispose();
   bike.dispose();

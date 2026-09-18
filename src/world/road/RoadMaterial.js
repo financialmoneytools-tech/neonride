@@ -150,6 +150,60 @@ export class RoadMaterial {
   }
 
   /**
+   * Pushes the current config into the uniforms. Called when a road changes.
+   *
+   * WHAT IS NOT HERE, and why the road can transition at all: the carriageway.
+   * Every lateral position comes from world/road/layout.js and no theme touches
+   * it, so lanes, edges, the median and the shoulder stay exactly where they
+   * are through a change. A road whose lanes moved under the traffic would not
+   * be a transition, it would be a different game arriving mid corner.
+   *
+   * STRIP_COUNT is a shader define and cannot move. Both built themes declare
+   * four lanes with identical anchors, insets, widths, repeats and duties -
+   * only colour and intensity differ - so the count is stable and only those
+   * two arrays are written. A theme with a different lane count would need a
+   * program recompile, which is why tools/theme-check.mjs watches for it.
+   */
+  applyTheme() {
+    const road = config.world.road;
+    const marks = road.markings;
+    const strips = road.strips;
+    const u = this.material.uniforms;
+
+    u.uAsphaltColor.value.set(road.surface.asphaltColor);
+    u.uVoidColor.value.set(road.surface.voidColor);
+    u.uMedianColor.value.set(road.surface.medianColor);
+    u.uOncomingDim.value = road.surface.oncomingDim;
+    u.uGroundColor.value.set(road.surface.groundColor);
+    u.uBankColor.value.set(road.surface.bankColor);
+    u.uBankWidth.value = road.surface.bankWidth;
+    u.uSheenColor.value.set(road.surface.sheenColor);
+    u.uSheenStrength.value = road.surface.sheenStrength;
+    u.uSheenPower.value = road.surface.sheenPower;
+    u.uNeonFadeStart.value = road.surface.neonFadeStart;
+    u.uNeonFadeEnd.value = road.surface.neonFadeEnd;
+
+    u.uEdgeLeftColor.value.set(road.edges.leftColor);
+    u.uEdgeRightColor.value.set(road.edges.rightColor);
+    u.uEdgeWidth.value = road.edges.width;
+    u.uEdgeGlow.value = road.edges.glow;
+    u.uEdgeIntensity.value = road.edges.intensity;
+    u.uEdgeHalo.value = road.edges.halo;
+
+    u.uMarkColor.value.set(marks.color);
+    u.uMarkIntensity.value = marks.intensity;
+
+    u.uStripSoftness.value = strips.softness;
+    u.uStripGlow.value = strips.glow;
+    u.uStripHalo.value = strips.halo;
+    const lanes = strips.lanes;
+    for (let i = 0; i < u.uStripColor.value.length && i < lanes.length; i++) {
+      u.uStripColor.value[i].set(lanes[i].color);
+      u.uStripIntensity.value[i] = lanes[i].intensity;
+    }
+  }
+
+  /**
    * @param {number} dt
    * @param {number} bikeSpeed world units per second the bike is travelling
    */

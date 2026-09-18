@@ -22,6 +22,7 @@ const _position = new THREE.Vector3();
 const _tangent = new THREE.Vector3();
 const _lateral = new THREE.Vector3();
 const _forward = new THREE.Vector3();
+const _tubeColor = new THREE.Color();
 
 /**
  * The most pylons per chunk any theme asks for, including the base config.
@@ -213,6 +214,26 @@ export class Roadside {
 
     this.posts.instanceMatrix.needsUpdate = true;
     this.tubes.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Pushes the current config into the instance colours and the station count.
+   * Called when a road changes.
+   *
+   * The colours are per INSTANCE rather than per material - each pylon alternates
+   * left and right down the buffer - so this re-lerps and re-uploads the whole
+   * colour buffer. It is 160 instances; it costs nothing measurable and it is
+   * the only way the two verges can carry different colours at two draw calls.
+   */
+  applyTheme() {
+    const side = config.world.roadside;
+    const count = this.tubes.count;
+    for (let i = 0; i < count; i++) {
+      _tubeColor.set(i % 2 === 0 ? side.rightColor : side.leftColor);
+      this.tubes.setColorAt(i, _tubeColor);
+    }
+    if (this.tubes.instanceColor) this.tubes.instanceColor.needsUpdate = true;
+    this.setStations(side.stationsPerChunk);
   }
 
   /**

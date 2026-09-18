@@ -75,6 +75,146 @@ bug even if gameplay is fine.
   and pauses a running session; orientation lock and fullscreen are requested on
   first touch and allowed to fail.
 
+## Bikes, selection screens and live road changes
+
+**Four bikes, one drawing.** `config/bikes.js` holds VOLT, NOVA, EMBER and
+FROST. They are colourways of the single cockpit sprite, recoloured by
+`player/cockpit/paint.js` from a three channel mask that `tools/paint-mask.py`
+derives from the sprite itself. The cockpit lesson stands: four separately
+generated drawings would be four sets of relationships and three chances to get
+them wrong.
+
+The mask is **regional, not chromatic**, and that was settled by measuring the
+art rather than by trying. There is no colour separation between the bike and
+the rider - the fairing is RGB 34,36,51 at 0.43 saturation and the gloves are
+38,49,61 at 0.45, and 87 per cent of every coloured pixel in the image sits
+between 180 and 225 degrees of hue. The line art is what separates them, so the
+mask comes from labelling the connected components of everything that is not
+ink. Only the seeds are authored, one per part, each the DEEPEST point inside
+its region rather than its centroid - a centroid is only guaranteed to be inside
+a convex shape, and the fairing is a horseshoe around the dash while the tank
+has the filler cap punched out of its middle.
+
+The recolour is **not a hue rotation**. 69 per cent of the fairing sits below
+luminance 40 where hue is invisible; a rotation gives four black bikes with
+differently tinted edges. It keeps luminance exactly, replaces chroma, and lifts
+chroma as luminance falls.
+
+`maxSpeed` is **not a per-bike knob** and must never become one. It is the
+normalisation constant for the whole traffic system - every vehicle stores its
+speed as a fraction of it - so a faster bike makes every car faster, cancels
+itself out, and invalidates every measured figure in this file. It stays 235 for
+all four; the bikes differ through drag, acceleration and brake.
+
+| bike | top speed | 0-100 | clean 5 km | lateral | brake |
+|---|---|---|---|---|---|
+| VOLT | 229.0 | 2.15 s | 23.15 s | 13.0 | 96 |
+| NOVA | 218.0 | **1.90 s** | 23.96 s | 13.2 | 94 |
+| EMBER | **235.0** | 2.43 s | **22.83 s** | 12.4 | 90 |
+| FROST | 224.0 | 2.24 s | 23.63 s | **14.4** | **108** |
+
+Spread: top speed 7.5 per cent, 0-100 **24.4**, lateral 15.1, brake 18.6. Top
+speed is the most compressed and that is quadratic drag, not timidity. The 5 km
+spread of 1.13 s is deliberately smaller than a medal band will be: choosing a
+bike must not buy a medal that riding did not earn.
+
+The windscreen tint was checked against the road before being kept. The
+windscreen is **opaque** in this drawing - alpha 255 across 99.98 per cent of it
+- so the rider looks over it rather than through it and the tint cannot hide
+traffic.
+
+### The selection screens
+
+`title -> bike -> road -> run`. `ui/SelectFlow.js` owns the sequence,
+`ui/select/SelectScreen.js` is the shape both share, and `game/Selection.js` is
+what was chosen and where it is kept.
+
+The world is **already built and already running behind them**, which is what
+makes the bike preview the actual cockpit rather than a picture of one. That is
+only possible because a road can now be changed live: before that, picking a
+road meant reloading, which would have thrown away the audio gesture the title
+card exists to collect.
+
+Every event is stopped on the card, in the capture phase for keys. `main.js`
+listens on the window and decides what a press means from the phase, and a card
+over a running world always has background to hit - without this, a tap beside a
+button restarts the run.
+
+The driving hints are hidden while a card is up. They are pictures of the brake
+and the throttle, and they were sitting across the bike screen telling somebody
+how to stop while they chose a motorcycle.
+
+### Live road changes: the light gate
+
+**`?theme=mixed`**, or TÜM YOLLAR on the road screen. Every 2.6 km a lit arch is
+placed 900 units ahead; passing through it flashes and blends the world into the
+next built road over 3.2 s. It runs in god mode too, deliberately - a road
+changing under a light gate is the best thing this game has to record.
+
+`world/ThemeBlend.js` resolves both themes into full config snapshots,
+interpolates straight into the live `config`, and asks each module to copy
+config onto the GPU through its own `applyTheme()`. So `config` always describes
+what is on screen, and every module keeps one method that reads config rather
+than a second path that can rot.
+
+Four things had to be fixed before any of it could work, and each was a real
+wall rather than a tidy-up:
+
+1. **The aurora snapped 34 degrees.** The shader computed
+   `uArcCenter + uTime * uArcDrift` against an unbounded clock, so moving the
+   drift rate at t = 300 s moved the curtain's centre azimuth by 0.6 rad in one
+   frame, and re-phased every noise channel at once. Both rates are integrated
+   into phases on the CPU now. This is the fault most likely to have survived a
+   screenshot review and ruined a video.
+2. **`roadside.stationsPerChunk` sized an InstancedMesh** from a theme file -
+   the one thing `config/themes/index.js` says in capitals not to do. Found by
+   `tools/theme-check.mjs` on its first run. Roadside allocates at
+   `maxStationsPerChunk()` over every theme and scales the surplus to nothing.
+3. **The nebula had five masses on one road and two on the other**, which is an
+   allocation. Allocated at `maxClouds()` now, surplus faded out.
+4. **`stars.trailBrightness` was baked into ~36,000 floats.** It is an attribute
+   plus a uniform now.
+
+Also: the median cap is a unit box scaled by its instance matrix rather than a
+sized geometry, and the mountains' colour buffer carries both the layer colour
+and the **fog colour** - blend the fog and leave that buffer alone and every
+ridge grows a dark band along its foot.
+
+**`npm run gate`** measures it rather than admiring it: it records the sky and
+road colours every frame across a crossing and asserts each channel travels
+exactly the straight-line distance between the two roads. That is what caught
+the colour-key bug - `isColorKey` tested only for a `color` suffix, and the sky
+writes colour as a PREFIX (`colorTop`, `colorLow`), so every sky colour was
+being interpolated as a plain integer. Measured: the dome's channels moved
+**18818** units of RGB across a transition whose endpoints are **32** apart,
+lurching up to 429 in a single frame. After the fix, 32 travelled to cover 32.
+
+The gate's legs are lit. They were `0x0b0d18` against a black sky and the beam
+read as a glowing bar hanging in the air with nothing holding it up - the
+identical fault the roadside pylons had, photographed and fixed once already.
+
+### Traffic is shared, and checked
+
+Approved after playing on the phone: the ramping density model is a requirement
+for **every** road. A theme may set `world.traffic.mix` (how many of each type
+are live) and `world.traffic.look` (their paint) and nothing else. The density
+curve, the guaranteed escape lane, the no-walls rule and the speed-aware spacing
+are one model. `npm run themes` fails any theme that reaches past those two
+keys, and verified by introducing one that does.
+
+`mix` can only THIN - the pools are allocated at the union of every theme's
+needs and a multiplier above 1 is clamped - so a theme still cannot allocate.
+
+### Checks
+
+    npm run build     npm run smoke     npm run themes
+    npm run flash     npm run gate      node tools/measure-cockpit.mjs
+    python tools/paint-mask.py --debug
+
+`smoke` now walks title -> bike -> road -> run at both 1280x720 and **740x320**,
+and checks at each screen that every button is inside the viewport, at least
+28 px tall, and that the driving hints are not showing over it.
+
 ## The cockpit lesson - do not repeat this
 
 The most expensive part of the project was trying to build the rider's hands
@@ -120,11 +260,15 @@ that chose a source by frame shape, and the second (tall) framing profile.
 2. **Cockpit art is not wide enough.** See open issues - this is now the thing
    holding the framing back.
 3. **Production build** - Vite build, deploy to Vercel.
-4. **Road themes** - step 2 of 3 done. `docs/THEMES.md` is the plan. Built: the
-   four lane highway, trucks, the theme system, GALAXY ROAD and AURORA PASS.
-   Left for step 3: Sunset Highway, Neon Metropolis (with the wet road), Nebula
-   Coast, Red Planet, and the transitions through a light gate.
-5. **Bike library** - naked and concept bikes, each a cockpit sprite.
+4. **Road themes** - the transitions are BUILT. `docs/THEMES.md` is the plan.
+   Built: the four lane highway, trucks, the theme system, GALAXY ROAD, AURORA
+   PASS, and the light gate with a live blend between them. Left: Sunset
+   Highway, Neon Metropolis (with the wet road), Nebula Coast and Red Planet -
+   four places, on machinery that now exists and is measured by `npm run gate`.
+5. **Bike library** - DONE for colourways: four bikes off one drawing. Naked and
+   concept bikes would each need their own cockpit sprite and are not scheduled.
+6. **Every run needs a finish** - the staged 5 km run, checkpoints on the gate
+   that now exists, and a results screen with medals. Planned, not built.
 
 ## Open issues
 

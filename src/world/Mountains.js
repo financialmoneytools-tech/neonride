@@ -20,6 +20,7 @@ import { createNoise2D, createFbm2D } from '../utils/noise.js';
  */
 
 const _color = new THREE.Color();
+const _fogColor = new THREE.Color();
 
 export class Mountains {
   /** @param {THREE.Scene} scene */
@@ -54,7 +55,9 @@ export class Mountains {
     this.slabs = [];
 
     for (let layerIndex = 0; layerIndex < cfg.layers.length; layerIndex++) {
-      const layer = cfg.layers[layerIndex];
+      // The index travels with the layer so a slab can find its own entry
+      // again when a road change moves the colours and the heights.
+      const layer = Object.assign({ index: layerIndex }, cfg.layers[layerIndex]);
 
       for (let s = 0; s < 2; s++) {
         const sign = s === 0 ? 1 : -1;
@@ -117,7 +120,55 @@ export class Mountains {
     mesh.name = 'MountainSlab';
     mesh.position.x = sign * layer.distance;
 
-    return { mesh, positions, lane, start: 0, height: layer.height, floor: layer.floor };
+    return {
+      mesh, positions, colors, lane, start: 0,
+      sign, layerIndex: layer.index,
+      height: layer.height, floor: layer.floor,
+    };
+  }
+
+  /**
+   * Pushes the current config into every slab. Called when a road changes.
+   *
+   * THE RIDGE COLOUR BUFFER CARRIES TWO THEME VALUES, and that is why this is
+   * not just a material colour. The peak row holds the layer's own colour and
+   * the base row holds THE FOG COLOUR, which is what makes a ridge melt into
+   * the horizon instead of standing on it. Blend the fog and leave the buffer
+   * alone and every ridge grows a dark band along its foot.
+   *
+   * It is 8 slabs of 58 vertices. Rewriting all of it every frame of a blend is
+   * cheaper than the branch that would avoid it.
+   */
+  applyTheme() {
+    const cfg = config.world.mountains;
+    this.group.visible = cfg.enabled !== false;
+    _fogColor.set(config.world.fog.color);
+
+    for (let i = 0; i < this.slabs.length; i++) {
+      const slab = this.slabs[i];
+      const layer = cfg.layers[slab.layerIndex];
+      if (!layer) continue;
+
+      slab.height = layer.height;
+      slab.floor = layer.floor;
+      slab.mesh.position.x = slab.sign * layer.distance;
+
+      _color.set(layer.color);
+      const colors = slab.colors;
+      for (let v = 0; v < colors.length; v += 6) {
+        colors[v] = _color.r;
+        colors[v + 1] = _color.g;
+        colors[v + 2] = _color.b;
+        colors[v + 3] = _fogColor.r;
+        colors[v + 4] = _fogColor.g;
+        colors[v + 5] = _fogColor.b;
+      }
+      slab.mesh.geometry.attributes.color.needsUpdate = true;
+      // The profile itself depends on height and floor, so it has to be
+      // rewritten too - a slab whose colour moved and whose silhouette did not
+      // is a ridge that changes hue without changing place.
+      this._fillSlab(slab);
+    }
   }
 
   /** Writes the ridge profile for a slab at its current start distance. */

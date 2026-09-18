@@ -101,6 +101,33 @@ export class SkyDome {
     this.mesh.frustumCulled = false;
   }
 
+  /**
+   * Pushes the current config into the uniforms. Called when a road changes.
+   *
+   * This class had no update() at all - every value was written once in the
+   * constructor and never again - so a road transition needed somewhere to
+   * write them. `radius` and the two segment counts stay out of it: they are
+   * the sphere, no theme touches them, and a theme that did would be
+   * allocating.
+   */
+  applyTheme() {
+    const c = config.sky.dome;
+    const glow = c.glow;
+    const u = this.material.uniforms;
+    u.uColorBase.value.set(c.colorBase);
+    u.uColorMid.value.set(c.colorMid);
+    u.uColorTop.value.set(c.colorTop);
+    u.uMidPoint.value = c.midPoint;
+    u.uGlowColor.value.set(glow.color);
+    u.uGlowIntensity.value = glow.intensity;
+    u.uGlowFalloff.value = glow.falloff;
+    u.uGlowDirection.value.set(
+      Math.cos(glow.elevation) * Math.cos(glow.azimuth),
+      Math.sin(glow.elevation),
+      Math.cos(glow.elevation) * Math.sin(glow.azimuth),
+    ).normalize();
+  }
+
   dispose() {
     this.geometry.dispose();
     this.material.dispose();

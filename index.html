@@ -639,7 +639,12 @@
         display: flex;
         gap: 10px;
         align-items: stretch;
-        justify-content: center;
+        /* `safe` matters here. With seven cards on a 740px phone the row is
+           wider than the viewport, and plain `center` centres the overflow -
+           which pushes the FIRST card off the left edge where it cannot be
+           scrolled back to. `safe center` falls back to flex-start the moment
+           it would overflow, so the row stays reachable from both ends. */
+        justify-content: safe center;
         max-width: 100%;
         overflow-x: auto;
         padding: 2px 2px 4px;

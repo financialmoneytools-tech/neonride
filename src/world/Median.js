@@ -27,6 +27,7 @@ const _position = new THREE.Vector3();
 const _tangent = new THREE.Vector3();
 const _lateral = new THREE.Vector3();
 const _forward = new THREE.Vector3();
+const _capScale = new THREE.Vector3();
 const _matrix = new THREE.Matrix4();
 
 export class Median {
@@ -53,7 +54,13 @@ export class Median {
     const length = this.spacing + cfg.overlap;
 
     this.wallGeometry = new THREE.BoxGeometry(cfg.width, cfg.height, length);
-    this.capGeometry = new THREE.BoxGeometry(cfg.capWidth, cfg.capHeight, length);
+    // A UNIT CAP, SCALED BY THE INSTANCE. Built at 1 x 1 x length so a theme
+    // can change the cap's width and height mid run: a BoxGeometry cannot be
+    // resized without allocating, and half of this was already live anyway -
+    // _fillChunk re-read `capHeight` for the instance Y on every chunk build,
+    // so a changed cap used to rise to its new height while keeping its old
+    // thickness, which is a worse artefact than not changing at all.
+    this.capGeometry = new THREE.BoxGeometry(1, 1, length);
 
     this.wallMaterial = new THREE.MeshBasicMaterial({ color: cfg.color });
     this.capMaterial = new THREE.MeshBasicMaterial({ color: cfg.capColor, toneMapped: false });
@@ -107,12 +114,35 @@ export class Median {
       _matrix.setPosition(x, _position.y + cfg.height * 0.5, z);
       this.wall.setMatrixAt(base + k, _matrix);
 
+      // The cap carries its size in its own matrix. Scale before position:
+      // makeBasis has already written the rotation, and scaling a basis in
+      // place is what keeps the cap square to the barrier under it.
+      _matrix.scale(_capScale.set(cfg.capWidth, cfg.capHeight, 1));
       _matrix.setPosition(x, _position.y + cfg.height + cfg.capHeight * 0.5, z);
       this.cap.setMatrixAt(base + k, _matrix);
     }
 
     this.wall.instanceMatrix.needsUpdate = true;
     this.cap.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Pushes the current config into the materials, and re-places every pooled
+   * chunk so a changed cap size is applied behind the rider as well as ahead.
+   */
+  applyTheme() {
+    const cfg = config.world.median;
+    this.wallMaterial.color.set(cfg.color);
+    this.capMaterial.color.set(cfg.capColor);
+    this.refill();
+  }
+
+  /** Re-places every pooled chunk. */
+  refill() {
+    const chunks = this.road.chunks;
+    for (let slot = 0; slot < chunks.length; slot++) {
+      this._fillChunk(slot, chunks[slot].chunkIndex);
+    }
   }
 
   dispose() {

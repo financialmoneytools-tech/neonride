@@ -11,6 +11,22 @@ import { createNebulaTexture } from '../../utils/textures.js';
 
 const TAU = Math.PI * 2;
 
+/**
+ * The most nebula masses any theme asks for, including the base sky.
+ *
+ * Read from the theme library rather than written down, so a new road raises
+ * the allocation by existing. Same rule as world/Roadside.js: a theme may not
+ * size a buffer, and the game is entitled to size one for all of them.
+ */
+function maxClouds() {
+  let most = config.sky.nebula.clouds.length;
+  for (const theme of Object.values(config.themes)) {
+    const clouds = theme && theme.sky && theme.sky.nebula && theme.sky.nebula.clouds;
+    if (Array.isArray(clouds) && clouds.length > most) most = clouds.length;
+  }
+  return most;
+}
+
 export class Nebula {
   /**
    * @param {ReturnType<import('../../utils/rng.js').createRng>} rng
@@ -42,7 +58,60 @@ export class Nebula {
       );
     }
 
-    this.clouds = settings.clouds.map((cloudConfig) => this._createCloud(cloudConfig, rng));
+    // ALLOCATED AT THE UNION over every theme, not at the fitted theme's count.
+    //
+    // A cloud is a Sprite and a SpriteMaterial, so the LENGTH of this array is
+    // an allocation: the base sky has five masses and Aurora Pass has two, and
+    // building only two would make it impossible to get five back without
+    // allocating mid run. The surplus is faded to nothing instead, which is the
+    // same answer scenery already gives for a prop kind at density zero.
+    const union = maxClouds();
+    this.clouds = [];
+    for (let i = 0; i < union; i++) {
+      // Built from whatever entry exists, falling back to the first so a sprite
+      // always has a texture and a sane scale before it is faded out.
+      const source = settings.clouds[i] || settings.clouds[0];
+      const cloud = this._createCloud(source, rng);
+      cloud.live = i < settings.clouds.length;
+      if (!cloud.live) cloud.baseOpacity = 0;
+      this.clouds.push(cloud);
+    }
+  }
+
+  /**
+   * Re-aims every cloud at the current config. Called when a road changes.
+   *
+   * Opacity is written to `baseOpacity` and NOT to the material: update() sets
+   * `material.opacity` from baseOpacity every single frame, so anything written
+   * straight to the material is overwritten before it is ever seen. That is the
+   * kind of thing which reads as "the blend does not work" and is really two
+   * writers on one value.
+   */
+  applyTheme() {
+    const settings = config.sky.nebula;
+    for (let i = 0; i < this.clouds.length; i++) {
+      const cloud = this.clouds[i];
+      const source = settings.clouds[i];
+      cloud.live = !!source;
+      if (!source) {
+        // A mass this road does not have. Faded rather than removed, so the
+        // road after it can have it back.
+        cloud.baseOpacity = 0;
+        continue;
+      }
+      cloud.material.color.set(source.color);
+      cloud.material.rotation = source.rotation;
+      cloud.baseOpacity = source.opacity;
+      cloud.baseScale = source.scale;
+      cloud.breathSpeed = source.breathSpeed;
+      cloud.breathAmount = source.breathAmount;
+      const horizontal = Math.cos(source.elevation) * source.distance;
+      cloud.sprite.position.set(
+        horizontal * Math.cos(source.azimuth),
+        Math.sin(source.elevation) * source.distance,
+        horizontal * Math.sin(source.azimuth),
+      );
+    }
   }
 
   _createCloud(cloudConfig, rng) {
@@ -96,6 +165,10 @@ export class Nebula {
       const wave = Math.sin(this.time * cloud.breathSpeed * TAU + cloud.phase);
 
       cloud.material.opacity = Math.max(0, cloud.baseOpacity * (1 + cloud.breathAmount * wave));
+      // A cloud faded to nothing still submits its draw call and its two
+      // triangles wherever it is. Switched off outright, the way an unused
+      // scenery kind is - parking is not free, and that was measured.
+      cloud.sprite.visible = cloud.material.opacity > 0.002;
 
       // A touch of scale breathing keeps the edges from looking pinned
       const scale = cloud.baseScale * (1 + 0.03 * wave);

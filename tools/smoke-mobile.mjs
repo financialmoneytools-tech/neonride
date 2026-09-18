@@ -275,6 +275,35 @@ async function panelGeometry(page) {
  * passes on the exact layout that was reported broken on the hardware.
  * @returns {Promise<string[]>} failures
  */
+/**
+ * Every pressable thing on a selection screen, against the viewport.
+ *
+ * Separate from panelGeometry because the pause card and these screens fail
+ * differently: the pause card overflows downward when its blocks stack, and
+ * these overflow SIDEWAYS when the road cards do not fit. Both end with a
+ * control nobody can reach and nothing to scroll.
+ */
+async function selectGeometry(page, selector, size) {
+  const bad = await page.evaluate((sel) => {
+    const root = document.querySelector(sel);
+    if (!root) return [];
+    const out = [];
+    for (const button of root.querySelectorAll('button')) {
+      if (button.disabled) continue;
+      const box = button.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) continue;
+      if (box.left < -1 || box.top < -1
+        || box.right > window.innerWidth + 1
+        || box.bottom > window.innerHeight + 1) {
+        out.push(`${button.className.split(' ')[0]} at ${Math.round(box.left)},`
+          + `${Math.round(box.top)} ${Math.round(box.width)}x${Math.round(box.height)}`);
+      }
+    }
+    return out;
+  }, selector);
+  return bad.map((line) => `${selector} button outside the ${size.width}x${size.height} viewport: ${line}`);
+}
+
 async function checkShortViewport(browser, base) {
   // 740x320, and the size is measured rather than picked. The old stacked card
   // put its lowest button at exactly 360 on a 360 tall viewport - inside by the
@@ -292,7 +321,21 @@ async function checkShortViewport(browser, base) {
     await page.goto(base, { waitUntil: 'load', timeout: 30000 });
     await page.waitForTimeout(700);
     await page.tap('body', { position: { x: 700, y: 60 }, force: true }).catch(() => {});
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(900);
+    // THROUGH THE SELECTION SCREENS. This check is about the PAUSE card's
+    // geometry on a short viewport, and the bike and road screens now stand
+    // between the title tap and a running game. Walked with the confirm button
+    // rather than skipped with stored values, because the walk is also how the
+    // two new screens get their own geometry checked at this size.
+    for (const selector of ['.bike-screen .select-confirm', '.road-screen .select-confirm']) {
+      await page.waitForSelector(selector, { timeout: 5000 }).catch(() => {});
+      for (const line of await selectGeometry(page, selector.split(' ')[0], SHORT)) {
+        failures.push(line);
+      }
+      await page.click(selector).catch(() => {});
+      await page.waitForTimeout(500);
+    }
+    await page.waitForTimeout(900);
     if (!(await page.isVisible('.pause-button').catch(() => false))) {
       failures.push(`no pause button at ${SHORT.width}x${SHORT.height}`);
       return failures;
@@ -468,6 +511,79 @@ async function checkTiltDirection(browser, base) {
   return failures;
 }
 
+/**
+ * Walks the bike and road screens the way a thumb would, and checks the things
+ * that only go wrong on a small screen.
+ *
+ * Every button is checked against the VIEWPORT, not against its own styling: a
+ * card whose confirm button sits two pixels below a 320px viewport looks
+ * perfect in a screenshot and cannot be pressed, and there is nothing to scroll
+ * because the page does not scroll.
+ *
+ * @returns {Promise<boolean>} whether it reached a running game
+ */
+async function walkSelection(page, failures) {
+  const screens = [
+    { name: 'bike', selector: '.bike-screen' },
+    { name: 'road', selector: '.road-screen' },
+  ];
+
+  for (const screen of screens) {
+    await page.waitForTimeout(700);
+    if (!(await page.isVisible(screen.selector).catch(() => false))) {
+      failures.push(`the ${screen.name} screen never appeared`);
+      return false;
+    }
+
+    // Every pressable thing has to be inside the frame, with a margin.
+    const offscreen = await page.evaluate((selector) => {
+      const root = document.querySelector(selector);
+      if (!root) return ['no screen'];
+      const bad = [];
+      for (const button of root.querySelectorAll('button')) {
+        if (button.disabled) continue;
+        const box = button.getBoundingClientRect();
+        if (box.width === 0 && box.height === 0) continue;
+        if (box.left < -1 || box.top < -1
+          || box.right > window.innerWidth + 1
+          || box.bottom > window.innerHeight + 1) {
+          bad.push(`${button.className.split(' ')[0]} at `
+            + `${Math.round(box.left)},${Math.round(box.top)} `
+            + `${Math.round(box.width)}x${Math.round(box.height)}`);
+        }
+        // A thumb needs something to aim at.
+        if (box.height < 28) bad.push(`${button.className.split(' ')[0]} only ${Math.round(box.height)}px tall`);
+      }
+      return bad;
+    }, screen.selector);
+    for (const problem of offscreen) {
+      failures.push(`${screen.name} screen: ${problem}`);
+    }
+
+    // The driving hints are pictures of the brake and the throttle. They must
+    // not be sitting across a menu telling somebody how to stop.
+    if (await page.isVisible('.hints').catch(() => false)) {
+      const shown = await page.evaluate(() => {
+        const el = document.querySelector('.hints');
+        return el && getComputedStyle(el).opacity !== '0' && !el.hidden;
+      });
+      if (shown) failures.push(`${screen.name} screen: the driving hints are showing over it`);
+    }
+
+    // Change the selection, so the screen is exercised rather than just seen.
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(400);
+    await page.click(`${screen.selector} .select-confirm`).catch(() => {});
+  }
+
+  await page.waitForTimeout(900);
+  if (await page.isVisible('.road-screen').catch(() => false)) {
+    failures.push('the road screen is still up after confirming - the run never started');
+    return false;
+  }
+  return true;
+}
+
 async function main() {
   let server = null;
   let base = BASE;
@@ -520,14 +636,23 @@ async function main() {
   // `force` for a different reason: whatever else is wrong, the tap itself
   // should not be the thing that gets reported.
   await page.tap('body', { position: { x: 750, y: 90 }, force: true }).catch(() => {});
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(1200);
 
   // The check that would have caught the above. Everything after this point
-  // assumes a running game, so a card still on screen has to fail here rather
+  // assumes the card is gone, so a card still on screen has to fail here rather
   // than as a confusing symptom further down.
   if (await page.isVisible('.start-screen').catch(() => false)) {
-    failures.push('title card still up after the tap - the run never started');
+    failures.push('title card still up after the tap - the flow never started');
   }
+
+  // --- THE SELECTION FLOW: title -> bike -> road -> run -------------------
+  //
+  // Walked, not skipped. These two screens stand between every player and
+  // every run, so a fault in either is a fault in the whole game - and they are
+  // the only part of this build whose layout has to survive a 740x320 viewport
+  // with a cockpit already occupying the bottom third of it.
+  const walked = await walkSelection(page, failures);
+  if (walked) await page.waitForTimeout(4000);
 
   const fault = await pictureFault(page);
   if (fault) failures.push(fault);

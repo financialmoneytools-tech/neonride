@@ -22,10 +22,12 @@ const VERTEX_SHADER = `
   attribute float aSize;
   attribute float aPhase;
   attribute float aBrightness;
+  attribute float aIsTrail;
 
   uniform float uPixelRatio;
   uniform float uTime;
   uniform float uTwinkleAmount;
+  uniform float uTrailBrightness;
   uniform float uTwinkleSpeed;
 
   varying vec3 vColor;
@@ -35,7 +37,12 @@ const VERTEX_SHADER = `
     vColor = aColor;
 
     float wave = 0.5 + 0.5 * sin(uTime * uTwinkleSpeed + aPhase);
-    vIntensity = aBrightness * (1.0 - uTwinkleAmount + uTwinkleAmount * wave);
+    // TRAIL BRIGHTNESS IS APPLIED HERE, not baked into aBrightness. It used
+    // to be multiplied in on the CPU while the buffer was being filled, which
+    // made it the one sky value a road change could not touch without
+    // rewriting ~36,000 floats. One attribute and one uniform instead.
+    float brightness = aBrightness * mix(1.0, uTrailBrightness, aIsTrail);
+    vIntensity = brightness * (1.0 - uTwinkleAmount + uTwinkleAmount * wave);
 
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
@@ -98,6 +105,10 @@ export class Starfield {
     const sizes = new Float32Array(count);
     const phases = new Float32Array(count);
     const brightness = new Float32Array(count);
+    // Which stars belong to the galactic trails. It was only ever implied by
+    // `i < trailCount` and thrown away; keeping it is what lets the trail
+    // brightness be a live uniform instead of a baked multiply.
+    const isTrail = new Float32Array(count);
 
     const direction = new THREE.Vector3();
     const trailCount = Math.round(count * layerConfig.galacticFraction);
@@ -122,10 +133,10 @@ export class Starfield {
       const sizeT = Math.pow(this.rng.next(), layerConfig.sizeExponent);
       sizes[i] = layerConfig.sizeMin + sizeSpan * sizeT;
 
-      // Bigger stars also burn brighter, and trail stars get a boost
-      let value = layerConfig.brightness * (0.55 + 0.45 * sizeT);
-      if (isTrailStar) value *= stars.trailBrightness;
-      brightness[i] = value;
+      // Bigger stars also burn brighter. The trail star boost is NOT applied
+      // here any more - see the vertex shader.
+      brightness[i] = layerConfig.brightness * (0.55 + 0.45 * sizeT);
+      isTrail[i] = isTrailStar ? 1 : 0;
 
       phases[i] = this.rng.next() * TAU;
     }
@@ -136,6 +147,7 @@ export class Starfield {
     geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
     geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
     geometry.setAttribute('aBrightness', new THREE.BufferAttribute(brightness, 1));
+    geometry.setAttribute('aIsTrail', new THREE.BufferAttribute(isTrail, 1));
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -144,6 +156,7 @@ export class Starfield {
         uPixelRatio: { value: Starfield.currentPixelRatio() },
         uTime: { value: 0 },
         uTwinkleAmount: { value: stars.twinkleAmount },
+        uTrailBrightness: { value: stars.trailBrightness },
         uTwinkleSpeed: { value: stars.twinkleSpeed },
       },
       vertexShader: VERTEX_SHADER,
@@ -190,6 +203,16 @@ export class Starfield {
       layer.points.rotation.y += layer.rotationSpeed * dt;
       layer.material.uniforms.uTime.value = this.time;
       layer.material.uniforms.uPixelRatio.value = pixelRatio;
+    }
+  }
+
+  /** Pushes the current config into every layer's uniforms. */
+  applyTheme() {
+    const stars = config.sky.stars;
+    for (const layer of this.layers) {
+      const u = layer.material.uniforms;
+      u.uTwinkleAmount.value = stars.twinkleAmount;
+      u.uTrailBrightness.value = stars.trailBrightness;
     }
   }
 

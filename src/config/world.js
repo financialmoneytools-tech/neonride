@@ -9,6 +9,52 @@ import { road } from './road.js';
 
 // --- World: road, roadside, mountains and the travelling camera ---
 export const world = {
+  // THE LIGHT GATE: the lit arch that announces a road changing, and the shape
+  // the staged run's checkpoints will be placed with. See world/ThemeGate.js.
+  //
+  // It is SCENERY and never collides. It spans the whole drawn ribbon and
+  // stands clear above the tallest vehicle, so there is nothing to hit and
+  // nothing to steer around - the escape guarantee that makes the road playable
+  // does not know it exists and must not have to.
+  gate: {
+    // How far ahead it is placed when armed. Far enough to resolve out of the
+    // fog and be READ before it arrives: a change that is announced is a change
+    // that feels deliberate, and one that is sprung is a glitch.
+    ahead: 900,
+    // How far past the rider before it is parked. A mesh behind the camera
+    // costs exactly what one in front of it costs.
+    behind: 120,
+    // Where it starts to appear, in units of gap. Matched to the road's own
+    // neon fade so the arch and the road it stands on arrive together.
+    fadeStart: 780,
+    fadeEnd: 520,
+
+    height: 11.5, // clear of a 4.2 m semi with room to spare
+    legWidth: 0.9,
+    beamHeight: 0.85,
+    overhang: 3.0, // past the outermost shoulder on each side
+    haloSpread: 2.2,
+    haloOpacity: 0.34,
+
+    // NOT near black. It was 0x0b0d18 and against this sky that is invisible,
+    // so the lit beam read as a bar hanging in the air - the identical fault
+    // the roadside pylons had, photographed and fixed once already. Dark enough
+    // to be structure, light enough to have a silhouette.
+    structureColor: 0x2a3348,
+    neonColor: 0xffffff,
+    // A lit strip up the inboard face of each leg, so the arch is held up by
+    // something the eye can see at night.
+    legStripWidth: 0.42, // of the leg's own width
+    legStripOpacity: 0.85,
+
+    // Seconds the road takes to become the next one, once the rider is through.
+    // Long enough to read as a place changing and short enough that nobody
+    // rides a whole kilometre of neither.
+    blendSeconds: 3.2,
+    // How far apart changes are placed on the mixed road.
+    everyMeters: 2600,
+  },
+
   // Vehicles to overtake; see config/traffic.js.
   traffic,
 

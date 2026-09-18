@@ -106,6 +106,27 @@ function events(log) {
   return { peak, trigger, list };
 }
 
+
+/**
+ * Gets from the title card to a running game.
+ *
+ * The bike and road screens now stand between the two, so every case here has
+ * to walk them - a probe that taps once and then waits for a collision waits
+ * for ever, which is exactly what it did the first time this ran after the
+ * selection flow landed.
+ */
+async function startRun(page) {
+  // Away from the centre, where the comfort toggle swallows the pointerdown.
+  await page.mouse.click(W - 60, 60);
+  await page.waitForTimeout(600);
+  for (const selector of ['.bike-screen .select-confirm', '.road-screen .select-confirm']) {
+    await page.waitForSelector(selector, { timeout: 8000 });
+    await page.click(selector);
+    await page.waitForTimeout(500);
+  }
+  await page.waitForFunction(() => window.NEON.session.phase === 'running', null, { timeout: 8000 });
+}
+
 const server = await startServer();
 const browser = await chromium.launch({
   args: ['--use-angle=default', '--enable-gpu', '--ignore-gpu-blocklist'],
@@ -122,9 +143,7 @@ async function newRun(query) {
 // --- Case 1: the collision caller, and the two gates that were missing -------
 if (!ONLY || ONLY === 'collision') {
   const page = await newRun('?theme=galaxyRoad&stats=0');
-  // Away from the centre, where the comfort toggle swallows the pointerdown.
-  await page.mouse.click(W - 60, 60);
-  await page.waitForTimeout(300);
+  await startRun(page);
   await startRecording(page);
   await page.evaluate(() => {
     window.NEON.config.world.traffic.collision.playerHalfWidth = 2.6;
@@ -182,8 +201,7 @@ if (!ONLY || ONLY === 'collision') {
 // stage rather than the flash.
 if (!ONLY || ONLY === 'callers') {
   const page = await newRun('?theme=galaxyRoad&stats=0');
-  await page.mouse.click(W - 60, 60);
-  await page.waitForTimeout(400);
+  await startRun(page);
 
   const result = await page.evaluate(() => {
     const flash = window.NEON.flash;
@@ -250,8 +268,7 @@ if (!ONLY || ONLY === 'callers') {
 // condition, so the rule is checked rather than sampled.
 if (!ONLY || ONLY === 'gates') {
   const page = await newRun('?theme=galaxyRoad&stats=0');
-  await page.mouse.click(W - 60, 60);
-  await page.waitForTimeout(400);
+  await startRun(page);
 
   const r = await page.evaluate(() => {
     const flash = window.NEON.flash;

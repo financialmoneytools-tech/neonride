@@ -29,6 +29,8 @@ const VERTEX_SHADER = `
 
 const FRAGMENT_SHADER = `
   uniform float uTime;
+  uniform float uWavePhase;
+  uniform float uArcPhase;
   uniform vec3 uColorLow;
   uniform vec3 uColorHigh;
   uniform vec3 uWarmColor;
@@ -39,7 +41,6 @@ const FRAGMENT_SHADER = `
   uniform float uCurtainVariation;
   uniform float uFadeBottom;
   uniform float uWaveScale;
-  uniform float uWaveSpeed;
   uniform float uRayScale;
   uniform float uRayContrast;
   uniform float uRayHeight;
@@ -51,7 +52,6 @@ const FRAGMENT_SHADER = `
   uniform float uArcCenter;
   uniform float uArcHalfWidth;
   uniform float uArcSoftness;
-  uniform float uArcDrift;
   uniform float uWarmArcScale;
   uniform float uWarmFloor;
 
@@ -89,7 +89,7 @@ const FRAGMENT_SHADER = `
     // world azimuth is PI/2 - theta. Converting here lets arcCenter be a real
     // azimuth, the same convention the nebula and the dome glow use.
     float angle = 1.5707963267948966 - vUv.x * 6.283185307179586;
-    float center = uArcCenter + uTime * uArcDrift;
+    float center = uArcCenter + uArcPhase;
 
     float curtainArc = arcMask(angle, center, uArcHalfWidth, uArcSoftness);
     float warmArc = arcMask(angle, center, uArcHalfWidth * uWarmArcScale, uArcSoftness);
@@ -99,16 +99,16 @@ const FRAGMENT_SHADER = `
 
     // Domain warp before sampling the rays
     float warp = (valueNoise(
-      vec2(cos(angle), sin(angle)) * uWarpScale + vec2(0.0, uTime * uWaveSpeed * 0.7)
+      vec2(cos(angle), sin(angle)) * uWarpScale + vec2(0.0, uWavePhase * 0.7)
     ) - 0.5) * uWarpAmount;
 
     vec2 ring = vec2(cos(angle + warp), sin(angle + warp));
 
-    float slow = valueNoise(ring * uWaveScale + vec2(0.0, uTime * uWaveSpeed));
+    float slow = valueNoise(ring * uWaveScale + vec2(0.0, uWavePhase));
 
-    float coarse = valueNoise(ring * uRayScale + vec2(7.0, uTime * uWaveSpeed * 2.1));
-    float medium = valueNoise(ring * uRayScale * 2.3 + vec2(-3.0, uTime * uWaveSpeed * 3.1));
-    float fine = valueNoise(ring * uRayScale * 5.1 + vec2(19.0, uTime * uWaveSpeed * 1.3));
+    float coarse = valueNoise(ring * uRayScale + vec2(7.0, uWavePhase * 2.1));
+    float medium = valueNoise(ring * uRayScale * 2.3 + vec2(-3.0, uWavePhase * 3.1));
+    float fine = valueNoise(ring * uRayScale * 5.1 + vec2(19.0, uWavePhase * 1.3));
     float rays = coarse * 0.5 + medium * 0.32 + fine * 0.18;
 
     // Contrast first, envelope second. Doing it the other way round stacks
@@ -117,7 +117,7 @@ const FRAGMENT_SHADER = `
 
     // Cluster envelope: entire stretches of the arc drop out, but the regions
     // that survive stay at full strength.
-    float clusters = valueNoise(ring * uClusterScale + vec2(3.0, uTime * uWaveSpeed * 0.5));
+    float clusters = valueNoise(ring * uClusterScale + vec2(3.0, uWavePhase * 0.5));
     rays *= smoothstep(uClusterFloor, uClusterFloor + uClusterRange, clusters);
 
     // The ray noise drives the height as well, so every streak reaches a
@@ -157,6 +157,11 @@ const FRAGMENT_SHADER = `
 export class Aurora {
   constructor() {
     const c = config.sky.aurora;
+    // BUILT ONCE, at whatever the fitted theme asked for, and every later
+    // change is a scale against these. Keeping the numbers is what makes
+    // applyTheme's ratio meaningful rather than a guess.
+    this._builtRadius = c.radius;
+    this._builtHeight = c.height;
 
     this.geometry = new THREE.CylinderGeometry(
       c.radius,
@@ -170,6 +175,8 @@ export class Aurora {
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uWavePhase: { value: 0 },
+        uArcPhase: { value: 0 },
         uColorLow: { value: new THREE.Color(c.colorLow) },
         uColorHigh: { value: new THREE.Color(c.colorHigh) },
         uWarmColor: { value: new THREE.Color(c.warmColor) },
@@ -180,7 +187,6 @@ export class Aurora {
         uCurtainVariation: { value: c.curtainVariation },
         uFadeBottom: { value: c.fadeBottom },
         uWaveScale: { value: c.waveScale },
-        uWaveSpeed: { value: c.waveSpeed },
         uRayScale: { value: c.rayScale },
         uRayContrast: { value: c.rayContrast },
         uRayHeight: { value: c.rayHeight },
@@ -190,9 +196,12 @@ export class Aurora {
         uClusterFloor: { value: c.clusterFloor },
         uClusterRange: { value: c.clusterRange },
         uArcCenter: { value: c.arcCenter },
+        // waveSpeed and arcDrift are NOT uniforms any more. They are rates, and
+        // they are integrated on the CPU into uWavePhase and uArcPhase - see
+        // update(). A rate handed to a shader that multiplies it by a clock
+        // cannot be changed without jumping.
         uArcHalfWidth: { value: c.arcHalfWidth },
         uArcSoftness: { value: c.arcSoftness },
-        uArcDrift: { value: c.arcDrift },
         uWarmArcScale: { value: c.warmArcScale },
         uWarmFloor: { value: c.warmFloor },
       },
@@ -212,12 +221,78 @@ export class Aurora {
     this.mesh.position.y = c.baseY + c.height * 0.5;
 
     this.time = 0;
+    // TWO ACCUMULATED PHASES, not a clock multiplied by a speed.
+    //
+    // The shader used to compute `uArcCenter + uTime * uArcDrift` and to feed
+    // `uTime * uWaveSpeed` into every noise lookup. That is fine while the
+    // speeds are constants and catastrophic the moment a theme blend moves
+    // them: at t = 300 s, drifting arcDrift from 0.006 to 0.004 moves the
+    // curtain's centre azimuth by 0.6 rad - THIRTY-FOUR DEGREES - in a single
+    // frame, and re-phases every noise channel at once so the ribbons reshuffle
+    // rather than drift. It is the kind of fault that survives a screenshot
+    // review and ruins a video.
+    //
+    // Integrating instead means the phase is continuous by construction and a
+    // speed change only changes the RATE from that moment on, which is what
+    // anybody writing `arcDrift` thought they were asking for.
+    this.wavePhase = 0;
+    this.arcPhase = 0;
   }
 
   /** @param {number} dt */
+  /**
+   * Pushes the current config into the uniforms. Called when a road changes.
+   *
+   * Every uniform that came from config is written, rather than a chosen few:
+   * the blend animates config and this is the one place that copies it onto the
+   * GPU, so a value missed here is a value that silently does not transition.
+   *
+   * `radius` and `height` are geometry, so they are answered with a SCALE
+   * rather than a rebuild - the cylinder is built once and stretched, which is
+   * the difference between a value that can move mid run and one that cannot.
+   */
+  applyTheme() {
+    const c = config.sky.aurora;
+    const u = this.material.uniforms;
+    u.uColorLow.value.set(c.colorLow);
+    u.uColorHigh.value.set(c.colorHigh);
+    u.uWarmColor.value.set(c.warmColor);
+    u.uIntensity.value = c.intensity;
+    u.uWarmIntensity.value = c.warmIntensity;
+    u.uWarmHeight.value = c.warmHeight;
+    u.uCurtainHeight.value = c.curtainHeight;
+    u.uCurtainVariation.value = c.curtainVariation;
+    u.uFadeBottom.value = c.fadeBottom;
+    u.uWaveScale.value = c.waveScale;
+    u.uRayScale.value = c.rayScale;
+    u.uRayContrast.value = c.rayContrast;
+    u.uRayHeight.value = c.rayHeight;
+    u.uWarpScale.value = c.warpScale;
+    u.uWarpAmount.value = c.warpAmount;
+    u.uClusterScale.value = c.clusterScale;
+    u.uClusterFloor.value = c.clusterFloor;
+    u.uClusterRange.value = c.clusterRange;
+    u.uArcCenter.value = c.arcCenter;
+    u.uArcHalfWidth.value = c.arcHalfWidth;
+    u.uArcSoftness.value = c.arcSoftness;
+    u.uWarmArcScale.value = c.warmArcScale;
+    u.uWarmFloor.value = c.warmFloor;
+
+    // Geometry answered by transform. The cylinder was built at the BASE
+    // config's radius and height, so both are ratios against that.
+    this.mesh.scale.set(c.radius / this._builtRadius, c.height / this._builtHeight, c.radius / this._builtRadius);
+    this.mesh.position.y = c.baseY + c.height * 0.5;
+  }
+
   update(dt) {
+    const c = config.sky.aurora;
     this.time += dt;
-    this.material.uniforms.uTime.value = this.time;
+    this.wavePhase += dt * c.waveSpeed;
+    this.arcPhase += dt * c.arcDrift;
+    const uniforms = this.material.uniforms;
+    uniforms.uTime.value = this.time;
+    uniforms.uWavePhase.value = this.wavePhase;
+    uniforms.uArcPhase.value = this.arcPhase;
   }
 
   dispose() {
