@@ -1,0 +1,189 @@
+{
+  "note": "Realism probe only. Not shipped on main.",
+  "files": [
+    {
+      "file": "asphalt_diff.jpg",
+      "map": "Diffuse",
+      "source": "Poly Haven",
+      "asset": "asphalt_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg"
+    },
+    {
+      "file": "asphalt_nor.jpg",
+      "map": "nor_gl",
+      "source": "Poly Haven",
+      "asset": "asphalt_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg"
+    },
+    {
+      "file": "asphalt_rough.jpg",
+      "map": "Rough",
+      "source": "Poly Haven",
+      "asset": "asphalt_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_rough_1k.jpg"
+    },
+    {
+      "file": "asphalt_ao.jpg",
+      "map": "AO",
+      "source": "Poly Haven",
+      "asset": "asphalt_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_ao_1k.jpg"
+    },
+    {
+      "file": "asphalt_worn_diff.jpg",
+      "map": "Diffuse",
+      "source": "Poly Haven",
+      "asset": "asphalt_04",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_diff_1k.jpg"
+    },
+    {
+      "file": "asphalt_worn_nor.jpg",
+      "map": "nor_gl",
+      "source": "Poly Haven",
+      "asset": "asphalt_04",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_nor_gl_1k.jpg"
+    },
+    {
+      "file": "asphalt_worn_rough.jpg",
+      "map": "Rough",
+      "source": "Poly Haven",
+      "asset": "asphalt_04",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_rough_1k.jpg"
+    },
+    {
+      "file": "asphalt_worn_ao.jpg",
+      "map": "AO",
+      "source": "Poly Haven",
+      "asset": "asphalt_04",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_ao_1k.jpg"
+    },
+    {
+      "file": "snow_diff.jpg",
+      "map": "Diffuse",
+      "source": "Poly Haven",
+      "asset": "snow_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_diff_1k.jpg"
+    },
+    {
+      "file": "snow_nor.jpg",
+      "map": "nor_gl",
+      "source": "Poly Haven",
+      "asset": "snow_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_nor_gl_1k.jpg"
+    },
+    {
+      "file": "snow_rough.jpg",
+      "map": "Rough",
+      "source": "Poly Haven",
+      "asset": "snow_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_rough_1k.jpg"
+    },
+    {
+      "file": "snow_ao.jpg",
+      "map": "AO",
+      "source": "Poly Haven",
+      "asset": "snow_02",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_02/snow_02_ao_1k.jpg"
+    },
+    {
+      "file": "rock_diff.jpg",
+      "map": "Diffuse",
+      "source": "Poly Haven",
+      "asset": "rock_boulder_dry",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_diff_1k.jpg"
+    },
+    {
+      "file": "rock_nor.jpg",
+      "map": "nor_gl",
+      "source": "Poly Haven",
+      "asset": "rock_boulder_dry",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_nor_gl_1k.jpg"
+    },
+    {
+      "file": "rock_rough.jpg",
+      "map": "Rough",
+      "source": "Poly Haven",
+      "asset": "rock_boulder_dry",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_rough_1k.jpg"
+    },
+    {
+      "file": "rock_ao.jpg",
+      "map": "AO",
+      "source": "Poly Haven",
+      "asset": "rock_boulder_dry",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_ao_1k.jpg"
+    },
+    {
+      "file": "bark_diff.jpg",
+      "map": "Diffuse",
+      "source": "Poly Haven",
+      "asset": "bark_willow",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_willow/bark_willow_diff_1k.jpg"
+    },
+    {
+      "file": "bark_nor.jpg",
+      "map": "nor_gl",
+      "source": "Poly Haven",
+      "asset": "bark_willow",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_willow/bark_willow_nor_gl_1k.jpg"
+    },
+    {
+      "file": "bark_rough.jpg",
+      "map": "Rough",
+      "source": "Poly Haven",
+      "asset": "bark_willow",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_willow/bark_willow_rough_1k.jpg"
+    },
+    {
+      "file": "bark_ao.jpg",
+      "map": "AO",
+      "source": "Poly Haven",
+      "asset": "bark_willow",
+      "licence": "CC0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_willow/bark_willow_ao_1k.jpg"
+    },
+    {
+      "file": "guardrail_diff.jpg",
+      "map": "Color",
+      "source": "ambientCG",
+      "asset": "Metal032",
+      "licence": "CC0",
+      "url": "https://ambientcg.com/get?file=Metal032_1K-JPG.zip"
+    },
+    {
+      "file": "guardrail_nor.jpg",
+      "map": "NormalGL",
+      "source": "ambientCG",
+      "asset": "Metal032",
+      "licence": "CC0",
+      "url": "https://ambientcg.com/get?file=Metal032_1K-JPG.zip"
+    },
+    {
+      "file": "guardrail_rough.jpg",
+      "map": "Roughness",
+      "source": "ambientCG",
+      "asset": "Metal032",
+      "licence": "CC0",
+      "url": "https://ambientcg.com/get?file=Metal032_1K-JPG.zip"
+    }
+  ]
+}
