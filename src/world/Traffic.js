@@ -163,9 +163,22 @@ export class Traffic {
       const fleet = this.fleets[f];
       const vehicles = fleet.vehicles;
 
+      // THE THEME'S MIX, and it is the ONLY thing a theme may say about
+      // traffic. It thins one type against another - more trucks on a highway,
+      // fewer in a city - by scaling how many of that fleet are live. It can
+      // only ever thin: the pool is allocated once at the union of every
+      // theme's needs, so a multiplier above 1 is clamped rather than honoured,
+      // and a theme still cannot allocate. Everything else about the traffic -
+      // the density curve, the escape guarantee, the speed aware spacing - is
+      // the shared model and is not reachable from here. See config/traffic.js
+      // -> mix, docs/THEMES.md and tools/theme-check.mjs, which fails a theme
+      // that reaches past it.
+      const mix = cfg.mix ? cfg.mix[fleet.type.name] : undefined;
+      const share = mix === undefined ? 1 : THREE.MathUtils.clamp(mix, 0, 1);
+
       // An inactive vehicle is scaled to nothing, so it costs no fragments, and
       // is skipped entirely so it cannot be collided with either.
-      const liveCount = Math.max(1, Math.round(vehicles.length * fraction));
+      const liveCount = Math.max(1, Math.round(vehicles.length * fraction * share));
 
       for (let i = 0; i < vehicles.length; i++) {
         const vehicle = vehicles[i];
@@ -383,12 +396,21 @@ export class Traffic {
     vehicle.laneLateral = this.lanes[vehicle.lane];
     vehicle.lateral = vehicle.laneLateral;
 
+    // THE THEME'S LOOK, and like the mix it is paint only. A theme may say what
+    // a van looks like on its road and never how a van behaves, so this reaches
+    // the two colours and stops. Applied at respawn, which is also what makes
+    // it blend: a theme change repaints each vehicle as the pool recycles it
+    // rather than restyling the whole road in one frame.
+    const look = (cfg.look && cfg.look[type.name]) || null;
+
     // Paint: the ambulance keeps its own, everything else draws the palette.
-    _color.set(type.bodyColor || cfg.bodyPalette[Math.floor(rng.next() * cfg.bodyPalette.length)]);
+    _color.set((look && look.bodyColor)
+      || type.bodyColor
+      || cfg.bodyPalette[Math.floor(rng.next() * cfg.bodyPalette.length)]);
     fleet.mesh.body.setColorAt(index, _color);
     if (fleet.mesh.body.instanceColor) fleet.mesh.body.instanceColor.needsUpdate = true;
 
-    _color.set(type.stripColor);
+    _color.set((look && look.stripColor) || type.stripColor);
     fleet.mesh.strip.setColorAt(index, _color);
     if (fleet.mesh.strip.instanceColor) fleet.mesh.strip.instanceColor.needsUpdate = true;
 

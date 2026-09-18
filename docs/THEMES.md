@@ -236,6 +236,51 @@ the sky switched off and back on, the audio changing inside it - and it is not
 needed to prove the transition. The gate ships first; the tunnel is a second
 gate style once the blend is known to work.
 
+### Traffic is shared, and that is a requirement
+
+**Approved on the phone, 18 September 2026, and it applies to every road -
+built, in progress and not yet started.**
+
+The traffic model is ONE model. A theme does not get its own. These come from
+`config/traffic.js` and are not re-invented per road:
+
+- the **ramping density curve** - sparse at the start, rising, and capped well
+  below full;
+- the **guaranteed escape lane** - at most two of four lanes occupied over any
+  58 m, enforced at spawn, because that is the only place it can be enforced;
+- the **no-walls rule** - never three abreast, never two trucks side by side;
+- the **speed-aware spacing** - the same-lane gap is `30 + 0.55 x speed`, so it
+  is a constant reaction time rather than a constant distance.
+
+A theme may set exactly two things about traffic, and both are paint and
+proportion:
+
+| key | what it does |
+|---|---|
+| `world.traffic.mix` | how many of each type are live, by name, 0..1. More trucks on a highway, fewer in a city. |
+| `world.traffic.look` | per-type `bodyColor` and `stripColor`. What a van looks like on this road, never how a van behaves. |
+
+`mix` can only THIN. The pools are allocated once, at the union of every theme's
+needs, so a multiplier above 1 is clamped rather than honoured - which is what
+keeps "a theme never allocates" true for traffic as well as for scenery.
+
+**Why it is a rule and not a convention.** These numbers are the difference
+between a road that plays and a road that does not, and they were measured to
+get there rather than chosen: `tools/bot-run.mjs` drives the ordinary input path
+with no guard at all and held full throttle for 3.09 km at the opening density
+and 1.07 km at the cap with **zero** crashes. A theme that quietly re-tunes the
+curve or drops the escape guarantee ships a road nobody profiled, and the
+symptom arrives as "this road feels wrong" some weeks later instead of as an
+error.
+
+**Checked, not trusted.** `npm run themes` reads the live config out of the
+running game and fails any theme that sets anything under `world.traffic` other
+than `mix` and `look`. It also requires the `comfort` block `CLAUDE.md` asks
+for, and warns about any key that sizes something - which is how the one
+existing violation was found, `auroraPass` setting `roadside.stationsPerChunk`.
+Verified by introducing a theme that re-tunes the density: it fails and exits
+non-zero.
+
 ### Motion comfort, per theme
 
 `CLAUDE.md` requires every new theme to say where its motion lives, and six

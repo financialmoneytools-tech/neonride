@@ -22,6 +22,24 @@ const _position = new THREE.Vector3();
 const _tangent = new THREE.Vector3();
 const _lateral = new THREE.Vector3();
 const _forward = new THREE.Vector3();
+
+/**
+ * The most pylons per chunk any theme asks for, including the base config.
+ *
+ * Read from the theme library rather than written down, so a new road raises
+ * the allocation by existing. This is deliberately the ONE place a structural
+ * union is computed from theme data: a theme may not size a buffer, but the
+ * game is entitled to look at every theme and size one buffer for all of them.
+ */
+function maxStationsPerChunk() {
+  let most = config.world.roadside.stationsPerChunk;
+  for (const theme of Object.values(config.themes)) {
+    const value = theme && theme.world && theme.world.roadside
+      && theme.world.roadside.stationsPerChunk;
+    if (typeof value === 'number' && value > most) most = value;
+  }
+  return most;
+}
 const _matrix = new THREE.Matrix4();
 const _color = new THREE.Color();
 
@@ -36,9 +54,23 @@ export class Roadside {
 
     this.scene = scene;
     this.road = road;
-    this.stationsPerChunk = side.stationsPerChunk;
-    this.spacing = roadCfg.chunkLength / side.stationsPerChunk;
-    this.perChunk = side.stationsPerChunk * 2; // one pylon on each side
+    // ALLOCATED AT THE UNION, LIVE AT THE THEME'S VALUE.
+    //
+    // This used to size its buffer straight from the fitted theme, which made
+    // `stationsPerChunk` a pool size living in a theme file - the one thing
+    // config/themes/index.js says in capitals not to put there, and the reason
+    // tools/theme-check.mjs warns about it. It also made a live theme change
+    // impossible on this module alone: an InstancedMesh cannot be resized, so a
+    // road that thins its pylons could never thicken them again without a
+    // reload.
+    //
+    // The buffer is now the largest any theme asks for and the surplus is
+    // scaled to nothing, which is the same trick world/Scenery.js already uses
+    // for a prop kind at density zero. It costs the memory of the densest theme
+    // and buys a value that can change mid run.
+    this.maxStations = maxStationsPerChunk();
+    this.stationsPerChunk = Math.min(side.stationsPerChunk, this.maxStations);
+    this.perChunk = this.maxStations * 2; // one pylon on each side
 
     // ASYMMETRIC, because the highway is. A single offset put the left hand
     // pylons at -14, which on a four lane road with an oncoming carriageway
@@ -128,12 +160,28 @@ export class Roadside {
     const path = this.road.path;
 
     const base = slot * this.perChunk;
-    const firstStation = chunkIndex * this.stationsPerChunk;
+    const live = this.stationsPerChunk;
+    // Spacing follows the LIVE count, so however many pylons a theme asks for,
+    // they are spread evenly along the chunk rather than bunched at its start.
+    const spacing = config.world.road.chunkLength / live;
+    const firstStation = chunkIndex * live;
 
-    for (let k = 0; k < this.stationsPerChunk; k++) {
+    for (let k = 0; k < this.maxStations; k++) {
+      if (k >= live) {
+        // Surplus, because another theme wants more pylons than this one does.
+        // Scaled to nothing rather than left where it was: an instance is drawn
+        // wherever its matrix puts it, and a stale pylon is a pylon.
+        _matrix.makeScale(0, 0, 0);
+        for (let s = 0; s < 2; s++) {
+          const index = base + k * 2 + s;
+          this.posts.setMatrixAt(index, _matrix);
+          this.tubes.setMatrixAt(index, _matrix);
+        }
+        continue;
+      }
       // Half a step in, so a pylon never lands exactly on a chunk boundary and
       // the global rhythm stays even across the join.
-      const distance = (firstStation + k + 0.5) * this.spacing;
+      const distance = (firstStation + k + 0.5) * spacing;
       path.frameAt(distance, _position, _tangent, _lateral);
 
       // Right handed basis with the pylon standing straight up: the road pitches
@@ -165,6 +213,27 @@ export class Roadside {
 
     this.posts.instanceMatrix.needsUpdate = true;
     this.tubes.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Changes how many pylons a chunk carries, live. Clamped to what was
+   * allocated, and every pooled chunk is re-placed so the change is visible
+   * behind the rider as well as ahead.
+   * @param {number} stations
+   */
+  setStations(stations) {
+    const next = Math.max(1, Math.min(Math.round(stations), this.maxStations));
+    if (next === this.stationsPerChunk) return;
+    this.stationsPerChunk = next;
+    this.refill();
+  }
+
+  /** Re-places every pooled chunk. */
+  refill() {
+    const chunks = this.road.chunks;
+    for (let slot = 0; slot < chunks.length; slot++) {
+      this._fillChunk(slot, chunks[slot].chunkIndex);
+    }
   }
 
   dispose() {

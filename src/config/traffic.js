@@ -14,6 +14,26 @@ export const traffic = {
   enabled: true,
   seed: 90210,
 
+  // ================= THE ONLY TWO KEYS A THEME MAY SET =================
+  //
+  // Every road in this game runs the SAME traffic model. The density curve, the
+  // guaranteed escape lane, the rule that no stretch may become a wall and the
+  // speed aware spacing are shared and are not re-invented per theme - they are
+  // what make the road playable, they were measured to get there, and a theme
+  // that quietly re-tunes one of them is a theme that ships an unplayable road
+  // nobody profiled. tools/theme-check.mjs fails any theme that touches
+  // anything under `world.traffic` other than these two.
+  //
+  // `mix` - what is on this road, by type name, 0..1. A multiplier on how many
+  // of that fleet are live, so a highway can run more trucks than a city does.
+  // It can only THIN: the pools are allocated once, at the union of every
+  // theme's needs, so a value above 1 is clamped. That is what keeps the rule
+  // that a theme never allocates true for traffic as well.
+  mix: null,
+  // `look` - per type colour overrides, by type name. Paint and light only; a
+  // theme may change what a van looks like and never how a van behaves.
+  look: null,
+
   // Where a recycled vehicle reappears, measured from the player. `ahead` sits
   // inside the fog so they resolve out of it rather than popping in, and it has
   // to stay under the road's own neon fade end or a vehicle can appear on a
