@@ -106,6 +106,31 @@ export class Session {
   }
 
   /**
+   * Publishes what the rest of the frame needs to know about the run, and
+   * nothing else. Called FIRST in the loop, before anything that reads it.
+   *
+   * It is separate from `update` because update runs LAST - a run has to be
+   * scored from the frame that has already happened - and the flash, which has
+   * to know whether the run is still going, runs in the middle. Publishing from
+   * update would hand every reader the previous frame's answer, which on the
+   * one frame that matters, the frame a run ends, is the wrong answer.
+   *
+   * WHATEVER THE PHASE, and that is the fix rather than a detail.
+   * `invulnerable` used to be written only while the run was RUNNING, so the
+   * moment the third life went the value FROZE at 1.60 and stayed there for the
+   * rest of the session. Anything asking "is the rider inside the grace window"
+   * got yes, forever, on a run that was over - measured, and it is what kept
+   * the collision flash re-arming behind the game-over panel. A value that
+   * stops being updated does not stop being read.
+   *
+   * @param {object} state shared loop state
+   */
+  publish(state) {
+    state.scoring = this.scoring;
+    state.invulnerable = this.phase === PHASE.RUNNING ? this.invulnerable : 0;
+  }
+
+  /**
    * @param {number} dt
    * @param {object} state shared loop state; reads distance, hits and nearMisses
    */

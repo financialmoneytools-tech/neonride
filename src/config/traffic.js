@@ -379,15 +379,12 @@ export const traffic = {
     // camera and every face of it is pointing away.
     knockLateral: 2.0,
 
-    flashColor: 0xff3a2a,
-    flashStrength: 0.5,
-    flashEdge: 0.55, // keep the middle of the frame legible even on a hit
-    flashDuration: 0.35, // seconds to decay
-
-    // Refractory period on the FLASH, separate from whether a hit registers.
-    // Several hits in quick succession should still read as a pulse rather than
-    // re-lighting a full screen tint over and over until it looks permanent.
-    flashRefractory: 1.2,
+    // THE FLASH MOVED to config/flash.js, under `sources.collision`, with the
+    // colour, strength, edge, duration and refractory unchanged. It is not a
+    // property of traffic: whether a hit may light the frame depends on whether
+    // the run is still going and whether the rider is inside the grace window,
+    // and traffic knows neither. It went on flashing after the run had ended
+    // for exactly that reason - see the header of config/flash.js.
   },
 
   // Passing close without touching. This is the moment worth recording, so it
@@ -416,10 +413,8 @@ export const traffic = {
     // 161, which is a permanent tint rather than an event.
     range: 0.28, // lateral gap, edge to edge, that counts
     cooldown: 1.5, // seconds before another can fire
-    flashColor: 0x9ad8ff,
-    flashStrength: 0.38,
-    flashEdge: 1, // 0 fills the frame, 1 hugs the edges
-    duration: 0.4,
-    aberrationBoost: 0.004,
+    // The look of it - colour, strength, edge, duration and the aberration
+    // boost - is in config/flash.js under `sources.nearMiss`, unchanged. What
+    // stays here is what makes a near miss a near miss: the range and the rate.
   },
 };

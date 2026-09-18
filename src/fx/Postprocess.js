@@ -31,10 +31,13 @@ export class Postprocess {
    * @param {THREE.WebGLRenderer} renderer
    * @param {THREE.Scene} scene
    * @param {THREE.Camera} camera
+   * @param {import('./Flash.js').Flash} [flash] the one flash owner. Optional
+   *   only so this can still be constructed in a test without one.
    */
-  constructor(renderer, scene, camera) {
+  constructor(renderer, scene, camera, flash = null) {
     const cfg = config.postprocess;
 
+    this.flash = flash;
     this.renderer = renderer;
     this.scene = scene;
     this.camera = camera;
@@ -91,23 +94,19 @@ export class Postprocess {
     uniforms.uVignetteStrength.value = cfg.vignette.strength;
     uniforms.uVignetteStart.value = cfg.vignette.start;
 
-    // Traffic events. The hit wins when both are live, which is right: if you
-    // touched something, that is the thing worth showing.
-    const traffic = config.world.traffic;
-    const impact = cfg.flash.enabled ? state.impact || 0 : 0;
-    const nearMiss = cfg.flash.enabled ? state.nearMiss || 0 : 0;
-
-    const impactLevel = impact * traffic.collision.flashStrength;
-    const nearLevel = nearMiss * traffic.nearMiss.flashStrength;
-    const hitWins = impactLevel >= nearLevel;
-    uniforms.uFlashColor.value.set(
-      hitWins ? traffic.collision.flashColor : traffic.nearMiss.flashColor,
-    );
-    uniforms.uFlashAmount.value = Math.max(impactLevel, nearLevel);
-    uniforms.uFlashEdge.value = hitWins
-      ? traffic.collision.flashEdge
-      : traffic.nearMiss.flashEdge;
-    uniforms.uAberration.value += nearMiss * traffic.nearMiss.aberrationBoost;
+    // THE FLASH IS NOT RESOLVED HERE. fx/Flash.js owns which source won, how
+    // bright it still is, whether it was allowed to fire at all and the comfort
+    // scale; this only paints what it was handed. That split is the fix for the
+    // red sky - see config/flash.js - and it is also what lets a checkpoint and
+    // a theme gate light the frame without this file learning about either.
+    if (this.flash) {
+      uniforms.uFlashColor.value.copy(this.flash.color);
+      uniforms.uFlashAmount.value = this.flash.amount;
+      uniforms.uFlashEdge.value = this.flash.edge;
+      uniforms.uAberration.value += this.flash.aberrationBoost;
+    } else {
+      uniforms.uFlashAmount.value = 0;
+    }
 
     const streaks = cfg.streaks;
     uniforms.uStreakStrength.value = streaks.strength * Math.pow(speed, streaks.exponent);

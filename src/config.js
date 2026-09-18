@@ -18,6 +18,7 @@ import { capture } from './config/capture.js';
 import { framing } from './config/framing.js';
 import { player } from './config/player.js';
 import { postprocess } from './config/postprocess.js';
+import { flash } from './config/flash.js';
 import { ui } from './config/ui.js';
 import { game } from './config/game.js';
 import { comfort } from './config/comfort.js';
@@ -42,6 +43,7 @@ export const config = {
   world,
   player,
   postprocess,
+  flash,
   ui,
   game,
   comfort,

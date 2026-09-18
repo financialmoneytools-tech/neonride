@@ -74,5 +74,17 @@ export const comfort = {
     // an empty sky is a different place, not a gentler one - so this thins the
     // fall right down and shortens the streaks rather than stopping either.
     weather: 0.18,
+
+    // THE SCREEN FLASH: a hit, a near miss, a checkpoint gate, a theme gate.
+    // A full frame pulse several times a minute is exactly the kind of thing
+    // this file exists for, and on a staged run there is now a gate every
+    // kilometre on top of the traffic events.
+    //
+    // Not zero, for the same reason the weather is not. Each of these flashes
+    // is the only signal its event has: with them off, a checkpoint would pass
+    // unremarked and a collision would be a silent loss of speed. Turned down
+    // far enough that nothing whites out, which is what makes it uncomfortable,
+    // while the event is still unmistakably announced.
+    flash: 0.28,
   },
 };

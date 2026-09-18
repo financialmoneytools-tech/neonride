@@ -12,7 +12,8 @@ import { config } from '../../config.js';
  * is what let a hit repeat forever: a player can end up matching a vehicle's
  * speed while inside it, and every expiry fired again.
  *
- * @param {object} events owner carrying impact, nearMiss and the two cooldowns
+ * @param {object} events owner carrying the hit and near miss totals and the
+ *   near miss cooldown
  * @param {object} fleet
  * @param {object} vehicle
  * @param {number} playerDistance
@@ -34,21 +35,23 @@ export function testVehicle(events, fleet, vehicle, playerDistance, playerLatera
 
   if (c.mode === 'arcade' && overlapping && !vehicle.hit) {
     vehicle.hit = true;
-    // A TOTAL, not a level. events.impact is a flash that decays over a third
-    // of a second, so anything reading it has to sample at the right moment and
-    // will either miss a hit between two frames or see one hit several times
-    // depending on the frame rate. A count that only goes up cannot do either,
-    // which is what the run's fail state needs.
+    // A TOTAL, not a level. A level that decays over a third of a second has
+    // to be sampled at the right moment, and will either miss a hit between two
+    // frames or see one hit several times depending on the frame rate. A count
+    // that only goes up cannot do either, which is what the run's fail state
+    // needs - and, since fx/Flash.js landed, what the screen flash reads too.
     events.hits++;
     bike.applyImpact(c.speedLoss);
     // Shove clear, so the player cannot settle inside a vehicle at a matched
     // speed and sit there with the screen permanently flashing.
     bike.knockAside(playerLateral >= vehicle.lateral ? c.knockLateral : -c.knockLateral);
 
-    if (events._impactRefractory <= 0) {
-      events.impact = 1;
-      events._impactRefractory = c.flashRefractory;
-    }
+    // NO FLASH IS RAISED HERE any more. It used to be, with its own refractory,
+    // and this is the wrong place to decide: nothing at this level knows
+    // whether the run is still going or whether the rider is inside the grace
+    // window, and both of those are the difference between one pulse and a sky
+    // that stays red. fx/Flash.js watches `events.hits` rise and answers those
+    // questions in one place. See config/flash.js for what that cost.
   }
 
   // Release on separation, never on a timer: while overlapped the latch stays
@@ -61,7 +64,6 @@ export function testVehicle(events, fleet, vehicle, playerDistance, playerLatera
   if (behind !== vehicle.wasBehind) {
     const edgeGap = lateralGap - lateralReach;
     if (edgeGap > 0 && edgeGap < cfg.nearMiss.range && events._nearMissCooldown <= 0) {
-      events.nearMiss = 1;
       events.nearMisses++;
       events._nearMissCooldown = cfg.nearMiss.cooldown;
     }

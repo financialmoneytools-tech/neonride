@@ -11,7 +11,8 @@
     "dev:phone": "vite --config vite.phone.config.js --host",
     "dev:tunnel": "node tools/tunnel.mjs",
     "dev:tunnel:server": "vite --config vite.tunnel.config.js --host",
-    "smoke": "node tools/smoke-mobile.mjs"
+    "smoke": "node tools/smoke-mobile.mjs",
+    "flash": "node tools/flash-probe.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

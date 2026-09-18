@@ -35,6 +35,7 @@ import { Orientation } from './core/Orientation.js';
 import { Rider } from './player/Rider.js';
 import { Cockpit } from './player/Cockpit.js';
 import { Postprocess } from './fx/Postprocess.js';
+import { Flash } from './fx/Flash.js';
 
 /**
  * main.js - bootstrap only.
@@ -126,7 +127,11 @@ let stats = null; // built once Controls exists, so it can report on it
 
 // The composer owns the frame from here on; engine.render() is only the
 // fallback used when config.postprocess.enabled is turned off.
-const post = new Postprocess(engine.renderer, engine.scene, engine.camera);
+// THE ONE FLASH. Collision, near miss, checkpoint gate and theme gate are all
+// callers of it; Postprocess only paints what it resolves. See config/flash.js
+// for what owning this across three files cost.
+const flash = new Flash();
+const post = new Postprocess(engine.renderer, engine.scene, engine.camera, flash);
 engine.onResize = (width, height) => {
   framing.refresh(width / height);
   post.setSize(width, height);
@@ -192,6 +197,14 @@ loop.add((dt, state) => {
   // which is what keeps the keyboard on the bike's own floor.
   state.controlMode = controls.enabled ? controls.mode : undefined;
 });
+// FIRST, before anything reads it. The run publishes whether it is scoring and
+// how much of the grace window is left; the flash gates on both, and it runs in
+// the middle of the frame while the run is SCORED at the end of it. Publishing
+// from session.update would hand every reader the previous frame's answer, and
+// the one frame where that is wrong is the frame a run ends - which is exactly
+// the frame the old collision flash got wrong, for the rest of the session.
+loop.add((dt, state) => session.publish(state));
+
 // Runs before the bike, which consumes the values in the same frame. Swapping
 // the reference rather than merging means the human input is never half applied
 // while the autopilot is driving.
@@ -232,6 +245,9 @@ loop.add((dt, state) => oncoming.update(dt, state));
 loop.add((dt, state) => weather.update(dt, state));
 loop.add((dt, state) => rider.update(dt, state));
 loop.add((dt) => sky.update(dt));
+// AFTER traffic, which raises the hit and near miss totals it watches, and
+// BEFORE post, which only paints whatever it resolved this frame.
+loop.add((dt, state) => flash.update(dt, state));
 loop.add((dt, state) => post.update(dt, state));
 // After everything that writes to state, because every voice in it is driven
 // by what the frame ended up being rather than by what it started as.
@@ -446,6 +462,9 @@ const start = new StartScreen(document.body, () => {
  */
 function beginRun() {
   session.begin(loop.state);
+  // A crash in the last second of the previous run must not bleed red into the
+  // first frame of this one.
+  flash.reset();
   if (controls.enabled) hints.banner(controls.mode);
 }
 
@@ -511,7 +530,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -532,6 +551,7 @@ function disposeAll() {
   orientation.dispose();
   viewport.dispose();
   post.dispose();
+  flash.dispose();
   rider.dispose();
   autopilot.dispose();
   bike.dispose();

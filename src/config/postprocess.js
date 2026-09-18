@@ -72,14 +72,15 @@ export const postprocess = {
     power: 2.6,
   },
 
-  // Screen response to a traffic event. Traffic publishes two decaying levels
-  // on the loop state and this turns them into light: a hit flashes hot, a near
-  // miss gives a much softer cool pulse plus a touch more aberration. Added
-  // before the tone curve, so even a full strength flash rolls off instead of
-  // clipping to white.
-  flash: {
-    enabled: true,
-  },
+  // THE FLASH MOVED. Everything about it - the colours, the strengths, how far
+  // out toward the edge each one reaches, and which sources may raise one at
+  // all - is in config/flash.js now, owned by fx/Flash.js. It is not a post
+  // effect that happens to be triggered by traffic; it is one signal with four
+  // callers, two of which are gates rather than traffic at all. `enabled` lives
+  // there with the rest of it.
+  //
+  // What stays true here: the flash is added BEFORE the tone curve, so even a
+  // full strength one rolls off instead of clipping the frame to flat white.
 
   // Radial speed streaks. Rather than drawing lines, this smears the frame
   // outward from the centre and keeps whichever is brighter, so the road's own

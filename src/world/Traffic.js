@@ -13,8 +13,13 @@ import { roadLayout } from './road/layout.js';
  * so sharing would mean swapping geometry at runtime, the one thing instancing
  * cannot do. A type's `count` is therefore also its spawn weight.
  *
- * Publishes two decaying levels on the loop state: state.impact for a collision
- * and state.nearMiss for a close pass, which Postprocess turns into light.
+ * Publishes two RUNNING TOTALS on the loop state: state.hits and
+ * state.nearMisses. It used to publish two decaying levels as well, and own
+ * their decay and the collision flash's refractory - that is all in fx/Flash.js
+ * now, which watches these totals rise. Traffic reports what happened; it does
+ * not decide what the screen does about it, and it is in no position to know
+ * whether the run is still going or whether the rider is inside the grace
+ * window, which is exactly what went wrong while it did.
  *
  * A collision LATCHES on the vehicle hit and releases only once the player has
  * fully separated. A timer is what let a hit repeat forever: a player can match
@@ -60,18 +65,18 @@ export class Traffic {
     this.group.name = 'Traffic';
     scene.add(this.group);
 
-    this.impact = 0;
-    this.nearMiss = 0;
     // The player's speed, kept for the spawner: the gap between two vehicles
     // in a lane grows with it, so a spawn needs to know how fast the rider is
     // going right now rather than what the maximum is.
     this._playerSpeed = 0;
-    // Running totals for the run's score and its fail state. The two above are
-    // decaying levels for the post chain; these are events.
+    // Running totals for the run's score, its fail state and the screen flash.
+    // Totals rather than levels: a level has to be sampled at the right moment
+    // and will either miss an event between two frames or count one event
+    // several times depending on the frame rate. A number that only goes up
+    // cannot do either.
     this.hits = 0;
     this.nearMisses = 0;
     this._nearMissCooldown = 0;
-    this._impactRefractory = 0;
     this._beaconPhase = 0;
 
     /** One fleet per type: its meshes and its own pool of vehicles. */
@@ -128,16 +133,11 @@ export class Traffic {
   update(dt, state) {
     const cfg = config.world.traffic;
 
-    this.impact = Math.max(0, this.impact - dt / cfg.collision.flashDuration);
-    this.nearMiss = Math.max(0, this.nearMiss - dt / cfg.nearMiss.duration);
     this._nearMissCooldown = Math.max(0, this._nearMissCooldown - dt);
-    this._impactRefractory = Math.max(0, this._impactRefractory - dt);
     this._beaconPhase += dt;
 
     if (!cfg.enabled) {
       this.group.visible = false;
-      state.impact = 0;
-      state.nearMiss = 0;
       state.hits = this.hits;
       state.nearMisses = this.nearMisses;
       return;
@@ -218,8 +218,6 @@ export class Traffic {
       if (fleet.mesh.beacon) this._updateBeacons(fleet);
     }
 
-    state.impact = this.impact;
-    state.nearMiss = this.nearMiss;
     state.hits = this.hits;
     state.nearMisses = this.nearMisses;
   }
