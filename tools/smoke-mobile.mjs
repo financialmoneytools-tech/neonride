@@ -304,6 +304,74 @@ async function selectGeometry(page, selector, size) {
   return bad.map((line) => `${selector} button outside the ${size.width}x${size.height} viewport: ${line}`);
 }
 
+/**
+ * The HUD, laid out so nothing sits on top of anything else.
+ *
+ * On a landscape phone this was genuinely broken: the stats overlay filled the
+ * left half of the screen and the score was drawn straight THROUGH it, with the
+ * life pips inside it. Both are left aligned, one from the top and one from the
+ * bottom, and at 320 px tall there was not room for both.
+ *
+ * Two rules, and the second is the one that keeps the first honest:
+ * nothing overlaps, and the stats panel - a DEBUG TOOL - may not take more than
+ * a fifth of the screen. Without the area rule the overlap rule can always be
+ * satisfied by making the panel taller and narrower, which is not the fix.
+ */
+async function hudLayout(page, size) {
+  const problems = [];
+  const boxes = await page.evaluate(() => {
+    const want = {
+      stats: '.stats-overlay',
+      hud: '.hud',
+      pause: '.pause-button',
+    };
+    const out = {};
+    for (const [name, selector] of Object.entries(want)) {
+      const el = document.querySelector(selector);
+      if (!el || el.hidden) continue;
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+      const b = el.getBoundingClientRect();
+      if (b.width === 0 || b.height === 0) continue;
+      out[name] = { x: b.left, y: b.top, w: b.width, h: b.height };
+    }
+    return out;
+  });
+
+  const names = Object.keys(boxes);
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = boxes[names[i]];
+      const b = boxes[names[j]];
+      const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (overlapX > 1 && overlapY > 1) {
+        problems.push(
+          `${names[i]} and ${names[j]} overlap by ${Math.round(overlapX)}x${Math.round(overlapY)} px `
+          + `at ${size.width}x${size.height}`,
+        );
+      }
+    }
+  }
+
+  if (boxes.stats) {
+    const share = (boxes.stats.w * boxes.stats.h) / (size.width * size.height);
+    if (share > 0.20) {
+      problems.push(
+        `the stats panel covers ${(share * 100).toFixed(0)}% of the ${size.width}x${size.height} `
+        + 'screen, over the 20% ceiling - it is a debug tool and must not block play',
+      );
+    }
+  }
+
+  for (const [name, b] of Object.entries(boxes)) {
+    if (b.x < -1 || b.y < -1 || b.x + b.w > size.width + 1 || b.y + b.h > size.height + 1) {
+      problems.push(`${name} is outside the ${size.width}x${size.height} viewport`);
+    }
+  }
+  return problems;
+}
+
 async function checkShortViewport(browser, base) {
   // 740x320, and the size is measured rather than picked. The old stacked card
   // put its lowest button at exactly 360 on a 360 tall viewport - inside by the
@@ -336,6 +404,7 @@ async function checkShortViewport(browser, base) {
       await page.waitForTimeout(500);
     }
     await page.waitForTimeout(900);
+    for (const line of await hudLayout(page, SHORT)) failures.push(line);
     if (!(await page.isVisible('.pause-button').catch(() => false))) {
       failures.push(`no pause button at ${SHORT.width}x${SHORT.height}`);
       return failures;

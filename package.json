@@ -16,7 +16,8 @@
     "themes": "node tools/theme-check.mjs",
     "gate": "node tools/gate-probe.mjs",
     "lights": "node tools/light-check.mjs",
-    "touch": "node tools/touch-check.mjs"
+    "touch": "node tools/touch-check.mjs",
+    "hud": "node tools/hud-check.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

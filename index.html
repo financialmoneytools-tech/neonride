@@ -63,21 +63,46 @@
       }
 
       /* Top left measurement overlay (filled in by StatsOverlay.js) */
+      /* THE STATS OVERLAY IS A DEBUG TOOL AND MUST NEVER BLOCK PLAY.
+         On a landscape phone it used to fill the left half of the screen -
+         measured, 28 per cent of a 740x320 viewport - with the score drawn
+         straight through it and the life pips inside it. Fifteen lines at
+         12px/1.5 is 270 px, and the screen is 320.
+
+         Small, tight and semi transparent, and the smoke test holds it to a
+         fifth of the screen with nothing overlapping it. */
       .stats-overlay {
         position: fixed;
-        top: 10px;
-        left: 10px;
+        top: 6px;
+        left: 6px;
         z-index: 10;
         margin: 0;
-        padding: 6px 10px;
-        border: 1px solid rgba(0, 255, 255, 0.25);
-        border-radius: 4px;
-        background: rgba(0, 0, 0, 0.45);
-        color: #7ff9ff;
-        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        letter-spacing: 0.02em;
+        padding: 4px 6px;
+        border: 1px solid rgba(0, 255, 255, 0.18);
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.38);
+        color: rgba(127, 249, 255, 0.85);
+        font: 10px/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0;
         white-space: pre;
         pointer-events: none;
+        /* A readout that grows a line must not grow into the road. */
+        max-width: 30vw;
+        max-height: 56vh;
+        overflow: hidden;
+      }
+
+      /* A SHORT VIEWPORT IS THE CASE THAT BROKE. Smaller again, and capped
+         above the HUD at the bottom left rather than merely made narrower -
+         an overlap fixed by reshaping the panel is not fixed. */
+      @media (max-height: 420px) {
+        .stats-overlay {
+          font-size: 8px;
+          line-height: 1.2;
+          padding: 3px 5px;
+          max-width: 27vw;
+          max-height: 50vh;
+        }
       }
 
       /* Title card. Removes itself once the ride starts; see ui/StartScreen.js. */
@@ -380,6 +405,20 @@
         font-size: clamp(0.62rem, 1.9vw, 0.78rem);
         letter-spacing: 0.22em;
         color: rgba(190, 220, 255, 0.72);
+      }
+
+      /* THE HUD AT PHONE HEIGHT. Score and distance bottom left with the lives
+         beside them, which is where the eye already is between glances at the
+         road - and small enough that the block cannot climb into the stats
+         panel above it. The two are the only things down this edge. */
+      @media (max-height: 420px) {
+        .hud {
+          left: 10px;
+          bottom: 8px;
+        }
+        .hud-score { font-size: 1.35rem; }
+        .hud-lives { font-size: 0.72rem; letter-spacing: 0.18em; margin-top: 1px; }
+        .hud-meta { font-size: 0.56rem; letter-spacing: 0.16em; margin-top: 2px; }
       }
 
       /* Pause and game over. Deliberately the same object as the title card. */

@@ -249,6 +249,21 @@ Portrait / 9:16 was dropped. The game is landscape and shows an orientation
 prompt in portrait. Deleted for it: the portrait cockpit source, the selector
 that chose a source by frame shape, and the second (tall) framing profile.
 
+## Backlog - agreed, not scheduled
+
+- **Traffic vehicle detail, in one pass.** The seven vehicle types are box and
+  cabin primitives with vertex-coloured lights, and they read well at distance
+  and plainly at close range. Deliberately NOT done now: the remaining four
+  roads come first, and then every vehicle is gone through in a single pass
+  rather than one type at a time. Doing it per type is how a fleet ends up with
+  three different levels of detail in the same lane.
+
+  Whatever that pass does, it inherits two rules that are already measured. A
+  type stays at four draw calls - body, strip, tail, glow - because that is what
+  keeps the whole system at four calls however many vehicles are on the road.
+  And `tools/light-check.mjs` has to keep passing: every light mesh carries the
+  body's instance matrix, and the hardware ones stay inside its box.
+
 ## Outstanding, in order
 
 1. **Mobile landscape** - the portrait prompt, the orientation lock and
