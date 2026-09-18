@@ -53,6 +53,14 @@ export class SelectScreen {
     this.body = document.createElement('div');
     this.body.className = 'select-body';
 
+    // ARROWS, EITHER SIDE, and they are not decoration. A screen whose only
+    // control is a swipe has an invisible control: nothing on it says a swipe
+    // is possible, and when the swipe stopped working there was no second way
+    // in. On a phone this screen did nothing at all and the fault was invisible
+    // on a desktop, where the arrow KEYS go to a window listener.
+    this.prevButton = this._arrow('‹', 'select-arrow-prev', -1);
+    this.nextButton = this._arrow('›', 'select-arrow-next', 1);
+
     const foot = document.createElement('div');
     foot.className = 'select-foot';
 
@@ -78,7 +86,7 @@ export class SelectScreen {
     );
     foot.append(this.confirmButton);
 
-    this.el.append(head, this.body, foot);
+    this.el.append(head, this.body, foot, this.prevButton, this.nextButton);
     parent.appendChild(this.el);
 
     this._onKey = this._onKey.bind(this);
@@ -90,7 +98,66 @@ export class SelectScreen {
     window.addEventListener('keydown', this._onKey, true);
 
     this._swipeFrom = null;
+    this._swiped = false;
   }
+
+  /**
+   * True once, if the gesture that just finished was a swipe. Reading it clears
+   * it, so a later click is a click.
+   * @returns {boolean}
+   */
+  consumedSwipe() {
+    const swiped = this._swiped;
+    this._swiped = false;
+    return swiped;
+  }
+
+  /**
+   * One of the two big side arrows. A real button, sized in CSS to a thumb.
+   * @param {string} glyph
+   * @param {string} className
+   * @param {number} step
+   */
+  _arrow(glyph, className, step) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'select-arrow ' + className;
+    button.textContent = glyph;
+    button.setAttribute('aria-label', step < 0 ? 'previous' : 'next');
+    this._activate(button, () => this.move(step));
+    return button;
+  }
+
+  /**
+   * Wires a control to fire on POINTERUP, not on click.
+   *
+   * A tap does not always become a `click`. Measured, with a real touch stream:
+   * a tap that follows a swipe closely receives pointerdown, touchstart,
+   * pointerup and touchend and NO click at all, so a button that works
+   * perfectly in isolation does nothing as the second half of a gesture. On a
+   * screen whose whole purpose is swipe-then-tap that is not an edge case, it
+   * is the normal way it gets used.
+   *
+   * `click` is still handled, but only when `detail` is 0 - which is what a
+   * keyboard-synthesised click looks like and what a pointer-driven one never
+   * does. So a thumb goes through pointerup, a keyboard goes through click, and
+   * neither can fire the action twice.
+   * @param {HTMLElement} button
+   * @param {() => void} action
+   */
+  _activate(button, action) {
+    const stop = (event) => event.stopPropagation();
+    button.addEventListener('pointerdown', stop);
+    button.addEventListener('pointerup', (event) => {
+      event.stopPropagation();
+      action();
+    });
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (event.detail === 0) action();
+    });
+  }
+
 
   /** A real button, so a keyboard and a screen reader both reach it. */
   _button(label, className, onClick) {
@@ -98,12 +165,7 @@ export class SelectScreen {
     button.type = 'button';
     button.className = 'controls-btn ' + className;
     button.textContent = label;
-    const stop = (event) => event.stopPropagation();
-    button.addEventListener('pointerdown', stop);
-    button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      onClick();
-    });
+    this._activate(button, onClick);
     return button;
   }
 
@@ -160,12 +222,33 @@ export class SelectScreen {
     if (!this._swipeFrom) return;
     const dx = event.clientX - this._swipeFrom.x;
     const dy = event.clientY - this._swipeFrom.y;
+    const from = this._swipeFrom;
     this._swipeFrom = null;
-    // A swipe is horizontal and long enough to be meant. Below that it is a
-    // tap, and a tap on an option picks that option - which is what a thumb
-    // does first on a screen of cards.
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+
+    // A swipe is horizontal and long enough to be meant. The threshold is a
+    // fraction of the WIDTH rather than a fixed 40 px: this screen is 740 px
+    // wide on the phone it is designed for and over 1900 on a desktop, and the
+    // same absolute distance is a flick on one and a twitch on the other.
+    const width = this.el ? this.el.clientWidth || 1 : 1;
+    const far = Math.abs(dx) > Math.max(28, width * 0.06);
+    if (far && Math.abs(dx) > Math.abs(dy)) {
+      // Flagged so the click that follows a drag can be ignored by whatever it
+      // landed on - see RoadScreen, where lifting a swipe over a card would
+      // otherwise select that card and undo the swipe.
+      this._swiped = true;
       this.move(dx < 0 ? 1 : -1);
+      return;
+    }
+
+    // NOT A SWIPE, SO IT IS A TAP - and a tap on the left or right of the card
+    // moves the selection too. Three ways to change it now: the arrows, a
+    // swipe, and the card itself. The middle third does nothing on purpose, so
+    // reaching for the confirm button cannot change what is about to be
+    // confirmed.
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      const x = from.x - this.el.getBoundingClientRect().left;
+      if (x < width * 0.34) this.move(-1);
+      else if (x > width * 0.66) this.move(1);
     }
   }
 

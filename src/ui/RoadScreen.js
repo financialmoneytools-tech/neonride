@@ -105,13 +105,30 @@ export class RoadScreen {
         card.disabled = true;
       }
 
-      card.addEventListener('pointerdown', (event) => event.stopPropagation());
-      card.addEventListener('click', (event) => {
-        event.stopPropagation();
+      // POINTERDOWN IS NOT STOPPED HERE, and that is the fix for a swipe that
+      // did nothing on the road screen. The card root tracks the gesture, so a
+      // card which swallowed the pointerdown meant every swipe STARTING on a
+      // card - which is most of the screen - was never seen as a swipe at all.
+      const choose = () => {
+        // A drag that ended on this card is a swipe, not a choice. Without this
+        // the swipe would change the selection and then the tap would set it
+        // straight back to whatever card the finger happened to lift over.
+        if (this.screen.consumedSwipe()) return;
         // First tap selects, and a second tap on the SAME card confirms. On a
         // phone that is what a thumb expects; on a desktop Enter still does it.
         if (this.screen.index === index && !item.locked) this.screen.options.onConfirm(item);
         else this.screen.select(index);
+      };
+      // POINTERUP, not click - a tap after a swipe does not always produce a
+      // click. See SelectScreen._activate. Pointerdown is deliberately NOT
+      // stopped, so the card root can still see a swipe that starts here.
+      card.addEventListener('pointerup', (event) => {
+        event.stopPropagation();
+        choose();
+      });
+      card.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (event.detail === 0) choose();
       });
       this.grid.append(card);
       return card;

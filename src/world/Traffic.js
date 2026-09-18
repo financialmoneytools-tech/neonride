@@ -228,6 +228,8 @@ export class Traffic {
       fleet.mesh.strip.instanceMatrix.needsUpdate = true;
       fleet.mesh.tail.instanceMatrix.needsUpdate = true;
       fleet.mesh.glow.instanceMatrix.needsUpdate = true;
+      // The glow's colour carries its near fade now, so it changes every frame.
+      if (fleet.mesh.glow.instanceColor) fleet.mesh.glow.instanceColor.needsUpdate = true;
       if (fleet.mesh.beacon) this._updateBeacons(fleet);
     }
 
@@ -443,14 +445,32 @@ export class Traffic {
     fleet.mesh.tail.setMatrixAt(index, _matrix);
     if (fleet.mesh.beacon) fleet.mesh.beacon.setMatrixAt(index, _matrix);
 
-    // Shrinks away as the player draws level: a quad this size fills the whole
-    // frame at point blank range, and you cannot see the glow under a vehicle
-    // you are alongside anyway.
+    // THE GLOW TAKES THE BODY'S MATRIX, unchanged. It used to take its own,
+    // SCALED toward nothing as the player closed - and that is what detached
+    // the tail lights.
+    //
+    // The glow mesh holds two things: the ground pool, centred on the origin,
+    // and the REAR HALO, offset to z = +length/2 so it sits on the rear face.
+    // Scaling the mesh about the origin shrinks the pool in place, which is
+    // fine, and drags the halo off the back of the vehicle toward its centre,
+    // which is not. So a lit red panel slid out of the rear face while the tail
+    // lamps and the outline stayed on it - reported as lights floating in mid
+    // air with the body drawn separately behind them. The same fault was
+    // reported once before on a truck and recorded as fixed; it was hidden, by
+    // switching that type's rear outline off.
+    //
+    // The near fade is kept, because the reason for it is real - a quad this
+    // size fills the whole frame at point blank range - but it is applied as
+    // BRIGHTNESS rather than as size. The glow is additive, so a colour scaled
+    // to zero is invisible, which is the same result without moving anything.
+    fleet.mesh.glow.setMatrixAt(index, _matrix);
+
     const gap = Math.abs(playerDistance - vehicle.distance);
     const near = THREE.MathUtils.clamp(gap / glow.nearFade, 0, 1);
-    _scale.setScalar(vehicle.scale * near * near * (3 - 2 * near));
-    _matrix.compose(_position, _quaternion, _scale);
-    fleet.mesh.glow.setMatrixAt(index, _matrix);
+    const fade = near * near * (3 - 2 * near);
+    const look = (config.world.traffic.look && config.world.traffic.look[type.name]) || null;
+    _color.set((look && look.stripColor) || type.stripColor).multiplyScalar(fade);
+    fleet.mesh.glow.setColorAt(index, _color);
   }
 
   /** @returns {number} total vehicles across every fleet */

@@ -14,7 +14,9 @@
     "smoke": "node tools/smoke-mobile.mjs",
     "flash": "node tools/flash-probe.mjs",
     "themes": "node tools/theme-check.mjs",
-    "gate": "node tools/gate-probe.mjs"
+    "gate": "node tools/gate-probe.mjs",
+    "lights": "node tools/light-check.mjs",
+    "touch": "node tools/touch-check.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

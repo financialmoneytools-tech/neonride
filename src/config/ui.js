@@ -108,7 +108,12 @@ export const ui = {
     quick: 'HIZLI BAŞLA',
     locked: 'YAKINDA',
     hintKeys: 'SEÇMEK İÇİN OK TUŞLARI, ONAYLAMAK İÇİN ENTER',
-    hintTouch: 'KAYDIR VEYA DOKUN',
+    // Names the ARROWS first. The screen used to say only "swipe or tap", and
+    // when the swipe silently failed on the phone that sentence was the only
+    // instruction on screen - it told the player to do the one thing that did
+    // not work. The arrows are the visible control now, so they are what it
+    // points at.
+    hintTouch: 'OKLARA DOKUN VEYA KAYDIR',
   },
 
   // The bike screen. Names are not translated - they are the bikes' names.

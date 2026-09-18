@@ -71,15 +71,29 @@ MIN_REGION = 3000
 # tight enough that a seed falling into the neighbouring panel is caught.
 SIZE_TOLERANCE = 0.45
 
-# The rim light: bright, saturated piping drawn along an edge of the bodywork.
-# It is selected INSIDE the bodywork regions, so the gloves' cyan piping - the
-# same colour, drawn the same way - is never touched. The gloves belong to the
-# rider, not to the bike.
-RIM_VALUE = 0.42
-RIM_SAT = 0.30
-# The piping runs just outside a fill, on the ink boundary, so the bodywork mask
-# is grown by this many pixels before the rim is looked for within it.
-RIM_REACH = 6
+# THE RIM LIGHT AND THE PIPING, which are the same thing and are now treated as
+# one. It is the neon trim drawn along the edges of the bodywork, and it FOLLOWS
+# THE BIKE: on EMBER the fairing is orange, so orange is what its piping has to
+# be. Trim that stays magenta on an orange bike does not read as a choice, it
+# reads as a bug - which is exactly how it was reported.
+#
+# Measured before this was widened: of every magenta pixel in the drawing, 26
+# per cent landed in this channel and 70 per cent landed in NO channel at all,
+# so most of the piping was never recoloured. The cause is geometric. The
+# bodywork regions are the fills BOUNDED by ink, and the piping is drawn ON that
+# boundary - outside every fill, in the ink's own band. A 6 pixel reach with a
+# high threshold caught the brightest quarter of it and left the rest.
+RIM_VALUE = 0.26
+RIM_SAT = 0.20
+# How far outside a bodywork fill to look. Wide enough to cross the ink line the
+# piping is drawn on, which is what the old 6 could not do.
+RIM_REACH = 16
+# THE GLOVES KEEP THEIR CYAN, and widening the reach is precisely what puts that
+# at risk: a glove resting on the tank is within 16 pixels of it. So every
+# EXCLUDED part is grown by this much and subtracted from the rim, which turns
+# the exclusion from an accident of distance into a rule. The gloves and sleeves
+# are the RIDER; the rider does not change colour when the bike does.
+EXCLUSION_REACH = 5
 
 # Seeds, in fractions of the image, measured off the labelled components. Each
 # names one part; `size` is what that part measured when the seed was placed and
@@ -198,11 +212,13 @@ def main():
         print(f"  {part['name']:16} {part['channel']:6} {size:7d} px  {drift * 100:5.1f}% drift  {status}")
 
     print()
+    excluded_mask = np.zeros((height, width), bool)
     for part in FORBIDDEN:
         index, why = region_at(labels, (height, width), part['at'], part['name'])
         if why:
             print(f"  {part['name']:16} EXCLUDED  (its seed is on ink; nothing to check)")
             continue
+        excluded_mask |= labels == index
         leaked = index in claimed
         if leaked:
             problems.append(
@@ -212,7 +228,7 @@ def main():
         print(f"  {part['name']:16} EXCLUDED  {int(sizes[index]):7d} px  "
               f"{'LEAKED INTO THE MASK' if leaked else 'clear'}")
 
-    # --- the rim light, inside the bodywork only ---------------------------
+    # --- the rim light and the piping --------------------------------------
     body = channels['body']
     reach = ndimage.binary_dilation(body, iterations=RIM_REACH)
     scaled = rgb / 255.0
@@ -223,6 +239,9 @@ def main():
     # The windscreen is bright and saturated over a large area and would swamp
     # the rim channel; it has its own.
     rim &= ~channels['glass']
+    # And nothing that belongs to the rider, however close it sits to the tank.
+    if excluded_mask is not None:
+        rim &= ~ndimage.binary_dilation(excluded_mask, iterations=EXCLUSION_REACH)
 
     print(f'\n  rimLight         body   {int(rim.sum()):7d} px  '
           f'({100 * rim.sum() / max(body.sum(), 1):.1f}% of the bodywork)')

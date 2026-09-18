@@ -530,12 +530,52 @@
         background: linear-gradient(180deg, rgba(4, 2, 12, 0.92) 0%,
                                             rgba(4, 2, 12, 0.72) 45%,
                                             rgba(4, 2, 12, 0.18) 100%);
-        /* The card itself takes no events; its children opt in. Same rule the
-           title card uses, and for the same reason. */
-        pointer-events: none;
+        /* THE CARD TAKES EVENTS. It used to be `pointer-events: none`, copied
+           from the title card - and on the title card that is right, because
+           its whole job is to let the gesture through to the window listener
+           that starts the run. Here it was the bug: the swipe and tap handlers
+           live on this element, so with pointer-events off the card never
+           received a pointerdown and NOTHING a finger did reached the screen.
+           On a desktop the arrow keys go to a window listener and worked
+           perfectly, which is why this survived - it was broken only for the
+           one input method nobody tested with. */
+        pointer-events: auto;
+        /* And the browser must not claim the swipe for itself. Without this,
+           a horizontal drag is a pan gesture and the pointer events are
+           cancelled halfway through. */
+        touch-action: none;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       .select-screen button { pointer-events: auto; }
+
+      /* BIG ARROWS, EITHER SIDE. A screen that can only be swiped is a screen
+         whose only control is invisible: nothing on it says a swipe is
+         possible, and when the swipe silently failed there was no second way
+         in. These are 15 per cent of the width each and the full height of the
+         body, so they are impossible to miss with a thumb. */
+      .select-arrow {
+        position: absolute;
+        top: 22%;
+        bottom: 22%;
+        width: clamp(52px, 15%, 108px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(125, 200, 235, 0.25);
+        border-radius: 12px;
+        background: rgba(6, 12, 24, 0.5);
+        color: #9fe9ff;
+        font: 400 26px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .select-arrow-prev { left: 8px; }
+      .select-arrow-next { right: 8px; }
+      .select-arrow:active {
+        background: rgba(125, 255, 196, 0.22);
+        border-color: #7dffc4;
+        color: #eafff6;
+      }
 
       .select-head { flex: 0 0 auto; }
       .select-title {
@@ -548,6 +588,9 @@
       .select-body {
         flex: 1 1 auto;
         min-height: 0;
+        /* Clear of the arrows on both sides. */
+        padding: 0 clamp(56px, 16%, 116px);
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -647,6 +690,12 @@
         justify-content: safe center;
         max-width: 100%;
         overflow-x: auto;
+        /* `none`, like the card. pan-x was tried and it BROKE THE SWIPE: the
+           browser claimed a horizontal drag as a pan of this row and cancelled
+           the pointer stream half way through, so a swipe over the cards did
+           nothing. Dragging the row is not needed - changing the selection
+           scrolls the chosen card into view on its own. */
+        touch-action: none;
         padding: 2px 2px 4px;
         scrollbar-width: none;
       }
