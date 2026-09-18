@@ -20,7 +20,8 @@
     "hud": "node tools/hud-check.mjs",
     "ablate": "node tools/ablate.mjs",
     "lateral": "node tools/lateral-check.mjs",
-    "phone": "node tools/phone-probe.mjs"
+    "phone": "node tools/phone-probe.mjs",
+    "stage": "node tools/stage-check.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

@@ -1,14 +1,15 @@
 import { config } from '../config.js';
 import { BikeScreen } from './BikeScreen.js';
+import { ModeScreen } from './ModeScreen.js';
 import { RoadScreen } from './RoadScreen.js';
 
 /**
- * SelectFlow - title -> bike -> road -> run, and the way back out.
+ * SelectFlow - title -> mode -> bike -> road -> run, and the way back out.
  *
  * One object owns the sequence so main.js wires a beginning and an end rather
  * than four screens that each know what comes next. A screen that knows the
  * screen after it is a screen that cannot be reordered, and there is already a
- * mode screen going in front of this one in the next phase.
+ * mode screen in front of it, which went in exactly that way.
  *
  * THE WORLD IS ALREADY BUILT AND ALREADY RUNNING behind these. That is what
  * makes the bike preview the actual cockpit rather than a picture of one, and
@@ -39,10 +40,10 @@ export class SelectFlow {
     this._roadOnEntry = selection.road;
   }
 
-  /** Opens at the bike screen. */
+  /** Opens at the mode screen, which is the first choice. */
   start() {
     this._roadOnEntry = this.selection.road;
-    this._showBike();
+    this._showMode();
   }
 
   /** True while a selection screen is up. main.js gates presses on it. */
@@ -55,9 +56,20 @@ export class SelectFlow {
     this.screen = null;
   }
 
+  _showMode() {
+    this._clear();
+    this.screen = new ModeScreen(this.parent, {
+      onConfirm: (mode) => {
+        this.selection.setMode(mode);
+        this._showBike();
+      },
+    }, this.selection.mode);
+  }
+
   _showBike() {
     this._clear();
     this.screen = new BikeScreen(this.parent, {
+      onBack: () => this._showMode(),
       onPreview: (key) => {
         // Previewed, not committed. Looking at a bike repaints the cockpit so
         // the choice can be seen; only confirming stores it.

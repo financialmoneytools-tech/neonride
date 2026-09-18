@@ -41,12 +41,25 @@ export class Hud {
     this.livesEl = document.createElement('div');
     this.livesEl.className = 'hud-lives';
 
-    this.el.append(this.scoreEl, this.livesEl, this.metaEl);
+    // THE STAGE READOUT: how much is left, and the clock. Only built once and
+    // simply left empty in endless mode - a HUD that adds and removes elements
+    // per mode is a HUD whose layout changes under the player, and this one has
+    // to not overlap anything at 740x320. See tools/hud-check.mjs.
+    this.stageEl = document.createElement('div');
+    this.stageEl.className = 'hud-stage';
+    this.stageEl.hidden = true;
+
+    // ORDER: score, lives, remaining, distance. The remaining metres are the
+    // most important number on the screen during a stage, so they sit directly
+    // under the two that never change position, not at the bottom of the
+    // column under a distance that a staged rider barely reads.
+    this.el.append(this.scoreEl, this.livesEl, this.stageEl, this.metaEl);
     parent.appendChild(this.el);
 
     this._score = -1;
     this._meta = '';
     this._lives = -1;
+    this._stage = '';
   }
 
   update() {
@@ -73,6 +86,20 @@ export class Hud {
       let pips = '';
       for (let i = 0; i < total; i++) pips += i < session.lives ? text.full : text.empty;
       this.livesEl.textContent = pips;
+    }
+
+    // REMAINING, NOT TRAVELLED. A rider who is 3800 metres in has to do
+    // arithmetic to know how much is left; one who is told 1200 does not, and
+    // the number that matters in a race is always the one still to run.
+    if (this.stageEl.hidden === session.staged) this.stageEl.hidden = !session.staged;
+    if (session.staged) {
+      const stageText = config.ui.stageHud;
+      const line = stageText.remaining + ' ' + Math.ceil(session.stage.remaining)
+        + stageText.unit + '   ' + session.stage.time.toFixed(1);
+      if (line !== this._stage) {
+        this._stage = line;
+        this.stageEl.textContent = line;
+      }
     }
 
     const labels = config.ui.hud;

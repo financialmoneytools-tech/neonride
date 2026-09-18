@@ -3,8 +3,8 @@ import { config } from '../config.js';
 import { roadLayout } from './road/layout.js';
 
 /**
- * ThemeGate - the lit arch that announces a road changing, and the thing the
- * checkpoints in the staged run will be placed with.
+ * ThemeGate - the lit arch that announces a road changing, and the one the
+ * staged run's checkpoints and finish line are placed with.
  *
  * ONE GATE, MOVED, never a gate per change. It is built at construction and
  * parked beyond the fog wall; arming it puts it at a distance ahead and lets
@@ -26,9 +26,15 @@ export class ThemeGate {
   /**
    * @param {THREE.Scene} scene
    * @param {import('./Road.js').Road} road
+   * @param {object} [tint] overrides for this gate's own colours, merged over
+   *   config.world.gate. A checkpoint is the same arch in a different light:
+   *   same geometry, same placement, same fade, so it is the same class with
+   *   two colours changed rather than a second one that would drift from it.
    */
-  constructor(scene, road) {
-    const cfg = config.world.gate;
+  constructor(scene, road, tint = null) {
+    const cfg = tint ? { ...config.world.gate, ...tint } : config.world.gate;
+    /** Kept so `update` reads the same colours the constructor built with. */
+    this.cfg = cfg;
     this.road = road;
     this.distance = 0;
     this.armed = false;
@@ -134,7 +140,20 @@ export class ThemeGate {
    * @param {number} playerDistance
    */
   arm(playerDistance) {
-    this.distance = playerDistance + config.world.gate.ahead;
+    this.armAt(playerDistance + this.cfg.ahead);
+  }
+
+  /**
+   * Places the gate at an ABSOLUTE distance along the road.
+   *
+   * This is what the staged run needs and `arm` is not: a checkpoint stands at
+   * a kilometre mark, not at "wherever the rider was plus nine hundred". Armed
+   * the other way the gates would drift with the frame the arming happened on,
+   * and a stage's fourth gate would not be at four kilometres.
+   * @param {number} distance
+   */
+  armAt(distance) {
+    this.distance = distance;
     this.armed = true;
     this.crossed = false;
     this.group.visible = true;
@@ -153,7 +172,7 @@ export class ThemeGate {
    */
   update(dt, state) {
     if (!this.armed) return;
-    const cfg = config.world.gate;
+    const cfg = this.cfg;
     const playerDistance = state.distance || 0;
     const gap = this.distance - playerDistance;
 

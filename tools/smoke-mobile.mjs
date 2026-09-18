@@ -372,6 +372,110 @@ async function hudLayout(page, size) {
   return problems;
 }
 
+/**
+ * Walks a staged run all the way to its finish line, on a landscape phone.
+ *
+ * @param {import('playwright').Browser} browser
+ * @param {string} url
+ * @returns {Promise<string[]>} failures
+ */
+async function checkFinish(browser, url) {
+  // The landscape phone this game is built for, and the smallest frame the
+  // results card has to fit. `checkShortViewport` keeps its own copy of the
+  // same size; both are the phone.
+  const SHORT = { width: 740, height: 320 };
+  const failures = [];
+  const context = await browser.newContext({
+    ...devices['Pixel 7'], viewport: SHORT, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+    await page.waitForTimeout(700);
+    await page.evaluate(() => {
+      window.NEON.config.stage.length = 400;
+      window.NEON.config.stage.checkpointEvery = 200;
+    });
+    await page.tap('body', { position: { x: 700, y: 60 }, force: true }).catch(() => {});
+    await page.waitForTimeout(800);
+
+    // KOŞU is the first card on the mode screen, so confirming three times in a
+    // row is a staged run on the stored bike and road.
+    for (const selector of [
+      '.mode-screen .select-confirm',
+      '.bike-screen .select-confirm',
+      '.road-screen .select-confirm',
+    ]) {
+      await page.waitForSelector(selector, { timeout: 5000 }).catch(() => {});
+      await page.click(selector).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+
+    const ending = await page.evaluate(async () => {
+      const N = window.NEON;
+      const began = performance.now();
+      await new Promise((resolve) => {
+        const tick = () => {
+          if (N.session.ended) resolve();
+          else if (performance.now() - began > 45000) resolve();
+          else requestAnimationFrame(tick);
+        };
+        tick();
+      });
+      return {
+        phase: N.session.phase,
+        travelled: N.session.stage.travelled,
+        medal: N.session.stage.medal,
+      };
+    });
+
+    if (ending.phase !== 'finished') {
+      failures.push(`the stage never finished - phase ${ending.phase} after `
+        + `${Math.round(ending.travelled)} of 400 m`);
+    } else if (!ending.medal) {
+      failures.push('the stage finished without awarding a medal');
+    }
+
+    // WAITED FOR, NOT SLEPT THROUGH. `resultsDelay` is 1.4 seconds of GAME
+    // time, and game time is not wall time here: a page that is not the
+    // foreground tab has its requestAnimationFrame throttled, and core/Loop.js
+    // clamps dt to 0.05 a frame - so a throttled page advances 1.4 s of game
+    // time in far more than 1.4 s of real time. A fixed sleep failed here for
+    // exactly that reason while the game was behaving perfectly.
+    await page.waitForFunction(
+      () => { const el = document.querySelector('.results'); return !!el && !el.hidden; },
+      null, { timeout: 30000 },
+    ).catch(() => {});
+    const card = await page.evaluate(() => {
+      const el = document.querySelector('.results');
+      if (!el || el.hidden) return null;
+      const box = el.getBoundingClientRect();
+      return {
+        finished: el.classList.contains('results-finished'),
+        inside: box.top >= 0 && box.left >= 0
+          && box.bottom <= window.innerHeight && box.right <= window.innerWidth,
+        box: [Math.round(box.width), Math.round(box.height)],
+      };
+    });
+    if (!card) failures.push('no results card after the finish');
+    else {
+      if (!card.finished) failures.push('the results card reads as a failure, not a finish');
+      // It is the last thing anybody sees in a run, on the smallest frame the
+      // game supports. A card that runs off a landscape phone is a card whose
+      // medal and time are not there.
+      if (!card.inside) {
+        failures.push(`the results card (${card.box[0]}x${card.box[1]}) does not fit `
+          + `${SHORT.width}x${SHORT.height}`);
+      }
+    }
+  } catch (error) {
+    failures.push('finish walk threw: ' + error.message);
+  }
+  await context.close();
+  return failures;
+}
+
 async function checkShortViewport(browser, base) {
   // 740x320, and the size is measured rather than picked. The old stacked card
   // put its lowest button at exactly 360 on a 360 tall viewport - inside by the
@@ -391,11 +495,15 @@ async function checkShortViewport(browser, base) {
     await page.tap('body', { position: { x: 700, y: 60 }, force: true }).catch(() => {});
     await page.waitForTimeout(900);
     // THROUGH THE SELECTION SCREENS. This check is about the PAUSE card's
-    // geometry on a short viewport, and the bike and road screens now stand
-    // between the title tap and a running game. Walked with the confirm button
+    // geometry on a short viewport, and the mode, bike and road screens now
+    // stand between the title tap and a running game. Walked with the confirm button
     // rather than skipped with stored values, because the walk is also how the
     // two new screens get their own geometry checked at this size.
-    for (const selector of ['.bike-screen .select-confirm', '.road-screen .select-confirm']) {
+    for (const selector of [
+      '.mode-screen .select-confirm',
+      '.bike-screen .select-confirm',
+      '.road-screen .select-confirm',
+    ]) {
       await page.waitForSelector(selector, { timeout: 5000 }).catch(() => {});
       for (const line of await selectGeometry(page, selector.split(' ')[0], SHORT)) {
         failures.push(line);
@@ -593,6 +701,10 @@ async function checkTiltDirection(browser, base) {
  */
 async function walkSelection(page, failures) {
   const screens = [
+    // THE MODE SCREEN IS FIRST, and it is walked rather than skipped for the
+    // same reason as the other two: it stands between every player and every
+    // run, so a fault in it is a fault in the whole game.
+    { name: 'mode', selector: '.mode-screen' },
     { name: 'bike', selector: '.bike-screen' },
     { name: 'road', selector: '.road-screen' },
   ];
@@ -714,9 +826,9 @@ async function main() {
     failures.push('title card still up after the tap - the flow never started');
   }
 
-  // --- THE SELECTION FLOW: title -> bike -> road -> run -------------------
+  // --- THE SELECTION FLOW: title -> mode -> bike -> road -> run -----------
   //
-  // Walked, not skipped. These two screens stand between every player and
+  // Walked, not skipped. These three screens stand between every player and
   // every run, so a fault in either is a fault in the whole game - and they are
   // the only part of this build whose layout has to survive a 740x320 viewport
   // with a cockpit already occupying the bottom third of it.
@@ -769,6 +881,19 @@ async function main() {
       }
     }
   }
+
+  // --- ...AND ON TO A FINISH -----------------------------------------------
+  //
+  // The flow is not finished until a run is. Everything above proves a stage
+  // STARTS; none of it proves one can be completed, and a game whose finish
+  // line is unreachable is a game with no ending however good the start is.
+  //
+  // THE HOOK IS A SHORT STAGE, not a simulated one: `config.stage.length` is
+  // what drives the finish, so a 400 metre stage runs the real gates, the real
+  // clock, the real checkpoint counter and the real card, just sooner. Calling
+  // the finish directly would prove the method works and nothing about whether
+  // anything reaches it.
+  for (const line of await checkFinish(browser, `${base}${query}`)) failures.push(line);
 
   for (const line of await checkShortViewport(browser, `${base}${query}`)) failures.push(line);
   for (const line of await checkTiltDirection(browser, `${base}${query}`)) failures.push(line);

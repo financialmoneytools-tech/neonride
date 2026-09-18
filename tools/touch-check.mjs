@@ -108,8 +108,22 @@ await page.waitForTimeout(1800);
 await tap(cdp, SIZE.width - 40, 40);
 await page.waitForTimeout(1200);
 
+// THE MODE SCREEN IS FIRST, and it is driven by a real tap like everything
+// else here: KOŞU or SONSUZ is the first thing a thumb has to be able to
+// choose, so a screen that cannot be tapped is a game that cannot be started.
+const onMode = await page.isVisible('.mode-screen').catch(() => false);
+check('the mode screen opens after a tap', onMode, onMode ? '' : 'never appeared');
+if (onMode) {
+  const modeConfirm = await page.$('.mode-screen .select-confirm');
+  const modeBox = modeConfirm && await modeConfirm.boundingBox();
+  if (modeBox) {
+    await tap(cdp, modeBox.x + modeBox.width / 2, modeBox.y + modeBox.height / 2);
+    await page.waitForTimeout(800);
+  }
+}
+
 const onBike = await page.isVisible('.bike-screen').catch(() => false);
-check('the bike screen opens after a tap', onBike, onBike ? '' : 'never appeared');
+check('tapping through the mode opens the bike screen', onBike, onBike ? '' : 'never appeared');
 if (!onBike) {
   await browser.close();
   server.child.kill();

@@ -53,6 +53,29 @@ export const world = {
     blendSeconds: 3.2,
     // How far apart changes are placed on the mixed road.
     everyMeters: 2600,
+
+    // THE STAGED RUN'S GATES, as tints over everything above. Same arch, same
+    // height, same fade - a checkpoint that looked like a different object
+    // would read as a different kind of thing, and it is not: it is the same
+    // announcement that something is about to happen.
+    //
+    // A checkpoint is green because it is a pass, and the finish is warm white
+    // and gold because it is the end. Neither is the theme gate's plain white,
+    // so in a mixed staged run - where all three can appear - they are told
+    // apart at the distance they resolve out of the fog, not at the moment
+    // they arrive.
+    checkpointTint: {
+      neonColor: 0x7dffc4,
+      structureColor: 0x243a36,
+    },
+    finishTint: {
+      neonColor: 0xffe9a8,
+      structureColor: 0x3a3524,
+      // Brighter and taller-reading than a checkpoint: the last one should look
+      // like the last one.
+      haloOpacity: 0.5,
+      haloSpread: 3.0,
+    },
   },
 
   // Vehicles to overtake; see config/traffic.js.

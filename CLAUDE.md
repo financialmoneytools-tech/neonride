@@ -201,6 +201,36 @@ the vertical swing from 0.0568 to 0.0134 units, the lateral from 0.0360 to
 0.0057, the roll from 0.0262 to 0.0068 rad, and the strip scroll rate to an
 eighth.
 
+## The staged run
+
+Every run can now have an end. `KOŞU` is five kilometres with a lit gate every
+kilometre, a finish line, a time and a medal; `SONSUZ` is the original
+ride-until-you-crash and still owns the high score. The mode is the FIRST
+choice: title -> mode -> bike -> road -> run.
+
+- `config/stage.js` owns the length, the checkpoint spacing and the medals.
+  **Medal thresholds are multiples of a MEASURED reference time, never absolute
+  seconds.** `npm run stage` re-measures it - autopilot, full length, no
+  collisions - and FAILS if the configured value has drifted more than 15 per
+  cent, so a change to top speed or traffic density cannot quietly make gold
+  unreachable. Measured 2026-09-18: 5001 units in 26.27 s.
+- `game/Stage.js` owns progress and nothing else - no geometry, no camera. The
+  gates are `world/ThemeGate.js` with a tint, armed at an ABSOLUTE distance so
+  the fourth gate is at four kilometres rather than near it.
+- **Checkpoints do not restore anything.** No extra life, no extra time. A
+  stage whose checkpoints hand back resources turns the last kilometre into the
+  only one that counts, and the point of five kilometres is that all five do.
+- **God mode ignores the whole thing.** Its phase is `free`, never `running`,
+  so a recording has no checkpoints, no finish line and no stage clock in it.
+- The old game over panel is RETIRED. `ui/Results.js` owns both endings -
+  reaching the line and losing the third life - because two endings with two
+  cards is two places to keep one look consistent.
+- A stage is driven to a real finish by `npm run stage` and by `npm run smoke`,
+  both with the same hook: a SHORT stage, not a simulated one. `stage.length`
+  is what drives the finish, so a 400 metre stage runs the real gates, clock,
+  counter and card. Calling `session._finish()` would prove the method works
+  and nothing about whether anything reaches it.
+
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k
 - Orta seviye telefonda 30 FPS'in altina dusmemek (preset: low)

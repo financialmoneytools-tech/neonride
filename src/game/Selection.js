@@ -1,11 +1,12 @@
 import { config } from '../config.js';
 import { applyPatch } from '../utils/patch.js';
+import { MODE } from './Session.js';
 
 /**
  * Selection - what the player chose, and where it is kept.
  *
- * The bike and the road are two stored strings and nothing more. This owns
- * reading them, writing them, validating them against what actually exists, and
+ * The mode, the bike and the road are three stored strings and nothing more.
+ * This owns reading them, writing them, validating them against what exists and
  * applying the bike's patch - so main.js wires screens to a model rather than
  * to localStorage, and the URL parameters, the stored values and the screens
  * all arrive through one door.
@@ -18,6 +19,8 @@ import { applyPatch } from '../utils/patch.js';
  */
 export class Selection {
   constructor() {
+    this.mode = read(config.stage.modeStorageKey, MODE.STAGE);
+    if (this.mode !== MODE.STAGE && this.mode !== MODE.ENDLESS) this.mode = MODE.STAGE;
     this.bike = read(config.bikeStorageKey, config.bike);
     this.road = read(config.themeStorageKey, config.theme);
     // MIXED is a request to keep changing rather than a road, so it is valid
@@ -41,6 +44,15 @@ export class Selection {
   /** @returns {boolean} whether the road keeps changing as the run goes on. */
   get mixed() {
     return this.road === config.MIXED;
+  }
+
+  /**
+   * @param {string} mode a MODE value
+   */
+  setMode(mode) {
+    if (mode !== MODE.STAGE && mode !== MODE.ENDLESS) return;
+    this.mode = mode;
+    write(config.stage.modeStorageKey, mode);
   }
 
   /**

@@ -3,7 +3,8 @@
  *
  *     node tools/flow-shots.mjs [width] [height]
  *
- * Walks title -> bike -> road the way a thumb would and shoots each screen.
+ * Walks title -> mode -> bike -> road -> a finished run the way a thumb would,
+ * and shoots each screen including the results card.
  * 740x320 by default, which is the size the layout is built for and the one
  * the smoke test checks buttons against.
  */
@@ -43,11 +44,23 @@ await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${OUT}/flow-1-title.png` });
 
+// A SHORT STAGE, so the last shot in this walk is a real finished run rather
+// than a card posed by hand. Everything else about the stage is untouched.
+await page.evaluate(() => {
+  window.NEON.config.stage.length = 500;
+  window.NEON.config.stage.checkpointEvery = 250;
+});
+
 // Top right, away from the comfort toggle at the centre of the card.
 await page.tap('body', { position: { x: W - 40, y: 40 }, force: true }).catch(() => {});
 await page.waitForTimeout(1200);
+console.log('mode screen up:', await page.isVisible('.mode-screen').catch(() => false));
+await page.screenshot({ path: `${OUT}/flow-2-mode.png` });
+
+await page.click('.select-confirm'); // KOŞU, the staged run
+await page.waitForTimeout(1200);
 console.log('bike screen up:', await page.isVisible('.bike-screen').catch(() => false));
-await page.screenshot({ path: `${OUT}/flow-2-bike.png` });
+await page.screenshot({ path: `${OUT}/flow-3-bike.png` });
 
 // Cycle through the bikes so each colourway is on record.
 for (const name of ['nova', 'ember', 'frost']) {
@@ -61,11 +74,32 @@ await page.waitForTimeout(500);
 await page.click('.select-confirm');
 await page.waitForTimeout(1500);
 console.log('road screen up:', await page.isVisible('.road-screen').catch(() => false));
-await page.screenshot({ path: `${OUT}/flow-3-road.png` });
+await page.screenshot({ path: `${OUT}/flow-4-road.png` });
 
 const cards = await page.evaluate(() => Array.from(document.querySelectorAll('.road-card'))
   .map((c) => ({ label: c.textContent, locked: c.classList.contains('road-card-locked') })));
 console.log('cards:', JSON.stringify(cards));
+
+// --- and ride it to the line --------------------------------------------
+await page.click('.select-confirm');
+await page.waitForTimeout(2500);
+await page.screenshot({ path: `${OUT}/flow-5-run.png` });
+
+// WAITED FOR, not slept through: `resultsDelay` is game time and a throttled
+// page advances it far slower than the wall clock - core/Loop.js clamps dt to
+// 0.05 a frame.
+await page.waitForFunction(
+  () => { const el = document.querySelector('.results'); return !!el && !el.hidden; },
+  null, { timeout: 60000 },
+).catch(() => {});
+await page.waitForTimeout(600);
+const result = await page.evaluate(() => ({
+  phase: window.NEON.session.phase,
+  medal: window.NEON.session.stage.medal,
+  time: window.NEON.session.stage.time,
+}));
+console.log('result:', JSON.stringify(result));
+await page.screenshot({ path: `${OUT}/flow-6-results.png` });
 
 await browser.close();
 server.child.kill();

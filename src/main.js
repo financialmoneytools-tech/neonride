@@ -17,6 +17,8 @@ import { StartScreen } from './ui/StartScreen.js';
 import { Hud } from './ui/Hud.js';
 import { Panels } from './ui/Panels.js';
 import { PHASE, Session } from './game/Session.js';
+import { CROSSED } from './game/Stage.js';
+import { Results } from './ui/Results.js';
 import { Audio } from './audio/Audio.js';
 import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
@@ -132,6 +134,12 @@ const mountains = new Mountains(engine.scene);
 // the staged run's checkpoints will be placed with. See world/ThemeBlend.js for
 // what it refuses to touch and why.
 const gate = new ThemeGate(engine.scene, road);
+// THE STAGED RUN'S GATES. Two more instances of the same arch in two tints -
+// see config/world.js. Separate objects rather than one re-tinted gate because
+// a checkpoint can still be on screen when the finish is armed, and one gate
+// cannot stand in two places.
+const checkpointGate = new ThemeGate(engine.scene, road, config.world.gate.checkpointTint);
+const finishGate = new ThemeGate(engine.scene, road, config.world.gate.finishTint);
 const themeBlend = new ThemeBlend({
   sky,
   roadMaterial: road.surface,
@@ -288,6 +296,8 @@ loop.add((dt) => sky.update(dt));
 // The gate watches for the crossing and the blend runs from it. Both before
 // the flash, so a crossing lights the frame on the frame it happens.
 loop.add((dt, state) => gate.update(dt, state));
+loop.add((dt, state) => checkpointGate.update(dt, state));
+loop.add((dt, state) => finishGate.update(dt, state));
 loop.add((dt) => themeBlend.update(dt));
 loop.add((dt, state) => flash.update(dt, state));
 loop.add((dt, state) => post.update(dt, state));
@@ -418,6 +428,11 @@ if (stats) stats.audio = audio;
 const session = new Session();
 const hud = new Hud(document.body, session);
 const panels = new Panels(document.body, session, comfort, controls, audio);
+// How a run ENDED, both ways. It replaced the game over half of Panels: there
+// are two endings now and they have a result to show rather than a score to
+// report. The road is passed as a function because a mixed run changes road
+// under the rider, and the best time belongs to the road it finished on.
+const results = new Results(document.body, session, () => themes.name);
 
 // The only way into the pause card without a keyboard, and so the only way to
 // the control mode switch on a phone.
@@ -427,9 +442,16 @@ const pauseButton = new PauseButton(document.body, () => session.togglePause());
 // is scored and ended from, and after audio so a crash is heard on the frame it
 // happens rather than the one after.
 loop.add((dt, state) => {
-  session.update(dt, state);
+  // The crossing is RETURNED rather than watched for, so the flash fires on
+  // exactly the frame the line was crossed and exactly once. Anything that
+  // sampled `stage.checkpoints` would fire on the frame after, or twice if two
+  // readers sampled it.
+  const crossed = session.update(dt, state);
+  if (crossed === CROSSED.CHECKPOINT) flash.fire('checkpoint', state);
+  else if (crossed === CROSSED.FINISH) flash.fire('finish', state);
   hud.update();
   panels.update();
+  results.update();
   // Pausing hands every listener a delta of zero; see core/Loop.js. Set here
   // rather than by whatever toggled the phase, so there is one place that
   // decides what a phase MEANS and the toggles only have to name one.
@@ -537,6 +559,29 @@ loop.add((dt, state) => {
 });
 
 /**
+ * The staged run's gates: one at every kilometre and one on the line.
+ *
+ * ARMED AT AN ABSOLUTE DISTANCE, not "ahead of here" - a checkpoint stands at a
+ * kilometre mark, and a gate armed relative to whatever frame noticed it would
+ * put the fourth one somewhere near four kilometres rather than at it.
+ * game/Stage.js owns where they are; this only puts the arch there.
+ *
+ * GOD MODE NEVER GETS HERE. Its phase is `free`, never `running`, so a
+ * recording has no checkpoints, no finish line and no stage clock in it - the
+ * autopilot rides the endless road it was built for, whatever mode is stored.
+ */
+loop.add((dt, state) => {
+  if (session.phase !== PHASE.RUNNING || !session.staged) return;
+  const stage = session.stage;
+  const distance = state.distance || 0;
+  const target = stage.nextGateDistance;
+  const which = stage.nextGateIsFinish ? finishGate : checkpointGate;
+  if (!which.armed && target - distance <= config.world.gate.ahead) {
+    which.armAt(target);
+  }
+});
+
+/**
  * Shows a road without committing to it, for the road screen. A preview of a
  * place has to BE the place: a swatch would be a promise, and the whole reason
  * this flow sits over a running world is that it does not have to make one.
@@ -585,7 +630,16 @@ const start = new StartScreen(document.body, () => {
  * run of a session and nowhere else.
  */
 function beginRun() {
-  session.begin(loop.state);
+  // THE MODE COMES FROM THE SELECTION, every time. Not remembered by Session
+  // across a restart on its own, because a restart after a finish has to repeat
+  // the run that was just played, and the only thing that knows which run that
+  // was is what the player chose.
+  session.begin(loop.state, selection.mode);
+  // A gate left armed from the previous stage would stand somewhere in the
+  // middle of this one - the distances are absolute and the new stage starts
+  // from wherever the bike happens to be.
+  checkpointGate.disarm();
+  finishGate.disarm();
   // A crash in the last second of the previous run must not bleed red into the
   // first frame of this one.
   flash.reset();
@@ -613,7 +667,10 @@ function onPress(event) {
     // would restart the run instead of resuming it.
     if (key === 'Escape') return;
   }
-  if (session.phase === PHASE.OVER && session.overShown) beginRun();
+  // EITHER ENDING RESTARTS. `ended` covers the third crash and the finish line
+  // both, so a stage that was completed is retried by the same press that
+  // retries one that was failed - see game/Session.js.
+  if (session.ended && session.overShown) beginRun();
   else if (session.phase === PHASE.PAUSED) session.togglePause();
 }
 window.addEventListener('pointerdown', onPress);
@@ -658,7 +715,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, themeBlend, selection, selectFlow, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, hud, panels, comfort, themes };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -673,6 +730,7 @@ function disposeAll() {
   start.dispose();
   hud.dispose();
   panels.dispose();
+  results.dispose();
   window.removeEventListener('pointerdown', onPress);
   window.removeEventListener('keydown', onPress);
   reveal.dispose();
@@ -683,6 +741,8 @@ function disposeAll() {
   selectFlow.dispose();
   themeBlend.dispose();
   gate.dispose();
+  checkpointGate.dispose();
+  finishGate.dispose();
   rider.dispose();
   autopilot.dispose();
   bike.dispose();

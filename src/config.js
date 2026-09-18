@@ -21,6 +21,7 @@ import { postprocess } from './config/postprocess.js';
 import { flash } from './config/flash.js';
 import { ui } from './config/ui.js';
 import { game } from './config/game.js';
+import { stage } from './config/stage.js';
 import { comfort } from './config/comfort.js';
 import { bikes, paint, bike, bikeStorageKey } from './config/bikes.js';
 import { theme, themes, plannedThemes, themeStorageKey, MIXED } from './config/themes/index.js';
@@ -47,6 +48,7 @@ export const config = {
   flash,
   ui,
   game,
+  stage,
   comfort,
   bikes,
   bike,

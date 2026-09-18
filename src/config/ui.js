@@ -93,7 +93,54 @@ export const ui = {
     restartTouch: 'TEKRAR DENEMEK İÇİN DOKUN',
   },
 
-  // THE SELECTION SCREENS: title -> bike -> road -> start.
+  // THE MODE SCREEN: the first choice, before the bike.
+  //
+  // KOŞU is the staged run - five kilometres with a finish line. SONSUZ is the
+  // original game, ridden until the third crash, and it is what the high score
+  // belongs to. Two words, deliberately: this screen is the first thing a new
+  // player meets and a paragraph on it is a paragraph nobody reads.
+  modes: {
+    title: 'MOD SEÇ',
+    stage: 'KOŞU',
+    stageBlurb: '5 KM. BİTİŞ ÇİZGİSİ VE MADALYA.',
+    endless: 'SONSUZ',
+    endlessBlurb: 'DÜŞENE KADAR SÜR. EN İYİ SKOR BURADA.',
+  },
+
+  // THE RESULTS CARD, which replaced the old game over panel outright. It has
+  // to say three different things - finished with a medal, finished without
+  // beating anything, and failed short of the line - and the failure case is
+  // the one that must NOT read as a scolding: it says how far, because how far
+  // is the thing to beat next time.
+  results: {
+    finishedTitle: 'BİTTİ',
+    failedTitle: 'DÜŞTÜN',
+    time: 'SÜRE',
+    best: 'EN İYİ SÜRE',
+    record: 'YENİ REKOR',
+    reached: 'ULAŞILAN MESAFE',
+    of: ' / ',
+    // Medal names. Shown with the pip below, so the word carries the meaning
+    // and the colour only has to agree with it - a medal told by colour alone
+    // is a medal a colour blind player cannot read.
+    medal: {
+      gold: 'ALTIN',
+      silver: 'GÜMÜŞ',
+      bronze: 'BRONZ',
+    },
+    medalPip: '●',
+    againKey: 'TEKRAR İÇİN BİR TUŞA BAS',
+    againTouch: 'TEKRAR İÇİN DOKUN',
+  },
+
+  // The staged run's HUD: how much is left, and the clock.
+  stageHud: {
+    remaining: 'KALAN',
+    unit: ' M',
+    checkpoint: 'KONTROL',
+  },
+
+  // THE SELECTION SCREENS: title -> mode -> bike -> road -> start.
   //
   // Every string a player sees while choosing is here, Turkish with the real
   // characters. The screens are built for a LANDSCAPE PHONE first and have to

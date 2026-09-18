@@ -102,6 +102,20 @@ export const flash = {
       blockedWhileInvulnerable: false,
     },
 
+    // Crossing the finish line. The biggest of the four and the only one that
+    // is meant to be the last thing in a clip: a stage ends here, the results
+    // card is a beat behind it, and the flash is what fills that beat.
+    finish: {
+      color: 0xffe9a8,
+      strength: 0.55,
+      edge: 0.3,
+      duration: 0.8,
+      refractory: 0,
+      priority: 5,
+      requiresRun: true,
+      blockedWhileInvulnerable: false,
+    },
+
     // The road changing under a light gate. The one source that is NOT a run
     // event: god mode rides through these for footage, with no run at all, and
     // a gate that does not flash on a recording is a gate that was built for

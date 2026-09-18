@@ -64,7 +64,12 @@ for (const size of SIZES) {
   // Away from the centre, where the comfort toggle swallows the press.
   await page.mouse.click(size.width - 40, 40);
   await page.waitForTimeout(700);
-  for (const selector of ['.bike-screen .select-confirm', '.road-screen .select-confirm']) {
+  // THE MODE SCREEN IS FIRST now - title -> mode -> bike -> road -> run.
+  for (const selector of [
+    '.mode-screen .select-confirm',
+    '.bike-screen .select-confirm',
+    '.road-screen .select-confirm',
+  ]) {
     await page.waitForSelector(selector, { timeout: 8000 });
     await page.click(selector);
     await page.waitForTimeout(500);

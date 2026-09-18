@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { Stage, CROSSED } from './Stage.js';
 
 /**
  * Session - one run: what it scored, whether it is still going, and why it
@@ -23,6 +24,13 @@ import { config } from '../config.js';
  * SCORE IS DISTANCE PLUS NEAR MISSES. Distance alone would be a score for doing
  * nothing: the bike accelerates on its own from `throttleFloor`. A near miss is
  * the one event here that cannot happen by accident.
+ *
+ * TWO MODES, ONE SET OF RULES. A staged run is five kilometres with a finish
+ * line; an endless run is the original ride-until-you-crash. They share the
+ * lives, the scoring, the pause and the fail state, and differ in exactly one
+ * thing: whether there is a distance at which the run ENDS WELL. That is why
+ * the mode is a field here rather than a second Session subclass - the moment
+ * the rules were duplicated they would start to disagree.
  */
 
 export const PHASE = {
@@ -33,11 +41,26 @@ export const PHASE = {
   OVER: 'over',
   /** God mode. No HUD, no fail, no pause; the recording is never interrupted. */
   FREE: 'free',
+  /** A staged run that reached the line. Not a failure; it has a result. */
+  FINISHED: 'finished',
+};
+
+/**
+ * What kind of run this is. ENDLESS is the original game and still owns the
+ * high score; STAGE is five kilometres with a result at the end.
+ */
+export const MODE = {
+  STAGE: 'stage',
+  ENDLESS: 'endless',
 };
 
 export class Session {
   constructor() {
     this.phase = PHASE.TITLE;
+    /** A MODE value. Chosen on the title card; god mode ignores it entirely. */
+    this.mode = MODE.ENDLESS;
+    /** Progress through a staged run. Untouched, and unread, in endless mode. */
+    this.stage = new Stage();
     this.score = 0;
     this.distance = 0;
     this.nearMisses = 0;
@@ -63,12 +86,29 @@ export class Session {
     return this.phase === PHASE.RUNNING;
   }
 
+  /** @returns {boolean} whether this run has a finish line. */
+  get staged() {
+    return this.mode === MODE.STAGE;
+  }
+
+  /**
+   * @returns {boolean} whether the run is over, however it ended. Both the
+   * failure card and the results card answer to this, so nothing downstream has
+   * to remember that there are two ways to stop.
+   */
+  get ended() {
+    return this.phase === PHASE.OVER || this.phase === PHASE.FINISHED;
+  }
+
   /**
    * Starts a run. Called from the title card's gesture and from a restart, and
    * it is the same thing both times.
    * @param {object} state loop state
+   * @param {string} [mode] a MODE value; the previous one is kept when omitted,
+   *   so a restart repeats the run the player was actually having.
    */
-  begin(state) {
+  begin(state, mode) {
+    if (mode) this.mode = mode;
     this.phase = PHASE.RUNNING;
     this.score = 0;
     this.distance = 0;
@@ -81,6 +121,7 @@ export class Session {
     this._startHits = state.hits || 0;
     this._startNearMisses = state.nearMisses || 0;
     this._countedHits = 0;
+    this.stage.begin(state);
   }
 
   /**
@@ -135,13 +176,16 @@ export class Session {
    * @param {object} state shared loop state; reads distance, hits and nearMisses
    */
   update(dt, state) {
-    if (this.phase === PHASE.OVER && !this.overShown) {
+    // Both endings wait before their card arrives, and they wait different
+    // lengths: a crash wants its flash and its shove seen, a finish wants the
+    // line crossed. `_overAt` is set by whichever ended the run.
+    if (this.ended && !this.overShown) {
       this._overAt -= dt;
       if (this._overAt <= 0) this.overShown = true;
-      return;
+      return null;
     }
 
-    if (this.phase !== PHASE.RUNNING) return;
+    if (this.phase !== PHASE.RUNNING) return null;
 
     const cfg = config.game;
 
@@ -170,8 +214,39 @@ export class Session {
         this.lives -= 1;
         this.invulnerable = cfg.invulnerable;
         state.invulnerable = this.invulnerable;
-        if (this.lives <= 0) this._end();
+        if (this.lives <= 0) {
+          this._end();
+          return null;
+        }
       }
+    }
+
+    // THE STAGE IS ADVANCED LAST, after the lives, so a crash on the very
+    // frame the line is crossed ends the run rather than finishing it. That is
+    // the right way round: the finish is a reward and a third crash is a
+    // failure, and a frame that is both is a failure.
+    if (this.mode !== MODE.STAGE) return null;
+    const crossed = this.stage.update(dt, state);
+    if (crossed === CROSSED.FINISH) this._finish();
+    return crossed;
+  }
+
+  /**
+   * Reached the line. A different ending from `_end`, with a different card and
+   * a different delay - see `resultsDelay` in config/stage.js.
+   */
+  _finish() {
+    this.phase = PHASE.FINISHED;
+    this._overAt = config.stage.resultsDelay;
+    this.overShown = false;
+
+    // The endless high score is still written. A staged run is distance and
+    // near misses like any other, and a rider who scores well over five
+    // kilometres has earned the same entry as one who scored it in one go.
+    if (this.score > this.best) {
+      this.best = this.score;
+      this.isRecord = true;
+      writeBest(this.best);
     }
   }
 

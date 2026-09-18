@@ -392,6 +392,19 @@
 
       /* Lives. Sits between the score and the distance, so the one thing that
          changes suddenly is next to the two that change constantly. */
+      /* The stage readout: how much is left, and the clock. Under the lives,
+         so the column reads score, lives, remaining, distance - most volatile
+         at the top. It must not overlap anything at 740x320; tools/hud-check
+         asserts that. */
+      .hud-stage {
+        margin-top: 2px;
+        font-size: clamp(0.72rem, 2.2vw, 0.95rem);
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        color: #7dffc4;
+        text-shadow: 0 0 10px rgba(125, 255, 196, 0.45);
+      }
+
       .hud-lives {
         margin-top: 2px;
         font-size: clamp(0.8rem, 2.6vw, 1.05rem);
@@ -714,6 +727,77 @@
         border-radius: 3px;
         background: var(--bike-rim, #7df2ff);
         transition: width 220ms ease-out;
+      }
+
+      /* --- the mode screen -------------------------------------------------
+         Two cards, and it is the first screen anybody meets. Wider and taller
+         than a road card because there are only two of them and nothing to
+         scroll: a mode is a decision, not a browse. */
+      .mode-grid {
+        display: flex;
+        gap: 14px;
+        align-items: stretch;
+        justify-content: safe center;
+        max-width: 100%;
+        /* `none`, like every other card row here. pan-x lets the browser claim
+           a horizontal drag and cancel the pointer stream half way through,
+           which silently kills the swipe. */
+        touch-action: none;
+        padding: 2px;
+      }
+      .mode-card {
+        pointer-events: auto;
+        flex: 0 0 auto;
+        width: clamp(140px, 30vw, 240px);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px 14px;
+        border: 1px solid rgba(125, 200, 235, 0.28);
+        border-radius: 11px;
+        background: rgba(6, 12, 24, 0.66);
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 160ms ease-out, transform 160ms ease-out;
+      }
+      .mode-card-on {
+        border-color: #7dffc4;
+        transform: translateY(-2px);
+        box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
+      }
+      .mode-label {
+        font: 700 clamp(1rem, 3.4vw, 1.5rem)/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.1em;
+        color: #eaf6ff;
+      }
+      .mode-blurb {
+        font: 600 clamp(8px, 1.7vw, 10px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.1em;
+        color: rgba(190, 220, 245, 0.72);
+      }
+
+      /* --- the results card ------------------------------------------------
+         The same panel as the pause card - same type, same glow, same dimmed
+         ground - with one thing added: the medal. */
+      .results-medal {
+        font: 700 clamp(0.95rem, 3vw, 1.4rem)/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.16em;
+        margin-bottom: 2px;
+        /* Set per medal below. The WORD carries the meaning and the colour only
+           agrees with it, so a colour blind player reads the same card. */
+        color: #eaf6ff;
+      }
+      .results-medal[data-medal="gold"] {
+        color: #ffe08a;
+        text-shadow: 0 0 16px rgba(255, 210, 120, 0.6);
+      }
+      .results-medal[data-medal="silver"] {
+        color: #dfe9f2;
+        text-shadow: 0 0 16px rgba(210, 230, 245, 0.5);
+      }
+      .results-medal[data-medal="bronze"] {
+        color: #e0a877;
+        text-shadow: 0 0 16px rgba(220, 150, 90, 0.45);
       }
 
       /* --- the road screen ------------------------------------------------ */

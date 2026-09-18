@@ -5,16 +5,17 @@ import { ComfortToggle } from './ComfortToggle.js';
 import { ControlsPanel } from './ControlsPanel.js';
 
 /**
- * Panels - the pause card and the game over card.
+ * Panels - the pause card.
  *
  * The same object as the title card as far as the eye is concerned: the same
  * type, the same glow, the same dimmed ground over a scene that is still being
  * drawn behind it. They share a stylesheet for that reason rather than by
  * accident.
  *
- * ONE ELEMENT, not two. A pause panel and a game over panel differ by their
- * text, and building two of everything would mean two places to keep the look
- * consistent. What changes is what is written in it and which phase shows it.
+ * IT USED TO BE THE GAME OVER CARD TOO. It is not any more: a run can now end
+ * by reaching a finish line as well as by falling over, and those two have a
+ * result to show rather than a score to report. ui/Results.js owns both
+ * endings, and this owns the one state that is neither.
  *
  * NOTHING HERE READS INPUT. Which key resumes and which key restarts is a rule
  * about the run, so it lives with the run - see main.js, where one handler
@@ -81,12 +82,10 @@ export class Panels {
 
   update() {
     const session = this.session;
-    // The game over card waits out `overDelay`: the crash flash, the speed loss
-    // and the shove are the best part of a second of the shot and a panel
-    // dropped over them throws all of it away.
-    const shown = session.phase === PHASE.PAUSED ? PHASE.PAUSED
-      : session.phase === PHASE.OVER && session.overShown ? PHASE.OVER
-        : null;
+    // PAUSE ONLY. How a run ENDED is ui/Results.js now: there are two endings,
+    // the third crash and the finish line, and a card that knew about one of
+    // them would have meant the other growing its own.
+    const shown = session.phase === PHASE.PAUSED ? PHASE.PAUSED : null;
 
     if (shown === this._shown) return;
     this._shown = shown;
@@ -100,23 +99,13 @@ export class Panels {
     const text = config.ui.panel;
     const touch = matchMedia('(hover: none)').matches;
 
-    if (shown === PHASE.PAUSED) {
-      this.titleEl.textContent = text.pausedTitle;
-      this.scoreEl.textContent = format(session.score);
-      this.bestEl.textContent = '';
-      this.promptEl.textContent = touch ? text.resumeTouch : text.resumeKey;
-    } else {
-      this.titleEl.textContent = text.overTitle;
-      this.scoreEl.textContent = format(session.score);
-      this.bestEl.textContent = session.isRecord
-        ? text.record
-        : text.best + ' ' + format(session.best);
-      this.promptEl.textContent = touch ? text.restartTouch : text.restartKey;
-    }
+    this.titleEl.textContent = text.pausedTitle;
+    this.scoreEl.textContent = format(session.score);
+    this.bestEl.textContent = '';
+    this.promptEl.textContent = touch ? text.resumeTouch : text.resumeKey;
 
-    if (this.toggle) this.toggle.el.hidden = shown !== PHASE.PAUSED;
-    if (this.controlsPanel) this.controlsPanel.setVisible(shown === PHASE.PAUSED);
-    this.el.classList.toggle('panel-record', shown === PHASE.OVER && session.isRecord);
+    if (this.toggle) this.toggle.el.hidden = false;
+    if (this.controlsPanel) this.controlsPanel.setVisible(true);
     this.el.hidden = false;
     // Forces a reflow so the transition runs from the hidden state rather than
     // the browser collapsing both style changes into one frame and skipping it.
