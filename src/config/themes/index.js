@@ -35,3 +35,28 @@ export const themes = {
 
 /** Which theme is fitted. `?theme=` overrides it; the T key cycles. */
 export const theme = 'galaxyRoad';
+
+/**
+ * The roads that are PLANNED but not built, in the order docs/THEMES.md lists
+ * them. The road screen shows them locked rather than leaving them out.
+ *
+ * Saying "there are more roads coming" is worth a card; an empty grid says the
+ * opposite. They are named here and not in the UI text file because this is the
+ * list that has to shrink as each one lands - a locked card whose theme now
+ * exists is a lie the moment somebody forgets to delete it, so the road screen
+ * refuses to lock a name that is present in `themes` above.
+ */
+export const plannedThemes = [
+  { key: 'sunsetHighway', name: 'GÜN BATIMI YOLU' },
+  { key: 'neonMetropolis', name: 'NEON ŞEHİR' },
+  { key: 'nebulaCoast', name: 'NEBULA KIYISI' },
+  { key: 'redPlanet', name: 'KIZIL GEZEGEN' },
+];
+
+/**
+ * Where the road choice is kept between sessions, and the key the mixed card
+ * stores under. `mixed` is not a theme - it is a request to keep changing - so
+ * it can never be handed to the patch selector as a name.
+ */
+export const themeStorageKey = 'neon-ride.theme';
+export const MIXED = 'mixed';

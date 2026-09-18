@@ -244,6 +244,33 @@ The gloves keep their cyan piping on all four bikes. It is the same colour drawn
 the same way as the bike's own, and it stays: the gloves are the rider, and the
 rider does not change when the bike does.
 
+## Thumbnails
+
+### Road selection cards
+
+| | |
+|---|---|
+| Files | `public/thumbs/galaxyRoad.jpg`, `auroraPass.jpg` |
+| Source | the game's own renderer |
+| Built by | `tools/theme-thumbs.mjs` |
+| Used by | `src/ui/RoadScreen.js` |
+
+    node tools/theme-thumbs.mjs
+
+Pictures OF the runtime rather than external art, produced by a committed script
+from the game itself, so the step from source to shipped file stays repeatable.
+Which roads get one is read from `config.themes` at run time, so a new theme
+gets a thumbnail by existing rather than by being remembered.
+
+Shot at 1280 wide in god mode - no title card, no HUD, no pause button - clipped
+to the top 62 per cent of the frame, because the bottom 38 is cockpit and every
+road would otherwise get a thumbnail of the same motorcycle. Then downscaled to
+480x270: the scene is mostly thin bright lines, and rendering straight to card
+size aliases every one of them into a dashed mess. About 31 KB each.
+
+The tool prints `SOFTWARE RENDERED - do not ship` if headless Chromium fell back
+to SwiftShader, for the same reason `god-run.mjs` prints its renderer.
+
 ## Removed
 
 ### WRAD ARMS - first person hands and forearms (removed)

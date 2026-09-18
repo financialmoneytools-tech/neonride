@@ -23,7 +23,7 @@ import { ui } from './config/ui.js';
 import { game } from './config/game.js';
 import { comfort } from './config/comfort.js';
 import { bikes, paint, bike, bikeStorageKey } from './config/bikes.js';
-import { theme, themes } from './config/themes/index.js';
+import { theme, themes, plannedThemes, themeStorageKey, MIXED } from './config/themes/index.js';
 import { audio } from './config/audio.js';
 
 export const config = {
@@ -54,6 +54,9 @@ export const config = {
   bikeStorageKey,
   theme,
   themes,
+  plannedThemes,
+  themeStorageKey,
+  MIXED,
   audio,
 };
 

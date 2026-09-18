@@ -92,4 +92,61 @@ export const ui = {
     restartKey: 'TEKRAR DENEMEK İÇİN BİR TUŞA BAS',
     restartTouch: 'TEKRAR DENEMEK İÇİN DOKUN',
   },
+
+  // THE SELECTION SCREENS: title -> bike -> road -> start.
+  //
+  // Every string a player sees while choosing is here, Turkish with the real
+  // characters. The screens are built for a LANDSCAPE PHONE first and have to
+  // fit 740x320 without scrolling, so these are short on purpose - a label that
+  // wraps on a phone is a label that has to be rewritten, not a stylesheet that
+  // has to be argued with.
+  select: {
+    // Shared by both screens.
+    back: 'GERİ',
+    next: 'İLERİ',
+    start: 'BAŞLA',
+    quick: 'HIZLI BAŞLA',
+    locked: 'YAKINDA',
+    hintKeys: 'SEÇMEK İÇİN OK TUŞLARI, ONAYLAMAK İÇİN ENTER',
+    hintTouch: 'KAYDIR VEYA DOKUN',
+  },
+
+  // The bike screen. Names are not translated - they are the bikes' names.
+  bikes: {
+    title: 'MOTOR SEÇ',
+    speed: 'HIZ',
+    acceleration: 'HIZLANMA',
+    handling: 'YÖN HAKİMİYETİ',
+    // One line each, and each names the trade rather than only the strength.
+    // A bike described purely by what it is good at reads as strictly better
+    // than the one before it, and none of these are.
+    blurb: {
+      volt: 'DENGELİ. HER YOLDA GÜVENİLİR.',
+      nova: 'ÇIKIŞTA HIZLI, ZİRVEDE DAHA YAVAŞ.',
+      ember: 'EN YÜKSEK HIZ, EN AĞIR KALKIŞ.',
+      frost: 'EN İYİ VİRAJ VE FREN, ORTA HIZ.',
+    },
+  },
+
+  // The road screen. One card per theme, plus the mixed card.
+  roads: {
+    title: 'YOL SEÇ',
+    // Theme names, keyed to config/themes. A theme that has no entry falls back
+    // to its own `name`, which is English - so a new theme shows up readable
+    // rather than blank, and obviously untranslated.
+    name: {
+      galaxyRoad: 'GALAKSİ YOLU',
+      auroraPass: 'KUZEY GEÇİDİ',
+    },
+    blurb: {
+      galaxyRoad: 'YILDIZLARIN ALTINDA BOŞ BİR OTOYOL.',
+      auroraPass: 'KAR, DAĞLAR VE KUZEY IŞIKLARI.',
+    },
+    // The card that cycles every built road through light gates. Named TÜM
+    // YOLLAR rather than anything with SONSUZ in it, because SONSUZ is a game
+    // mode and two different things one word apart, two taps apart, is how a
+    // menu stops being readable.
+    mixed: 'TÜM YOLLAR',
+    mixedBlurb: 'YOL, IŞIK KAPILARINDA DEĞİŞİR.',
+  },
 };
