@@ -271,6 +271,52 @@ size aliases every one of them into a dashed mess. About 31 KB each.
 The tool prints `SOFTWARE RENDERED - do not ship` if headless Chromium fell back
 to SwiftShader, for the same reason `god-run.mjs` prints its renderer.
 
+## Realism probe (branch `probe/realism` only)
+
+**Not on `main`, and not shipped.** These exist to answer what a photoreal
+version would cost. The standing rule - no external assets, everything
+generated at runtime - is broken here deliberately and only here, because the
+question cannot be answered with procedural approximations of production
+textures. Listed in full because this file requires it, and because a directory
+of textures with no provenance is a legal problem later even when every one of
+them is CC0.
+
+Fetched by `tools/probe-assets.py`, which also writes
+`public/probe/CREDITS.json` with the exact download URL of every file.
+
+**Retrieved 18 September 2026. 1K JPG. 15 MB on disk, 23 files.**
+
+| Surface | Asset | Source | Licence | Maps |
+|---|---|---|---|---|
+| Road asphalt | `asphalt_02` | [Poly Haven](https://polyhaven.com/a/asphalt_02) | CC0 | diffuse, normal (GL), roughness, AO |
+| Shoulder asphalt | `asphalt_04` | [Poly Haven](https://polyhaven.com/a/asphalt_04) | CC0 | diffuse, normal (GL), roughness, AO |
+| Snow | `snow_02` | [Poly Haven](https://polyhaven.com/a/snow_02) | CC0 | diffuse, normal (GL), roughness, AO |
+| Rock | `rock_boulder_dry` | [Poly Haven](https://polyhaven.com/a/rock_boulder_dry) | CC0 | diffuse, normal (GL), roughness, AO |
+| Bark | `bark_willow` | [Poly Haven](https://polyhaven.com/a/bark_willow) | CC0 | diffuse, normal (GL), roughness, AO |
+| Guardrail metal | `Metal032` | [ambientCG](https://ambientcg.com/view?id=Metal032) | CC0 | colour, normal (GL), roughness |
+
+All CC0: no attribution required, commercial use permitted. Credited anyway.
+
+**No AI-generated textures were used**, and none of these sources produce them:
+Poly Haven and ambientCG are both photographed and scanned libraries.
+
+### The vehicle is hand built, and the search is the finding
+
+`src/probe/car.js`. There is no free photoreal car worth using:
+
+- **Poly Haven** carries 521 models. The only vehicle is `covered_car` - a car
+  under a tarpaulin.
+- **Kenney** (CC0) has a car kit. It is good, and it is low-poly stylised, which
+  is a different art direction rather than a cheaper version of this one.
+- **Khronos `ToyCar`** (CC0) has real clearcoat, sheen and transmission on a
+  TOY's body. It was used in the first pass of this probe, read as a toy
+  because it is one, and was removed - it also cost 5.4 MB and 230,000
+  triangles on its own.
+
+So the car is built from an extruded side profile with a bevelled shoulder,
+with `MeshPhysicalMaterial` clearcoat paint. It is 3,000 triangles against
+ToyCar's 230,000 and looks more like a car at the distance the shot uses.
+
 ## Removed
 
 ### WRAD ARMS - first person hands and forearms (removed)

@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { config } from '../config.js';
-import { buildProbeScene, placeVehicle } from './scene.js';
+import { buildProbeScene } from './scene.js';
+import { buildCar } from './car.js';
 
 /**
  * The realism probe's entry point. Static scene, no gameplay, no loop except
@@ -36,7 +36,7 @@ renderer.shadowMap.enabled = !LOW;
 // back to PCFShadowMap with a warning; asked for directly instead.
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.25;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.info.autoReset = false;
 container.appendChild(renderer.domElement);
@@ -80,16 +80,23 @@ const bloom = new UnrealBloomPass(
 );
 composer.addPass(bloom);
 
-let vehicle = null;
-let ready = false;
-
-new GLTFLoader().load('probe/models/toycar.glb', (gltf) => {
-  vehicle = placeVehicle(scene, gltf.scene, built.layout, {});
-  ready = true;
-}, undefined, (error) => {
-  console.error('probe: vehicle failed', error);
-  ready = true;
-});
+// THE VEHICLE IS HAND BUILT, and the search that led there is in
+// src/probe/car.js. There is no free photoreal car: Poly Haven has 521 models
+// and the only one is a car under a tarpaulin, Kenney's kit is CC0 and
+// low-poly stylised, and Khronos's ToyCar is real clearcoat paint on a toy's
+// body - it was used in the first pass of this probe and read as a toy.
+const car = buildCar({ detail: LOW ? 0 : 1 });
+// Parked under the second lamp, so the paint and the shoulder line are lit
+// by something other than its own tail lights. `?car=close` brings it to
+// riding distance, which is the shot that shows whether a hand-built body
+// stands up to being looked at.
+const CLOSE = params.get('car') === 'close';
+car.group.position.set(
+  built.layout.laneCentres[2] + (CLOSE ? -1.1 : 0), 0, CLOSE ? -11 : -30,
+);
+if (CLOSE) car.group.rotation.y = 0.16;
+scene.add(car.group);
+const ready = true;
 
 // --- counters -------------------------------------------------------------
 let frames = 0;

@@ -131,6 +131,18 @@ const lowStats = await probe.evaluate(() => window.PROBE.stats);
 await probe.evaluate(() => { document.getElementById('readout').hidden = true; });
 await probe.waitForTimeout(300);
 await probe.screenshot({ path: `${OUT}/compare-c-probe-low.png` });
+
+// --- 4. a closer look at the vehicle -------------------------------------
+// The comparison above has the car at traffic distance, which is honest about
+// the shot and useless for judging whether a hand-built body survives being
+// looked at.
+await probe.goto(`${server.url}probe.html?car=close`, { waitUntil: 'load' });
+await probe.waitForFunction(() => window.PROBE && window.PROBE.stats && window.PROBE.stats.ready,
+  null, { timeout: 40000 });
+await probe.waitForTimeout(6000);
+await probe.evaluate(() => { document.getElementById('readout').hidden = true; });
+await probe.waitForTimeout(300);
+await probe.screenshot({ path: `${OUT}/compare-d-probe-car.png` });
 console.log('probe low:', JSON.stringify(lowStats));
 
 await browser.close();

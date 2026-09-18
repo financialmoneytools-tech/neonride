@@ -264,35 +264,86 @@ export function buildProbeScene(scene, options = {}) {
     }
   }
 
-  // --- rock and trees -----------------------------------------------------
+  // --- Aurora Pass: pines, snow banks, rock ------------------------------
+  // The geometry the shipped theme has, in real materials. A pine here is a
+  // bark trunk with snow-laden canopy cones rather than the white cone the
+  // stylised theme draws, because the question is what real materials do to
+  // this same place.
   const rockMaterial = pbr(loader, 'rock', { repeat: new THREE.Vector2(2, 2), roughness: 0.95 });
   const barkMaterial = pbr(loader, 'bark', { repeat: new THREE.Vector2(3, 6), roughness: 0.94 });
-  const rockGeometry = new THREE.IcosahedronGeometry(1, options.rockDetail || 2);
-  const trunkGeometry = new THREE.CylinderGeometry(0.22, 0.34, 7, 10);
+  const snowProp = pbr(loader, 'snow', { repeat: new THREE.Vector2(2, 2), roughness: 0.88 });
+  const rockGeometry = new THREE.IcosahedronGeometry(1, options.rockDetail || 1);
+  const trunkGeometry = new THREE.CylinderGeometry(0.16, 0.28, 5.2, 8);
+  const canopyGeometry = new THREE.ConeGeometry(1.5, 3.1, 9);
 
-  for (let i = 0; i < (options.props || 16); i++) {
+  const props = options.props || 18;
+  for (let i = 0; i < props; i++) {
     const side = i % 2 === 0 ? 1 : -1;
-    const z = -LENGTH * 0.8 + (i / (options.props || 16)) * LENGTH * 0.95;
-    const x = (side > 0 ? layout.shoulderEdge + 6 : layout.oncomingOuter - 6) + side * (i % 3) * 2.4;
+    // CONCENTRATED WHERE THE CAMERA IS LOOKING. Spread over the whole 460 m
+    // ribbon, all but two of these sat beyond the fog wall and the probe was a
+    // photograph of an empty verge.
+    const z = -8 - (i / props) * 210;
+    const x = (side > 0 ? layout.shoulderEdge + 7 : layout.oncomingOuter - 7)
+      + side * ((i * 7) % 5) * 2.2;
 
-    if (i % 3 === 0) {
+    if (i % 5 === 0) {
       const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-      rock.position.set(x, 0.5, z);
-      rock.scale.setScalar(0.7 + (i % 4) * 0.35);
+      rock.position.set(x, 0.4, z);
+      rock.scale.set(1.1 + (i % 3) * 0.4, 0.7, 1.0 + (i % 4) * 0.3);
       rock.castShadow = true;
       rock.receiveShadow = true;
       scene.add(rock);
-    } else {
-      const trunk = new THREE.Mesh(trunkGeometry, barkMaterial);
-      trunk.position.set(x, 3.5, z);
-      trunk.castShadow = true;
-      scene.add(trunk);
+      continue;
     }
+
+    const trunk = new THREE.Mesh(trunkGeometry, barkMaterial);
+    trunk.position.set(x, 2.6, z);
+    trunk.castShadow = true;
+    scene.add(trunk);
+    // Three cones, narrowing upward. Snow material on top, which is what makes
+    // it a pine on a mountain pass rather than a tree.
+    for (let c = 0; c < 3; c++) {
+      const canopy = new THREE.Mesh(canopyGeometry, snowProp);
+      canopy.position.set(x, 4.0 + c * 1.5, z);
+      canopy.scale.setScalar(1 - c * 0.24);
+      canopy.castShadow = true;
+      scene.add(canopy);
+    }
+  }
+
+  // SNOW BANKS on both shoulders, which is the detail the shipped theme had to
+  // fix once already - a bank cancelled exactly where it was brightest. Here
+  // they are simple ridges of real snow either side of the asphalt.
+  const bankGeometry = new THREE.CylinderGeometry(1.25, 1.25, LENGTH, 9, 1, false);
+  for (const side of [-1, 1]) {
+    const bank = new THREE.Mesh(bankGeometry, vergeMaterial);
+    // Axis along Z, which is one rotation and not two - the first attempt used
+    // two and laid the bank across the road.
+    bank.rotation.x = Math.PI * 0.5;
+    bank.position.set(
+      side > 0 ? layout.shoulderEdge + 1.5 : layout.oncomingOuter - 1.5,
+      -0.62,
+      -LENGTH * 0.35,
+    );
+    bank.receiveShadow = true;
+    bank.castShadow = true;
+    scene.add(bank);
+  }
+
+  // The ridge line. Aurora Pass is a pass; without walls it is a field.
+  const ridgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x121a26, roughness: 1, metalness: 0,
+  });
+  for (const side of [-1, 1]) {
+    const ridge = new THREE.Mesh(new THREE.ConeGeometry(120, 78, 5), ridgeMaterial);
+    ridge.position.set(side * 210, 12, -LENGTH * 0.75);
+    ridge.scale.set(1, 1, 0.4);
+    scene.add(ridge);
   }
 
   // --- lamps --------------------------------------------------------------
   const lampConfig = {
-    height: 9.2, reach: 2.6, intensity: options.lampIntensity || 2600, range: 60,
+    height: 9.2, reach: 2.6, intensity: options.lampIntensity || 1500, range: 58,
     shadowSize: options.shadowSize || 1024,
   };
   for (let i = 0; i < (options.lamps || 6); i++) {
@@ -301,7 +352,10 @@ export function buildProbeScene(scene, options = {}) {
     lamp.group.position.set(
       side > 0 ? layout.shoulderEdge + 1.8 : layout.oncomingOuter - 1.8,
       0,
-      -16 - i * 26,
+      // Started well ahead of the camera. The first lamp used to sit almost
+      // level with the rider, where its pool fills the edge of the frame with a
+      // blown-out smear and hides the road it is meant to light.
+      -30 - i * 26,
     );
     scene.add(lamp.group);
     lights.push(lamp.light);
@@ -329,69 +383,4 @@ export function buildProbeScene(scene, options = {}) {
   scene.add(headlight.target);
 
   return { layout, lights, road, LENGTH, headlight };
-}
-
-/**
- * The vehicle, its lamps, and the light they throw.
- * @param {THREE.Object3D} model already loaded
- */
-export function placeVehicle(scene, model, layout, options = {}) {
-  const group = new THREE.Group();
-
-  // ToyCar is modelled at a toy's scale and sits about 0.17 units long; a car
-  // is 4.7. Scaled to the real thing rather than to what looks right, so the
-  // triangle count in the report is the count of a car-sized object.
-  const box = new THREE.Box3().setFromObject(model);
-  const size = new THREE.Vector3();
-  box.getSize(size);
-  const scale = 4.6 / Math.max(size.z, 0.0001);
-  model.scale.setScalar(scale);
-  model.position.y = -box.min.y * scale;
-  model.traverse((child) => {
-    if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
-  });
-  group.add(model);
-
-  // Headlights: real SpotLights, so the road in front of the car is lit by the
-  // car rather than painted brighter.
-  for (const side of [-1, 1]) {
-    const head = new THREE.SpotLight(0xf4f8ff, options.headlight || 420, 70, 0.42, 0.42, 1.7);
-    head.position.set(side * 0.72, 0.82, -2.3);
-    head.target.position.set(side * 1.5, 0, -30);
-    head.castShadow = false; // two more shadow maps for very little picture
-    group.add(head);
-    group.add(head.target);
-
-    const lens = new THREE.Mesh(
-      new THREE.SphereGeometry(0.15, 12, 10),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xdfe9ff, emissiveIntensity: 9 }),
-    );
-    lens.position.set(side * 0.72, 0.82, -2.35);
-    group.add(lens);
-
-    // Tail lights, and a small point light each so the road BEHIND the car
-    // takes their colour. This is the shot the marketing brief cares about.
-    const tail = new THREE.Mesh(
-      new THREE.BoxGeometry(0.42, 0.16, 0.06),
-      new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff1a1a, emissiveIntensity: 7 }),
-    );
-    tail.position.set(side * 0.78, 0.86, 2.15);
-    group.add(tail);
-
-    const glow = new THREE.PointLight(0xff2a1a, options.taillight || 26, 12, 2);
-    glow.position.set(side * 0.78, 0.62, 2.5);
-    group.add(glow);
-  }
-
-  // FACING AWAY, like the traffic the rider actually sees. Turned toward the
-  // camera it is an oncoming car with its headlights in your eyes, which blows
-  // out the middle of the frame and hides the thing being photographed - the
-  // road surface. This way its tail lights face us and its headlights light the
-  // asphalt in front of it, which is the shot worth comparing.
-  group.position.set(layout.laneCentres[2], 0, -26);
-  scene.add(group);
-  return group;
 }
