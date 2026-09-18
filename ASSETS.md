@@ -199,6 +199,51 @@ match is not the same as checking it.
 
 Output is capped at 2048 on the long side.
 
+### Cockpit paint mask
+
+| | |
+|---|---|
+| File | `public/sprites/cockpit-mask.png` |
+| Source | `public/sprites/cockpit.png` - derived, not drawn |
+| Built by | `tools/paint-mask.py` |
+| Used by | `src/player/cockpit/paint.js` |
+
+Three single channel masks packed into one RGB texture: **R** the painted
+bodywork (fairing, tank, nose panels, frame block, fuel cap), **G** the rim
+light on that bodywork, **B** the windscreen. It is what lets one drawing be
+four bikes.
+
+    python tools/paint-mask.py
+    python tools/paint-mask.py --debug     # and an overlay in tools/out/
+
+**The mask is regional, not chromatic, and that is the whole design.** There is
+no colour separation between the bike and the rider in this drawing: measured,
+the fairing is RGB 34,36,51 at 0.43 saturation and the gloves are 38,49,61 at
+0.45, and 87 per cent of every coloured pixel in the image sits between 180 and
+225 degrees of hue. No threshold on hue, saturation or luminance can tell a
+fairing from a glove. What separates them is the line art, which fully encloses
+every part - so the mask comes from labelling the connected components of
+everything that is not ink, exactly the way `cut-cockpit.py` already finds the
+blank instrument panel.
+
+**Only the seeds are authored**, one point per part, and each is the deepest
+point inside its own region rather than its centroid: a centroid is only
+guaranteed to be inside a convex shape, and the fairing is a horseshoe around
+the dash while the tank has the filler cap punched out of its middle. The first
+set of seeds were centroids and four of them missed, one landing on ink and one
+inside the fuel cap.
+
+The tool checks its own work and exits non-zero: every seed must land in a
+region within 45 per cent of the size recorded beside it, no two seeds may claim
+the same region, and eight EXCLUDED parts - both sleeves, both gloves, both
+mirrors and both bars - are looked up and must not have been claimed. That last
+check is the one that matters, because a mask which has leaked into a glove
+paints the rider in the bike's colour and nobody would think to look.
+
+The gloves keep their cyan piping on all four bikes. It is the same colour drawn
+the same way as the bike's own, and it stays: the gloves are the rider, and the
+rider does not change when the bike does.
+
 ## Removed
 
 ### WRAD ARMS - first person hands and forearms (removed)

@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { Input } from '../core/Input.js';
 import { motionScale } from '../core/Comfort.js';
 import { Instruments } from './rider/Instruments.js';
+import { applyPaint } from './cockpit/paint.js';
 
 /**
  * Cockpit - the whole bike as one photographic sprite, drawn over the scene.
@@ -78,6 +79,23 @@ export class Cockpit {
     this.texture.generateMipmaps = true;
     this.texture.minFilter = THREE.LinearMipmapLinearFilter;
 
+    // THE PAINT MASK. One extra texture, three channels: bodywork, the rim light
+    // on it, and the windscreen. It is derived from this very sprite by
+    // tools/paint-mask.py, so it lines up by construction rather than by
+    // agreement - and it is a separate file rather than a fourth channel
+    // because the sprite's alpha is already the cut.
+    this.mask = loader.load(cfg.maskUrl);
+    this.mask.name = 'cockpitPaintMask';
+    // NO COLOUR SPACE CONVERSION. This is data, not a picture: sRGB decoding a
+    // mask would bend every value it carries and soften edges that are meant to
+    // be hard. Same reason it keeps mipmaps - the sprite is minified at every
+    // aspect and a mask without them crawls along the ink lines.
+    this.mask.colorSpace = THREE.NoColorSpace;
+    this.mask.wrapS = THREE.ClampToEdgeWrapping;
+    this.mask.wrapT = THREE.ClampToEdgeWrapping;
+    this.mask.minFilter = THREE.LinearMipmapLinearFilter;
+    this.mask.anisotropy = 4;
+
     this.material = new THREE.MeshBasicMaterial({
       map: this.texture,
       transparent: true,
@@ -90,6 +108,11 @@ export class Cockpit {
       fog: false,
     });
     this.material.name = 'CockpitSprite';
+
+    // Repaints the masked region per bike. Four uniform writes to change bike,
+    // so the selection screen can preview one live.
+    this.painter = applyPaint(this.material, this.mask);
+    this.setBike(config.bike);
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.name = 'Cockpit_sprite';
@@ -127,6 +150,18 @@ export class Cockpit {
     this._halfWidth = 0;
     this._pivotY = 0;
     this._place();
+  }
+
+  /**
+   * Fits a bike, by name. Colour only: the physics live in that bike's patch
+   * over config and are applied by whoever selected it, because a cockpit is
+   * not the thing that should be deciding how fast a motorcycle goes.
+   * @param {string} name a key of config.bikes
+   */
+  setBike(name) {
+    const bike = config.bikes[name] || config.bikes[config.bike];
+    this.bike = bike;
+    this.painter.setBike(bike);
   }
 
   /** Sizes and positions the plane and the cluster for the current frame. */
@@ -230,6 +265,7 @@ export class Cockpit {
     this.material.dispose();
     this.clusterMaterial.dispose();
     this.texture.dispose();
+    this.mask.dispose();
     this.instruments.dispose();
     this.group.clear();
     if (this.group.parent) this.group.parent.remove(this.group);

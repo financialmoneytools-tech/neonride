@@ -102,6 +102,12 @@ export const cockpit = {
   // profile and the code that chose between them are gone.
   url: 'sprites/cockpit.png',
 
+  // The paint mask that goes with it: R bodywork, G the rim light on that
+  // bodywork, B the windscreen. Derived FROM the sprite above by
+  // tools/paint-mask.py, so the two cannot drift apart without the tool saying
+  // so. See config/bikes.js for what is done with it.
+  maskUrl: 'sprites/cockpit-mask.png',
+
   // The hole cut in the alpha, in the image's own texture coordinates:
   // [u0, v0, u1, v1] from the top left.
   //
