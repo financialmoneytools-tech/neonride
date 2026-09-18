@@ -19,8 +19,10 @@ check rather than to hope for.
 > Plain flat white background behind the motorcycle, no scenery, no road, no
 > sky.
 >
-> **Composition, and this is the part that must not change.** Symmetrical,
-> centred, wide 16:9 framing. Two black-leather-gloved hands gripping the ends
+> **Composition.** Symmetrical and centred, the whole motorcycle cockpit inside
+> the frame with clear white space above the windscreen and to both sides -
+> nothing touching any edge except the forearms and the tank, which run off the
+> bottom. Two black-leather-gloved hands gripping the ends
 > of a straight handlebar that runs horizontally across the lower third of the
 > image. The bar spans about 71 per cent of the image width. The grips sit at
 > about 72 per cent down the image. The gloves are centred at roughly 22 per
@@ -65,8 +67,15 @@ check rather than to hope for.
 > #0f0f1b to #2b3241, with highlight passes up to about #9066c8 on the
 > shoulders. Windscreen a dark slate blue, around #2d3a4e to #6ca8d7. Rim light
 > in electric cyan (#7df2ff) along upper edges, magenta (#ff3ca8) along lower
-> and inner edges. Glove piping cyan. Instrument housing slightly lighter than
-> the fairing so the cluster reads as a separate object.
+> and inner edges. Instrument housing slightly lighter than the fairing so the
+> cluster reads as a separate object.
+>
+> **Gloves and sleeves: black leather, with CYAN and MAGENTA piping only.** No
+> green, no red, no orange, no white. No text, no logos, no badges, no brand
+> marks and no stitching patterns that read as letters anywhere on the gloves or
+> the sleeves. The piping is thin, continuous neon line work following the seams
+> - cyan along the outer edge of each glove and down the outside of each sleeve,
+> magenta along the inner edge.
 >
 > **Line weight.** Consistent, crisp, moderately heavy black outline on the
 > outer silhouette, lighter interior lines for panel seams and details. Line art
@@ -91,56 +100,69 @@ check rather than to hope for.
 >   brake and clutch hardware.
 > - No extra fingers, no extra hands, no floating parts, no parts that do not
 >   connect to something.
+> - No green, no red and no white anywhere on the gloves or the sleeves, and
+>   nothing written on them.
 
 ---
 
 ## 2. What the pipeline needs
 
-**Source resolution: 2752 x 1536**, or any size at the **same 1.7917 aspect**.
-Larger is fine and is downscaled; the shipped sprite is capped at 2048 on the
-long side by `cut-cockpit.py`.
+**Draw at whatever size and framing the generator gives you.** `fit-cockpit.py`
+supplies the framing now, because image models will not: three attempts all
+filled the frame, with the windscreen top at 3 per cent down instead of 35 and
+the arms touching the side edges. Asking an artist that cannot measure to hit a
+measurement is not a process.
 
-**The aspect is a precondition, not a preference.** Every landmark below is a
-fraction of the image, so a drawing at a different shape makes every one of them
-mean something else. `check-redraw.py` refuses a candidate more than 0.01 away
-from 1.7917.
+What the tool needs from the drawing:
 
-**Framing.** Keep the existing margin. The drawing does not fill its canvas:
-there is deliberate empty white on every side so the cut edges stay outside the
-frame through the whole roll-and-shift range of the sway, and `cut-cockpit.py`
-does **not** crop to content precisely so that margin survives. A candidate
-cropped tight to the artwork will pass the checks and then show its own cut edge
-when the bike leans.
+- **Undistorted proportions.** It only ever scales uniformly, centres and pads -
+  it never crops, stretches or changes an aspect, because altering the drawing
+  is the one thing it must not do. So the bar has to be drawn the right width
+  *relative to the cockpit above it*: about 71 per cent of the cockpit's own
+  width. If it is not, the vertical fit will still succeed and the bar will come
+  out the wrong size, and the tool refuses with a message saying so.
+- **White, or near-white, background** with the drawing complete on it. The tool
+  reads the border tone and pads with that exact tone, so a drawing on 246 grey
+  is padded with 246 grey rather than with white.
+- **Nothing cropped off.** The forearms and the tank should run to the bottom of
+  the drawing; everything else needs air around it.
 
-Save as `art/cockpit/cockpit-wide-source.jpg`, quality 92 or better. Sources
-live in `art/` and are never shipped.
+Output is written as `art/cockpit/cockpit-wide-source.jpg` at **2752 x 1536**,
+which is what `cut-cockpit.py` reads and what every measurement in the project
+was solved against. Sources live in `art/` and are never shipped.
 
 ### Commands, in order
 
-    # 1. Will the hands still be where they were? Run this FIRST - it is the
-    #    cheapest check and the one that rejects most candidates.
-    python tools/check-redraw.py art/cockpit/candidate.jpg --debug
+    # 1. Look at it before committing to it. Measures the candidate against the
+    #    current source and writes nothing.
+    python tools/fit-cockpit.py art/cockpit/candidate.jpg --compare
 
-    # 2. Adopt it, then key it. This writes public/sprites/cockpit.png and
-    #    prints the dash rectangle it cut.
-    copy art\cockpit\candidate.jpg art\cockpit\cockpit-wide-source.jpg
+    # 2. Frame it. Scales, centres and pads onto 2752x1536 so the windscreen top
+    #    lands at 35.22% and the grip line at 71.68%, and REFUSES if the drawing
+    #    is the wrong shape. Writes art/cockpit/cockpit-wide-source.jpg.
+    python tools/fit-cockpit.py art/cockpit/candidate.jpg
+
+    # 3. Did the hands move? Run against the fitted source.
+    python tools/check-redraw.py art/cockpit/cockpit-wide-source.jpg --debug
+
+    # 4. Key it. Writes public/sprites/cockpit.png and prints the dash rectangle.
     python tools/cut-cockpit.py --debug
 
-    # 3. If it printed CONFIG_DISAGREES, put the rectangle it printed into
+    # 5. If it printed CONFIG_DISAGREES, put the rectangle it printed into
     #    config/cockpit.js -> screen, then run it again until it agrees.
 
-    # 4. Re-derive the paint mask for the four bikes, and LOOK at the overlay.
+    # 6. Re-derive the paint mask for the four bikes, and LOOK at the overlay.
     python tools/paint-mask.py --debug
     #    tools/out/paint-mask.png: orange is bodywork, blue is glass, green is
     #    rim light, and anything left dark is excluded. The gloves must be dark.
 
-    # 5. The framing contract, at all three aspects.
+    # 7. The framing contract, at all three aspects.
     node tools/measure-cockpit.mjs
 
-    # 6. The four bikes, in game, on Aurora Pass.
+    # 8. The four bikes, in game, on Aurora Pass.
     node tools/bike-shots.mjs auroraPass
 
-    # 7. Everything else.
+    # 9. Everything else.
     npm run build && npm run smoke
 
 ---
