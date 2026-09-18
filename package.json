@@ -18,9 +18,9 @@
     "lights": "node tools/light-check.mjs",
     "touch": "node tools/touch-check.mjs",
     "hud": "node tools/hud-check.mjs",
-    "bright": "node tools/brightness-check.mjs",
     "ablate": "node tools/ablate.mjs",
-    "lateral": "node tools/lateral-check.mjs"
+    "lateral": "node tools/lateral-check.mjs",
+    "phone": "node tools/phone-probe.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

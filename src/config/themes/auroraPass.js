@@ -73,16 +73,23 @@ export const auroraPass = {
       },
       markings: {
         // Road paint with snow in it: paler and a touch brighter than the
-        // sodium-free grey Galaxy Road uses.
+        // sodium-free grey Galaxy Road uses. Dimmed with the base, from 0.58 -
+        // the ratio to Galaxy Road is what makes the snow read, not the
+        // absolute value, and at 0.58 this was the brightest thing in the
+        // frame after the strips.
         color: 0xd4e2ea,
-        intensity: 0.58,
+        intensity: 0.38,
       },
+      // WIDTHS AND GLOW COME FROM THE BASE and are not restated here. A theme
+      // sets colour and intensity; it does not get its own strip geometry, or
+      // the four-times-too-wide band this theme carried would have to be found
+      // and fixed once per theme. See the measurement in config/road.js.
       strips: {
         lanes: [
-          { anchor: 'shoulder', inset: -1.2, width: 0.5, color: 0x4dffa8, repeats: 6, duty: 0.38, speed: 0, intensity: 0.85 },
-          { anchor: 'medianInner', inset: -0.4, width: 0.45, color: 0x7ef0ff, repeats: 4, duty: 0.34, speed: 0, intensity: 0.8 },
-          { anchor: 'medianOuter', inset: 0.4, width: 0.45, color: 0x9d7dff, repeats: 5, duty: 0.30, speed: 0, intensity: 0.6 },
-          { anchor: 'farVerge', inset: 1.2, width: 0.5, color: 0x7ef0ff, repeats: 3, duty: 0.42, speed: 0, intensity: 0.5 },
+          { anchor: 'shoulder', inset: -1.2, width: 0.06, color: 0x4dffa8, repeats: 6, duty: 0.38, speed: 0, intensity: 0.43 },
+          { anchor: 'medianInner', inset: -0.4, width: 0.06, color: 0x7ef0ff, repeats: 4, duty: 0.34, speed: 0, intensity: 0.40 },
+          { anchor: 'medianOuter', inset: 0.4, width: 0.06, color: 0x9d7dff, repeats: 5, duty: 0.30, speed: 0, intensity: 0.30 },
+          { anchor: 'farVerge', inset: 1.2, width: 0.06, color: 0x7ef0ff, repeats: 3, duty: 0.42, speed: 0, intensity: 0.25 },
         ],
       },
     },

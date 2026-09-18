@@ -56,7 +56,13 @@ export const player = {
     // +/-5.7, so the old 5.4 let the rider reach them and not sit in them.
     // 6.6 puts the outer lanes properly in reach and stops just short of the
     // edge lines at +/-7.6, so the bike stays on the asphalt at full lock.
-    lateralLimit: 6.6, // how far off the centre line the bike may drift
+    // 5.9, pulled in from 6.6. The clamp always held - measured, full throttle
+    // and full lock never exceeded 5.18 - and at 6.6 the bike sat inside the
+    // outer lane with half a metre to spare before the edge line at 7.6. It
+    // still READ as riding on the shoulder, and how it reads while riding is
+    // the thing to fix rather than the measurement. 5.9 keeps the outer lane
+    // reachable - its centre is 5.7 - and stops the bike hugging the edge line.
+    lateralLimit: 5.9, // how far off the centre line the bike may drift
     lateralSpeed: 13, // units per second of drift at full steer and full speed
     lateralReturnTau: 0.5, // seconds to ease back to the centre with no steer
     lateralTau: 0.35, // drift smoothing

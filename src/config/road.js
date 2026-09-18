@@ -165,13 +165,25 @@ export const road = {
   // A real motorway dash is about 6 m of paint to 9 m of gap. Keeping the
   // real rhythm is most of what makes this read as a highway rather than as
   // a lit strip with lines on it.
+  //
+  // THINNED AND DIMMED, because once the neon came down the paint was the
+  // thickest, brightest thing left on the road. Measured on the phone frame:
+  // the markings ran 38 device pixels wide and peaked at 131 against the
+  // strips' 146, so the two loudest things in the frame were both meant to be
+  // background. Real lane paint at night is visible and not luminous, and the
+  // ordering the road has to read in is surface and traffic first, markings
+  // second, neon last.
   markings: {
     color: 0xb9c4cf, // road paint under sodium-free night light, not white
-    laneWidth: 0.16, // the painted line itself
-    edgeWidth: 0.2, // the solid line at each edge of the carriageway
+    laneWidth: 0.12, // the painted line itself. Was 0.16.
+    edgeWidth: 0.14, // the solid line at each edge of the carriageway. Was 0.2.
     dash: 6.0, // metres of paint
     gap: 9.0, // metres of nothing
-    intensity: 0.5, // paint is lit BY the scene; it does not emit
+    // 0.34, from 0.5. Paint is lit BY the scene; it does not emit, and at 0.5
+    // it was reading as a light source in its own right at 220 km/h. Still
+    // clearly readable at speed - it is the one thing on the road with a hard
+    // edge and no halo, which is what makes paint legible rather than bright.
+    intensity: 0.34,
     // The opposite carriageway gets the same markings at a fraction of the
     // brightness, because it is across a median and behind more fog.
     oncomingScale: 0.55,
@@ -193,8 +205,43 @@ export const road = {
     // added on top of this.
     scrollFromSpeed: -0.45,
     softness: 0.14, // dash edge fade, as a fraction of the dash length
-    glow: 5.0, // halo reach as a multiple of the strip width
-    halo: 0.35,
+    // ================= THE STRIPS ARE THE BAND. THE EDGE LINES NEVER WERE ====
+    //
+    // Reported from a phone FOUR times as a thick bright band along the
+    // shoulder. The first three reports were answered by narrowing
+    // `road.edges` above, which is a DIFFERENT OBJECT: the edges are the two
+    // thin lines on the carriageway edges, and these are four flowing neon
+    // lanes that had never been touched. They share a colour with the edge
+    // line beside them, which is why the wrong one was fixed three times.
+    //
+    // tools/brightness-check.mjs ablated `edges.intensity` and `edges.halo`
+    // and nothing else, so it passed while measuring a line that had genuinely
+    // been fixed, standing next to a band that was never in the measurement.
+    // It has been replaced by tools/phone-probe.mjs, which ablates EVERY lit
+    // element of the road in turn and runs on the phone's own frame.
+    //
+    // MEASURED at 740x320 with a device pixel ratio of 3, on the mobile quality
+    // preset, by turning each element off and seeing what the frame lost:
+    //
+    //   element     widest run   peak
+    //   strips        499.3 px   145.9   <- the band
+    //   markings       38.0 px   131.3
+    //   edges           8.0 px    27.9   <- the line that was "fixed" 3 times
+    //
+    // A strip lights out to width * glow either side of its centre, so at
+    // 0.5 x 5.0 its lit footprint was 5 metres across - wider than the 3.8 m
+    // lane next to it. Now 0.06 x 2.0 = 0.12 m either side: a 0.24 m footprint
+    // against 5.00, a twentieth.
+    //
+    // 0.12 m of core was tried first and measured 47 device pixels wide against
+    // the lane markings' 31, so the neon was still the thickest thing on the
+    // road. The strips sit on the shoulder and the verge where the road is
+    // nearly edge on, and a line seen at a grazing angle covers far more of the
+    // frame than its width suggests - which is exactly why it draws the eye
+    // there and not in the middle. So the geometry is matched to the EDGE LINES
+    // rather than to the paint: same class of object, a lit thread on a road.
+    glow: 2.0, // halo reach as a multiple of the strip width. Was 5.0.
+    halo: 0.12, // was 0.35
 
     // OUT OF THE TRAFFIC LANES, and that is the change the highway brought.
     // These used to run down the middle of the asphalt, at +/-2.4 and
@@ -215,11 +262,25 @@ export const road = {
     // pulled out of: world/road/layout.js owns every lateral position, and
     // anything that wants one asks. `inset` is metres inboard of the anchor,
     // positive toward the rider's right.
+    //
+    // WIDTHS ARE 0.06 EVERYWHERE and every intensity is at or under 0.45, which
+    // is about 0.70 once encoded and so sits under postprocess.bloom.threshold
+    // of 0.80. That is the same trick the edge lines use: a strip that never
+    // clears the threshold contributes nothing to the bloom pass, and its own
+    // emissive colour is all that carries it. It matters more on a phone than
+    // on a desktop - bloom renders into a 370x160 buffer that is upscaled to
+    // 2220x960, a factor of six, against a factor of two on a 1280x720 desktop
+    // capture, so anything that DOES clear the threshold spreads three times
+    // further across the phone's frame than across the capture's.
+    //
+    // The speed cue survives the narrowing because it was never the width that
+    // carried it - it is the scroll, and the dashes still stream past at 1.45x
+    // road speed. See the motion comfort rules in CLAUDE.md.
     lanes: [
-      { anchor: 'shoulder', inset: -1.2, width: 0.5, color: 0xff36c8, repeats: 6, duty: 0.38, speed: 0, intensity: 0.9 },
-      { anchor: 'medianInner', inset: -0.4, width: 0.45, color: 0x2de3ff, repeats: 4, duty: 0.34, speed: 0, intensity: 0.85 },
-      { anchor: 'medianOuter', inset: 0.4, width: 0.45, color: 0x39ff88, repeats: 5, duty: 0.30, speed: 0, intensity: 0.7 },
-      { anchor: 'farVerge', inset: 1.2, width: 0.5, color: 0xff8a1f, repeats: 3, duty: 0.42, speed: 0, intensity: 0.6 },
+      { anchor: 'shoulder', inset: -1.2, width: 0.06, color: 0xff36c8, repeats: 6, duty: 0.38, speed: 0, intensity: 0.45 },
+      { anchor: 'medianInner', inset: -0.4, width: 0.06, color: 0x2de3ff, repeats: 4, duty: 0.34, speed: 0, intensity: 0.42 },
+      { anchor: 'medianOuter', inset: 0.4, width: 0.06, color: 0x39ff88, repeats: 5, duty: 0.30, speed: 0, intensity: 0.35 },
+      { anchor: 'farVerge', inset: 1.2, width: 0.06, color: 0xff8a1f, repeats: 3, duty: 0.42, speed: 0, intensity: 0.30 },
     ],
   },
 };

@@ -148,12 +148,34 @@ What causes it here, in the order that matters:
 
 Rules:
 
-- **The neon edge lines are a THREAD, and `npm run bright` holds them to it.**
-  Width at most 0.0375 m, halo reach - `width * glow` - at most 0.10 m, and they
-  may dominate at most 3 per cent of the road band. They must never out-shine
-  the vehicle lights or the lane markings. A brightness RATIO alone is not
-  enough and was tried twice: a band merely dimmer than a tail light is still a
-  band, so the geometry is asserted directly.
+- **The road reads in a fixed order: surface and traffic first, lane markings
+  second, neon last.** `npm run phone` asserts it, on a 740x320 frame at a
+  device pixel ratio of 3 - the phone's own frame, not a desktop capture.
+  Nothing neon may be wider or brighter than the lane markings.
+- **Every lit thing on the road is a THREAD.** Neon edge lines at most 0.0375 m
+  wide with a halo reach - `width * glow` - of at most 0.10 m; neon strips at
+  most 0.12 m wide with a reach of at most 0.25 m; lane paint at most 0.14 m.
+  Every neon intensity stays at or under 0.45, which is under
+  `postprocess.bloom.threshold`, so neon contributes nothing to the bloom pass.
+  A brightness RATIO alone is not enough and was tried twice: a band merely
+  dimmer than a tail light is still a band, so the geometry is asserted
+  directly.
+- **`road.edges` and `road.strips` are different objects and they look the
+  same.** The edges are two thin lines on the carriageway edges; the strips are
+  four flowing neon lanes that often share a colour with the edge beside them.
+  The band on the shoulder was reported four times and narrowed on the wrong
+  object three times, because the check - the old `npm run bright` - ablated
+  only the edges and passed while the strips were never measured. **A check
+  that isolates one element must ablate ALL of them**, which is what
+  `tools/phone-probe.mjs` does and why `tools/brightness-check.mjs` is gone.
+- **Measure on the phone's frame, and never through god mode alone.** God mode
+  turns on capture mode, and capture mode pins the pixel ratio to
+  `config/capture.js`'s value of 1, so every capture taken under `?god=1`
+  renders at a different resolution from the device it is meant to represent.
+  Bloom makes this worse rather than neutral: it renders at half the drawing
+  buffer, so on a phone it is upscaled by six against a desktop capture's two,
+  and anything clearing the bloom threshold spreads three times further across
+  the phone's frame. `phone-probe` restores the real ratio before measuring.
 - `config/comfort.js` owns the reduced motion scales. Anything new that moves
   the camera or scrolls a pattern **must go through `motionScale()`** in
   `core/Comfort.js`, not read its amplitude straight from config.
