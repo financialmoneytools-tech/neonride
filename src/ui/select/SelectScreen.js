@@ -32,6 +32,8 @@ export class SelectScreen {
    * @param {(item: object, index: number) => void} options.onChange
    * @param {(item: object) => void} options.onConfirm
    * @param {() => void} [options.onBack] omitted means no back button
+   * @param {string} [options.extraLabel] label for an optional extra action
+   * @param {() => void} [options.onExtra] the optional extra action
    */
   constructor(parent, options) {
     const text = config.ui.select;
@@ -79,6 +81,16 @@ export class SelectScreen {
       foot.append(this.backButton);
     }
     foot.append(this.hint);
+
+    // An OPTIONAL extra action, between the hint and the confirm. The mode
+    // screen uses it for HIZLI BAŞLA; nothing else has needed one yet, which is
+    // why it is an option rather than a fixed slot.
+    this.extraButton = null;
+    if (options.onExtra && options.extraLabel) {
+      this.extraButton = this._button(options.extraLabel, 'select-extra', () => options.onExtra());
+      foot.append(this.extraButton);
+    }
+
     this.confirmButton = this._button(
       options.confirmLabel || text.next,
       'select-confirm',
@@ -99,6 +111,38 @@ export class SelectScreen {
 
     this._swipeFrom = null;
     this._swiped = false;
+
+    // ================= NOT ARMED UNTIL THIS SCREEN OWNS A GESTURE =========
+    //
+    // A screen can be BUILT IN THE MIDDLE OF SOMEBODY ELSE'S GESTURE. The
+    // title card dismisses on POINTERDOWN, so the first screen in the flow is
+    // constructed while a finger or a button is still down, and the POINTERUP
+    // that ends that gesture lands on whatever is now underneath it. On the
+    // mode screen that was the pre-selected card, and a tap on the card that is
+    // already selected is a CONFIRM - so one click opened the mode screen and
+    // destroyed it, and the flow looked like title -> bike -> road with no mode
+    // step at all.
+    //
+    // It reproduced on a MOUSE and not under a thumb, which is why it looked
+    // intermittent and why the first test written for it passed. A touch
+    // pointer is implicitly captured to the element that received `touchstart`,
+    // so a tap's pointerup goes to the body it started on however much has been
+    // built over it; a mouse pointerup hit-tests live against whatever is under
+    // the cursor at that instant.
+    //
+    // So a pointerup can only activate anything once this screen has seen the
+    // matching pointerDOWN. Keyboard is deliberately not gated: it never has a
+    // half-finished gesture to inherit, and gating it would mean a screen that
+    // can never be driven by the keyboard at all.
+    this._armed = false;
+  }
+
+  /**
+   * @returns {boolean} whether a pointerup may act. False until this screen has
+   * seen the start of a gesture of its own - see the note in the constructor.
+   */
+  get armed() {
+    return this._armed;
   }
 
   /**
@@ -146,10 +190,18 @@ export class SelectScreen {
    * @param {() => void} action
    */
   _activate(button, action) {
-    const stop = (event) => event.stopPropagation();
+    const stop = (event) => {
+      event.stopPropagation();
+      // A pointerdown on a button is still the start of a gesture this screen
+      // owns, and the root listener never sees it because it is stopped here.
+      this._armed = true;
+    };
     button.addEventListener('pointerdown', stop);
     button.addEventListener('pointerup', (event) => {
       event.stopPropagation();
+      // The pointerup that ended the gesture which BUILT this screen is not a
+      // press of this button. See the constructor.
+      if (!this._armed) return;
       action();
     });
     button.addEventListener('click', (event) => {
@@ -214,11 +266,17 @@ export class SelectScreen {
 
   _onPointerDown(event) {
     event.stopPropagation();
+    this._armed = true;
     this._swipeFrom = { x: event.clientX, y: event.clientY };
   }
 
   _onPointerUp(event) {
     event.stopPropagation();
+    // Inherited from the gesture that built this screen; not ours to act on.
+    if (!this._armed) {
+      this._swipeFrom = null;
+      return;
+    }
     if (!this._swipeFrom) return;
     const dx = event.clientX - this._swipeFrom.x;
     const dy = event.clientY - this._swipeFrom.y;

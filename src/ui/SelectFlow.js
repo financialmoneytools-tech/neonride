@@ -63,6 +63,13 @@ export class SelectFlow {
         this.selection.setMode(mode);
         this._showBike();
       },
+      // HIZLI BAŞLA: the mode is still committed, the other two screens are
+      // skipped and whatever is stored for them is used.
+      onQuick: (mode) => {
+        this.selection.setMode(mode);
+        this.selection.applyBike();
+        this.quickStart();
+      },
     }, this.selection.mode);
   }
 
@@ -98,6 +105,9 @@ export class SelectFlow {
         this._clear();
         this.handlers.onDone();
       },
+      // The active mode, shown here so the last screen before a run says what
+      // kind of run it is about to be.
+      mode: this.selection.mode,
     }, this.selection.road);
   }
 

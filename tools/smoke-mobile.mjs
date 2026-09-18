@@ -373,6 +373,195 @@ async function hudLayout(page, size) {
 }
 
 /**
+ * Does the mode screen survive the gesture that opened it, and does the run
+ * that starts match the mode that was picked?
+ *
+ * ================= WHY THIS EXISTS =================
+ *
+ * The mode screen was reported as appearing once and never again, on a clean
+ * incognito profile, so it was never a stored-choice problem. The cause: the
+ * title card dismisses on POINTERDOWN, the mode screen is therefore built in
+ * the middle of that gesture, and the matching POINTERUP lands on the card that
+ * is now under the finger. KOŞU is pre-selected and index 0, so a tap on it is
+ * a CONFIRM rather than a select - one click and the screen is gone.
+ *
+ * It reproduced only where the pointer actually landed on the pre-selected
+ * card, which is why it looked intermittent: a tap that lands in the gap
+ * between the two cards leaves the screen up, and a tap on the far card only
+ * changes the selection. That is exactly the shape of "it appeared once".
+ *
+ * So this test dismisses the title AT THE CENTRE OF THE PRE-SELECTED CARD,
+ * measured rather than guessed, which is the gesture that breaks it.
+ *
+ * @param {import('playwright').Browser} browser
+ * @param {string} url
+ * @returns {Promise<string[]>} failures
+ */
+async function checkModeScreen(browser, url) {
+  const SHORT = { width: 740, height: 320 };
+  const failures = [];
+  const context = await browser.newContext({
+    ...devices['Pixel 7'], viewport: SHORT, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
+
+  /** Opens the game, dismisses the title at `point`, reports what came up. */
+  const walk = async (page, point) => {
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+    await page.waitForTimeout(900);
+    await page.tap('body', { position: point, force: true }).catch(() => {});
+    await page.waitForTimeout(900);
+    return {
+      mode: await page.isVisible('.mode-screen').catch(() => false),
+      bike: await page.isVisible('.bike-screen').catch(() => false),
+    };
+  };
+
+  try {
+    // --- pass 1: where IS the pre-selected card? --------------------------
+    // Measured, not guessed. Dismissing at a corner is known not to trigger
+    // the fault, so this pass is only here to read the geometry.
+    const probe = await context.newPage();
+    await walk(probe, { x: SHORT.width - 30, y: 26 });
+    const card = await probe.evaluate(() => {
+      const on = document.querySelector('.mode-card-on') || document.querySelector('.mode-card');
+      if (!on) return null;
+      const box = on.getBoundingClientRect();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    });
+    await probe.close();
+    if (!card) {
+      failures.push('no mode card on screen at all after the title tap');
+      await context.close();
+      return failures;
+    }
+
+    // --- pass 2: a CLEAN profile, dismissed on the card ------------------
+    await context.clearCookies();
+    const clean = await context.newPage();
+    await clean.goto(url, { waitUntil: 'load', timeout: 30000 });
+    await clean.evaluate(() => { try { localStorage.clear(); } catch (e) { /* blocked */ } });
+    const first = await walk(clean, card);
+    if (!first.mode) {
+      failures.push('the mode screen does not survive the tap that opened it '
+        + `(tapped the pre-selected card at ${Math.round(card.x)},${Math.round(card.y)}; `
+        + `bike screen up: ${first.bike})`);
+    }
+
+    // --- the run that starts matches the mode that was picked ------------
+    // SONSUZ is the second card, so one arrow right then confirm all the way
+    // through has to produce an endless run.
+    if (first.mode) {
+      await clean.click('.select-arrow-next').catch(() => {});
+      await clean.waitForTimeout(300);
+      for (const selector of [
+        '.mode-screen .select-confirm',
+        '.bike-screen .select-confirm',
+        '.road-screen .select-confirm',
+      ]) {
+        await clean.waitForSelector(selector, { timeout: 5000 }).catch(() => {});
+        await clean.click(selector).catch(() => {});
+        await clean.waitForTimeout(350);
+      }
+      await clean.waitForTimeout(700);
+      const picked = await clean.evaluate(() => ({
+        mode: window.NEON.session.mode,
+        staged: window.NEON.session.staged,
+        phase: window.NEON.session.phase,
+      }));
+      if (picked.mode !== 'endless') {
+        failures.push(`picked SONSUZ and got a ${picked.mode} run (phase ${picked.phase})`);
+      }
+
+      // AND THE ACTIVE MODE IS FINDABLE MID-RUN. It was invisible everywhere
+      // once the mode screen was behind you: a run either had a finish line in
+      // it or it did not, and that was the only way to tell.
+      await clean.tap('.pause-button', { force: true }).catch(() => {});
+      await clean.waitForTimeout(600);
+      const paused = await clean.evaluate(() => {
+        const el = document.querySelector('.mode-switch');
+        return el ? el.textContent : null;
+      });
+      if (!paused) failures.push('the pause panel does not show the active mode');
+      else if (!paused.includes('SONSUZ')) {
+        failures.push(`the pause panel shows "${paused}" during an endless run`);
+      }
+    }
+    await clean.close();
+
+    // --- pass 2b: A DESKTOP MOUSE, which is the pointer that breaks it ----
+    //
+    // TOUCH DOES NOT REPRODUCE THIS AND THAT IS NOT LUCK. A touch pointer is
+    // implicitly captured to the element that received `touchstart`, so the
+    // pointerup of a tap is delivered to the BODY it started on however much
+    // has been built over it in the meantime. A mouse pointerup hit-tests
+    // live, against whatever is under the cursor at the moment it happens - so
+    // the same gesture that is harmless under a thumb activates a card that
+    // did not exist when the button went down.
+    //
+    // The first version of this check ran on the phone context only and passed
+    // against a build that was broken, which is the same failure the smoke test
+    // has had twice before: a check that exercises a different path from the
+    // user's is not checking the user's path.
+    const desktop = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const mouse = await desktop.newPage();
+    await mouse.goto(url, { waitUntil: 'load', timeout: 30000 });
+    await mouse.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+    await mouse.waitForTimeout(900);
+    // Where the pre-selected card will be on this viewport, read from a probe
+    // pass rather than assumed - the layout is a clamp on viewport width.
+    await mouse.mouse.move(640, 360);
+    await mouse.mouse.down();
+    await mouse.waitForTimeout(110); // a real click is held, not instantaneous
+    await mouse.mouse.up();
+    await mouse.waitForTimeout(900);
+    const desktopCard = await mouse.evaluate(() => {
+      const on = document.querySelector('.mode-card-on') || document.querySelector('.mode-card');
+      if (!on) return null;
+      const box = on.getBoundingClientRect();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    });
+    let onMode = await mouse.isVisible('.mode-screen').catch(() => false);
+    if (onMode && desktopCard) {
+      // The first click landed wherever it landed. Reload and land it exactly
+      // on the pre-selected card, which is the gesture that breaks it.
+      await mouse.goto(url, { waitUntil: 'load', timeout: 30000 });
+      await mouse.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+      await mouse.waitForTimeout(900);
+      await mouse.mouse.move(desktopCard.x, desktopCard.y);
+      await mouse.mouse.down();
+      await mouse.waitForTimeout(110);
+      await mouse.mouse.up();
+      await mouse.waitForTimeout(900);
+      onMode = await mouse.isVisible('.mode-screen').catch(() => false);
+    }
+    if (!onMode) {
+      const bikeUp = await mouse.isVisible('.bike-screen').catch(() => false);
+      failures.push('a desktop mouse click on the pre-selected card destroys the mode '
+        + `screen in one gesture (bike screen up: ${bikeUp})`);
+    }
+    await mouse.close();
+    await desktop.close();
+
+    // --- pass 3: a RETURNING profile still sees the screen ---------------
+    // The context keeps its localStorage from the run above, so this is a
+    // player who has chosen before. They must still be offered the choice.
+    const returning = await context.newPage();
+    const again = await walk(returning, card);
+    if (!again.mode) {
+      failures.push('a returning profile never sees the mode screen - '
+        + `bike screen up: ${again.bike}`);
+    }
+    await returning.close();
+  } catch (error) {
+    failures.push('mode walk threw: ' + error.message);
+  }
+
+  await context.close();
+  return failures;
+}
+
+/**
  * Walks a staged run all the way to its finish line, on a landscape phone.
  *
  * @param {import('playwright').Browser} browser
@@ -893,6 +1082,9 @@ async function main() {
   // clock, the real checkpoint counter and the real card, just sooner. Calling
   // the finish directly would prove the method works and nothing about whether
   // anything reaches it.
+  // --- THE MODE SCREEN MUST SURVIVE THE TAP THAT OPENED IT ----------------
+  for (const line of await checkModeScreen(browser, `${base}${query}`)) failures.push(line);
+
   for (const line of await checkFinish(browser, `${base}${query}`)) failures.push(line);
 
   for (const line of await checkShortViewport(browser, `${base}${query}`)) failures.push(line);

@@ -3,6 +3,7 @@ import { PHASE } from '../game/Session.js';
 import { format } from './Hud.js';
 import { ComfortToggle } from './ComfortToggle.js';
 import { ControlsPanel } from './ControlsPanel.js';
+import { ModeSwitch } from './ModeSwitch.js';
 
 /**
  * Panels - the pause card.
@@ -29,8 +30,10 @@ export class Panels {
    * @param {import('../core/Comfort.js').Comfort} [comfort]
    * @param {import('../core/Controls.js').Controls} [controls] adds the control
    *   mode switch to the pause card when given
+   * @param {import('../game/Selection.js').Selection} [selection] adds the run
+   *   mode switch when given
    */
-  constructor(parent, session, comfort = null, controls = null, audio = null) {
+  constructor(parent, session, comfort = null, controls = null, audio = null, selection = null) {
     this.session = session;
 
     this.el = document.createElement('div');
@@ -75,6 +78,12 @@ export class Panels {
     // steering.
     this.controlsPanel = controls ? new ControlsPanel(this.actionsEl, controls, audio) : null;
 
+    // WHICH KIND OF RUN THIS IS, and how to change it for the next one. The
+    // pause panel is the only screen reachable mid-session without ending
+    // anything, and until this there was no way to find out which mode was
+    // active at all - see ui/ModeSwitch.js.
+    this.modeSwitch = selection ? new ModeSwitch(this.actionsEl, selection, session) : null;
+
     parent.appendChild(this.el);
 
     this._shown = null;
@@ -106,6 +115,9 @@ export class Panels {
 
     if (this.toggle) this.toggle.el.hidden = false;
     if (this.controlsPanel) this.controlsPanel.setVisible(true);
+    // Re-rendered every time the card opens, because the run it is comparing
+    // against changes underneath it.
+    if (this.modeSwitch) this.modeSwitch.render();
     this.el.hidden = false;
     // Forces a reflow so the transition runs from the hidden state rather than
     // the browser collapsing both style changes into one frame and skipping it.
@@ -116,6 +128,7 @@ export class Panels {
   dispose() {
     if (this.toggle) { this.toggle.dispose(); this.toggle = null; }
     if (this.controlsPanel) { this.controlsPanel.dispose(); this.controlsPanel = null; }
+    if (this.modeSwitch) { this.modeSwitch.dispose(); this.modeSwitch = null; }
     if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
     this.el = null;
   }

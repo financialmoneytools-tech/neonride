@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { MODE } from '../game/Session.js';
 import { SelectScreen } from './select/SelectScreen.js';
 
 /**
@@ -23,10 +24,12 @@ export class RoadScreen {
    * @param {(key: string) => void} handlers.onConfirm a theme key, or config.MIXED
    * @param {() => void} [handlers.onBack]
    * @param {(key: string) => void} [handlers.onPreview]
+   * @param {string} [handlers.mode] the active MODE, shown on the screen
    * @param {string} [initial]
    */
   constructor(parent, handlers, initial) {
     const text = config.ui.roads;
+    this.mode = handlers.mode;
     const items = [];
 
     for (const key of Object.keys(config.themes)) {
@@ -110,6 +113,9 @@ export class RoadScreen {
       // card which swallowed the pointerdown meant every swipe STARTING on a
       // card - which is most of the screen - was never seen as a swipe at all.
       const choose = () => {
+        // The pointerup that ended the gesture which BUILT this screen is not
+        // a choice - see ui/select/SelectScreen.js.
+        if (!this.screen.armed) return;
         // A drag that ended on this card is a swipe, not a choice. Without this
         // the swipe would change the selection and then the tap would set it
         // straight back to whatever card the finger happened to lift over.
@@ -136,7 +142,18 @@ export class RoadScreen {
 
     this.blurb = document.createElement('p');
     this.blurb.className = 'road-blurb';
-    body.append(this.grid, this.blurb);
+
+    // THE ACTIVE MODE, on the last screen before a run. It was invisible
+    // everywhere until now: a player who had been through the mode screen had
+    // no way at all of checking what they had picked.
+    this.modeEl = document.createElement('p');
+    this.modeEl.className = 'road-mode';
+    if (this.mode) {
+      const modes = config.ui.modes;
+      const name = this.mode === MODE.ENDLESS ? modes.endless : modes.stage;
+      this.modeEl.textContent = modes.label + ': ' + name;
+    }
+    body.append(this.modeEl, this.grid, this.blurb);
 
     const render = this.screen.render.bind(this.screen);
     this.screen.render = () => {

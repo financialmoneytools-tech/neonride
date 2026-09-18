@@ -20,6 +20,8 @@ export class ModeScreen {
    * @param {HTMLElement} parent
    * @param {object} handlers
    * @param {(mode: string) => void} handlers.onConfirm a MODE value
+   * @param {(mode: string) => void} [handlers.onQuick] HIZLI BAŞLA: start now,
+   *   on the stored bike and road, in the highlighted mode
    * @param {string} [initial] a MODE value
    */
   constructor(parent, handlers, initial) {
@@ -35,6 +37,13 @@ export class ModeScreen {
       items,
       onChange: () => this._render(),
       onConfirm: (item) => handlers.onConfirm(item.key),
+      // HIZLI BAŞLA. It skips the bike and the road, not the MODE: the mode is
+      // whatever is highlighted here, so the one thing this screen exists to
+      // ask is still answered even by the player who is skipping past it.
+      extraLabel: handlers.onQuick ? config.ui.select.quick : undefined,
+      onExtra: handlers.onQuick
+        ? () => handlers.onQuick(this.screen.current.key)
+        : undefined,
     });
 
     this._build();
@@ -66,6 +75,11 @@ export class ModeScreen {
       // every swipe starting on a card is never seen as a swipe. Both were
       // real faults on a phone; see ui/select/SelectScreen.js.
       const choose = () => {
+        // The pointerup that ended the gesture which BUILT this screen is not
+        // a choice - see ui/select/SelectScreen.js. This is what stopped one
+        // click on the title card from opening the mode screen and confirming
+        // it in the same gesture.
+        if (!this.screen.armed) return;
         if (this.screen.consumedSwipe()) return;
         if (this.screen.index === index) this.screen.options.onConfirm(item);
         else this.screen.select(index);

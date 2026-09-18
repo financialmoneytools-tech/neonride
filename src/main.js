@@ -427,7 +427,7 @@ const audio = new Audio();
 if (stats) stats.audio = audio;
 const session = new Session();
 const hud = new Hud(document.body, session);
-const panels = new Panels(document.body, session, comfort, controls, audio);
+const panels = new Panels(document.body, session, comfort, controls, audio, selection);
 // How a run ENDED, both ways. It replaced the game over half of Panels: there
 // are two endings now and they have a result to show rather than a score to
 // report. The road is passed as a function because a mixed run changes road

@@ -105,6 +105,13 @@ export const ui = {
     stageBlurb: '5 KM. BİTİŞ ÇİZGİSİ VE MADALYA.',
     endless: 'SONSUZ',
     endlessBlurb: 'DÜŞENE KADAR SÜR. EN İYİ SKOR BURADA.',
+    // Shown on the road screen and in the pause panel, so the active mode is
+    // never something a player has to remember choosing.
+    label: 'MOD',
+    // The pause panel's switch. It changes the mode for the NEXT run rather
+    // than this one - a run whose rules changed underneath it is not a run.
+    change: 'MOD DEĞİŞTİR',
+    nextRun: 'SONRAKİ KOŞUDA',
   },
 
   // THE RESULTS CARD, which replaced the old game over panel outright. It has
