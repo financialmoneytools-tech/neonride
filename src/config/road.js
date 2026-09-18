@@ -98,13 +98,53 @@ export const road = {
   // METRES now, like everything else lateral: the old values were fractions
   // of the ribbon half width, which meant widening the verge made the edge
   // lines wider.
+  // ================= THE EDGE LINES ARE A DETAIL, NOT A LIGHT SOURCE =========
+  //
+  // Reported TWICE from a phone as wide white-hot bands along both shoulders,
+  // with the asphalt, the lane markings and the traffic all dimmer than they
+  // were. The first report was not acted on - `git log -L` on this block shows
+  // one commit, the one that created the file - so nothing had changed when the
+  // second arrived. tools/brightness-check.mjs exists so that cannot happen a
+  // third time.
+  //
+  // MEASURED on Aurora Pass at 1280x720, from one frozen frame, by turning each
+  // element off in turn and seeing what the frame lost:
+  //
+  //   removed     peak   >200 px   mean light it was adding
+  //   (base)     238.7    12.58%
+  //   bloom      229.1     4.61%   40.4
+  //   edges      221.2     4.56%   34.3
+  //   sheen      238.0    11.51%    8.5
+  //   markings   233.0    11.50%    7.5
+  //   roadside   238.7    12.64%    0.0
+  //
+  // So it is the edges AND the bloom, and they are the same fault: the edges
+  // are what feeds the bloom. `intensity` was 1.15 (1.2 on Aurora Pass), which
+  // is about 0.81 once encoded, and postprocess.bloom.threshold is 0.80 - the
+  // strip core cleared the bloom threshold, so the glow was handed a value
+  // brighter than white and gave it back as a band. Turning the colour down
+  // without crossing back under that threshold changes the hue of the wall and
+  // not the wall.
+  //
+  // The values below were SWEPT, not guessed, against the vehicle lights in the
+  // same frozen frame (peak 170.1):
+  //
+  //   intensity/width/glow/halo   strip peak   lights this much of the band
+  //   1.20 / 0.30 / 7.0 / 0.28       221.9      37.4%   <- was
+  //   0.80 / 0.20 / 5.0 / 0.18       161.9      13.5%
+  //   0.55 / 0.15 / 3.5 / 0.14       110.6       8.1%   <- is
+  //   0.38 and below                     -       0.0%   strips stop reading
+  //
+  // 0.55 puts the core under the bloom threshold, so only the very brightest
+  // part of the line glows at all, and the peak collapses from 221.9 to 110.6 -
+  // comfortably under the traffic it has to sit behind.
   edges: {
     leftColor: 0x22f7ff, // cyan, the median side
     rightColor: 0xff2bd0, // magenta, the shoulder side
-    width: 0.3,
-    glow: 7.0, // halo reach as a multiple of width
-    intensity: 1.15,
-    halo: 0.28,
+    width: 0.15, // halved
+    glow: 3.5, // halo reach as a multiple of width; was 7.0
+    intensity: 0.55, // under bloom.threshold 0.8 once encoded
+    halo: 0.14,
   },
 
   // PAINTED LANE MARKINGS. Plain white road paint, world-locked: they do not

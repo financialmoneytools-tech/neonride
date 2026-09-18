@@ -59,7 +59,12 @@ export const auroraPass = {
       edges: {
         leftColor: 0x7ef0ff, // ice blue, median side
         rightColor: 0x4dffa8, // green, shoulder side
-        intensity: 1.2,
+        // Under the bloom threshold, like the base theme. It was 1.2, which
+        // was the brightest edge in the project and the worst offender on the
+        // phone.
+        // Under the bloom threshold, like the base theme. It was 1.2, the
+        // brightest edge in the project and the worst offender on the phone.
+        intensity: 0.57,
       },
       markings: {
         // Road paint with snow in it: paler and a touch brighter than the
