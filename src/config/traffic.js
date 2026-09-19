@@ -42,12 +42,19 @@ export const traffic = {
   spawnJitter: 260,
   recycleBehind: 140, // how far past the player before it is sent forward again
 
-  // How close to the player a vehicle may be brought back out of the pool. The
-  // density ramp turns vehicles on where they were left, and one switched on
-  // where the player is standing appears inside them - nothing downstream can
-  // catch that, because the recording guard has already run and skipped it as
-  // inactive. Comfortably longer than any vehicle.
-  spawnClear: 30,
+  // RETIRED, and kept as a note rather than deleted so nobody reinvents it.
+  //
+  // This was how close to the player a vehicle could be brought back out of
+  // the pool before it was respawned instead. It was the right idea applied
+  // to one case out of two: a returning vehicle can materialise inside
+  // another VEHICLE just as easily as inside the bike, and while it was
+  // inactive nothing was maintaining its spacing because car following skips
+  // inactive vehicles. Measured, that was ten overlapping pairs across the
+  // two roads with the lowest `mix` - the ones whose live counts churn most.
+  //
+  // world/Traffic.js now respawns EVERYTHING that comes back from the pool,
+  // which subsumes this and cannot have a second case hiding behind it.
+  // spawnClear: 30,
   minGap: 26, // along the road, between two vehicles sharing a lane
 
   // LANE CENTRES ARE NOT LISTED HERE ANY MORE. They come from

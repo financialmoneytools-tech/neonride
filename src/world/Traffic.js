@@ -248,13 +248,28 @@ export class Traffic {
         const vehicle = vehicles[i];
         const live = i < liveCount;
 
-        // A vehicle coming out of the pool appears wherever it was left, and
-        // the density ramp can bring one back while the player is standing on
-        // that spot. Nothing else in the frame can catch it: the recording
-        // guard has already run and skipped it as inactive, so it materialises
-        // inside the bike. Sent forward instead, which is where a new vehicle
-        // belongs anyway.
-        if (live && !vehicle.active && Math.abs(playerDistance - vehicle.distance) < cfg.spawnClear) {
+        // ANYTHING COMING BACK FROM THE POOL IS RESPAWNED, without asking
+        // where it is.
+        //
+        // It used to be respawned only when it would have materialised
+        // inside the BIKE, which is the case somebody noticed. The case
+        // nobody noticed is that it can materialise inside another VEHICLE,
+        // and for the same reason: an inactive vehicle keeps its distance,
+        // car following skips it because it is not active, and the density
+        // ramp switches it back on wherever it was left. Nothing in the
+        // frame is watching.
+        //
+        // Measured: two overlapping pairs on Nebula Coast and eight on Red
+        // Planet over ten levels each - and ONLY on those two, because they
+        // carry the lowest `traffic.mix` of the six, which makes their live
+        // counts smallest and the active set churn most. The fast spacing
+        // check missed it entirely: at three seconds a level it never saw a
+        // pool boundary get crossed.
+        //
+        // `_respawn` runs `_admits`, so a returning vehicle lands somewhere
+        // legal by the same rule a new one does. It costs a teleport of
+        // something that was invisible a frame ago, which is nothing.
+        if (live && !vehicle.active) {
           this._respawn(fleet, vehicle, playerDistance + cfg.spawnAhead, i);
         }
         vehicle.active = live;
