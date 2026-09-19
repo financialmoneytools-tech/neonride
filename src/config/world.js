@@ -430,18 +430,40 @@ export const world = {
     // A theme decides whether there is anything on the horizon at all. Galaxy
     // Road turns them off: nothing opaque may block the sky on a road in space.
     enabled: true,
-    slabLength: 2400,
-    slabsPerLayer: 2, // two slabs leapfrog each other along the travel axis
-    columns: 28,
-    baseY: -70, // bottom edge, well below the horizon
-    depthJitter: 80, // per column push toward / away from the road
+
+    // Columns around the ring. 120 is three degrees apart, which is finer
+    // than the ridge noise can turn inside and cheap enough to rewrite every
+    // frame - see the note on `update` in world/Mountains.js.
+    segments: 120,
+
+    baseY: -70, // bottom edge, well below the horizon and below the ground
+
+    // How much the ring wanders in and out, as a fraction of its radius, so
+    // it is a range rather than a circle. It cannot make a ridge close: at
+    // 0.14 the nearest a layer at 420 can come is 361.
+    radialJitter: 0.14,
+
+    // THE SADDLE THE ROAD RUNS OUT THROUGH. Without it a ring is a wall
+    // across the vanishing point. `halfAngle` is how wide the opening is
+    // either side of the road's axis before the ground starts to rise,
+    // `falloff` how long it takes to reach full height, and `floor` how much
+    // height is left in the gap - not zero, because a horizon with a hole
+    // cut in it reads as missing geometry rather than as a pass.
+    gap: { halfAngle: 0.34, falloff: 0.62, floor: 0.08 },
+
+    // Faces rather than a cut-out - see world/mountains/shade.js. `skylight`
+    // is the term that does the work on a dark ridge against a bright sky,
+    // because it ADDS the horizon's own colour instead of scaling a colour
+    // that is already nearly black.
+    shade: { ambient: 0.40, skylight: 0.34, azimuth: -0.95 },
+
     ridge: { wavelength: 520, octaves: 3, lacunarity: 2.1, gain: 0.5 },
 
-    // A ridge at lateral distance D only enters the frustum once it is more
-    // than D / tan(hfov / 2) units ahead, so with the fog reaching about 1300
-    // units anything past roughly 850 out is off screen at every moment of
-    // its life. Both layers sit inside that limit on purpose; pushing them
-    // further away does not make them look more distant, it deletes them.
+    // `distance` is now a RADIUS from the rider, not an offset to one side.
+    // Nothing can come closer than this from any direction, which is the
+    // whole point of the ring - see world/Mountains.js for the wall it
+    // replaces. Heights are unchanged: a layer at 420 and 120 tall subtends
+    // sixteen degrees, which is a range on the horizon.
     layers: [
       { distance: 420, height: 120, floor: 0.3, color: 0x0a0716 },
       { distance: 620, height: 210, floor: 0.35, color: 0x070512 },

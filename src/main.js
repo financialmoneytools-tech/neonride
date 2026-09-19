@@ -132,7 +132,7 @@ const median = new Median(engine.scene, road);
 const scenery = new Scenery(engine.scene, road);
 const weather = new Weather(engine.scene, engine.camera, engine.renderer);
 const oncoming = new Oncoming(engine.scene, road);
-const mountains = new Mountains(engine.scene);
+const mountains = new Mountains(engine.scene, road);
 // THE FLOOR, and it goes in before anything that stands on it. Until this
 // there was none: the road was a ribbon in the sky and every boulder, lamp and
 // ridge beside it was hanging in the same sky. See world/Ground.js.
