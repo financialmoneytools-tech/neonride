@@ -18,13 +18,12 @@ import { createSignAtlas } from './scenery/signs.js';
  *
  * 1. EVERY KIND IS ALLOCATED, WHATEVER THE THEME USES. A theme sets a density
  *    from 0 to 1 per kind and nothing else; it never allocates. That is the
- *    rule the whole theme system rests on - see docs/THEMES.md - because buffer
- *    sizes cannot change mid run and a road that changes theme every few
- *    kilometres would otherwise have to reload. A kind at density 0 keeps its
- *    buffer and is switched off - parking the instances alone was NOT free,
- *    measured: an InstancedMesh a million units away still submits its draw
- *    call and all of its triangles, and Galaxy Road was paying four draw calls
- *    and 21k triangles for scenery it does not have.
+ *    rule the whole theme system rests on - see docs/THEMES.md - because
+ *    buffer sizes cannot change mid run. A kind at density 0 keeps its buffer
+ *    and is switched OFF: parking the instances alone was not free, measured
+ *    - an InstancedMesh a million units away still submits its draw call and
+ *    all its triangles, and Galaxy Road was paying four calls and 21k
+ *    triangles for scenery it does not have.
  *
  * 2. PLACEMENT IS SEEDED BY GLOBAL CHUNK INDEX, not by pool slot. Pylons can be
  *    evenly spaced; trees cannot, or they read as a fence. A per chunk RNG
@@ -33,9 +32,11 @@ import { createSignAtlas } from './scenery/signs.js';
  *    rebuilt whenever the pool wraps and a tree that moved would be a tree the
  *    rider watched jump.
  *
- * 3. PROPS HAVE A SIDE AND A SETBACK. The highway is asymmetric, so "beside the
- *    road" is a different number on each side, and both come from
- *    road/layout.js rather than from a constant.
+ * 3. PROPS HAVE A SIDE AND A SETBACK. The highway is asymmetric, so "beside
+ *    the road" is a different number on each side, and both come from
+ *    road/layout.js rather than a constant. The setback also carries the
+ *    prop's OWN half width, or a wide one stands with its flank over the
+ *    carriageway and the camera drives through it.
  */
 
 const _position = new THREE.Vector3();
@@ -73,16 +74,13 @@ export class Scenery {
       if (!build) continue;
 
       const geometry = build(kind);
-      // WHITE BASE, TINTED PER THEME. The prop's own vertex colours carry its
-      // internal shading - a lamp's dark pole against its bright head - and
-      // the material's colour multiplies the lot, so a theme can recolour
-      // every rock on the road without touching geometry.
-      //
-      // IT HAS TO BE A UNIFORM RATHER THAN BAKED, and that is the whole
-      // point: vertex colours are written once at build, and the world is
-      // built before the player has chosen a road. A baked tint is the tint
-      // of whatever theme happened to be stored, which is why six roads all
-      // had the same near-black rocks beside them.
+      // WHITE BASE, TINTED PER THEME. A prop's vertex colours carry its own
+      // internal shading and the material's colour multiplies the lot, so a
+      // theme recolours every rock on the road without touching geometry. It
+      // has to be a UNIFORM rather than baked: vertex colours are written
+      // once at build and the world is built before a road has been chosen,
+      // so a baked tint is whichever theme happened to be stored - which is
+      // why six roads all had the same near-black rocks beside them.
       const material = new THREE.MeshBasicMaterial({
         vertexColors: true,
         toneMapped: kind.toneMapped !== false,
@@ -99,11 +97,10 @@ export class Scenery {
       mesh.frustumCulled = false;
       this.group.add(mesh);
 
-      // A SECOND MESH FOR THE LIGHT A PROP THROWS, when it throws any. Light is
-      // not a surface: a lamp head painted bright is a white slab, and what
-      // makes it a lamp is a halo and a pool of road lit under it. Additive,
-      // depth-write off, and driven by the SAME instance matrix, so placing the
-      // prop places its light with it.
+      // A SECOND MESH FOR THE LIGHT A PROP THROWS. Light is not a surface: a
+      // lamp head painted bright is a white slab, and what makes it a lamp is
+      // a halo and a pool of road lit under it. Additive, depth-write off,
+      // and driven by the SAME instance matrix.
       let glow = null;
       const glowBuild = kind.glow && GLOW_BUILDERS[kind.shape];
       if (glowBuild) {
@@ -142,12 +139,19 @@ export class Scenery {
         this._extra.push({ geometry: glowGeometry, material: glowMaterial, mesh: glow });
       }
 
+      // HOW WIDE THE PROP ACTUALLY IS, measured from the geometry rather than
+      // guessed from config. The setback below is measured to the prop's
+      // ORIGIN, so without this a wide prop is placed with its middle outside
+      // the carriageway and its flank over it. See `_fillChunk`.
+      geometry.computeBoundingBox();
+      const box = geometry.boundingBox;
+      const halfWidth = Math.max(Math.abs(box.min.x), Math.abs(box.max.x));
+
       this.kinds.push({
-        name, cfg: kind, mesh, glow, geometry, material, perChunk,
+        name, cfg: kind, mesh, glow, geometry, material, perChunk, halfWidth,
         // A per kind salt for the placement RNG. An INDEX, not something
-        // derived from the name: seeding from the name's length put 'pine' and
-        // 'rock' on the same sequence, which stands every boulder inside a
-        // tree.
+        // derived from the name: seeding from the name's length put 'pine'
+        // and 'rock' on one sequence, standing every boulder inside a tree.
         salt: this.kinds.length * 104729,
       });
     }
@@ -235,6 +239,10 @@ export class Scenery {
         const along = (chunkIndex + (i + rng.next()) / kind.perChunk) * chunkLength;
         path.frameAt(along, _position, _tangent, _lateral);
 
+        // Drawn before the offset, because how far out a prop has to stand
+        // depends on how big this particular one is.
+        const scale = cfg.scaleMin + rng.next() * (cfg.scaleMax - cfg.scaleMin);
+
         // 'centre' is for anything that SPANS the road rather than standing
         // beside it - a sign gantry - and it is the one case where the side and
         // the setback mean nothing.
@@ -243,13 +251,24 @@ export class Scenery {
           const right = cfg.side === 'both' ? (rng.next() < 0.5 ? 1 : -1)
             : cfg.side === 'right' ? 1 : -1;
           const edge = right > 0 ? this.layout.ribbonRight : -this.layout.ribbonLeft;
-          offset = right * (edge + cfg.setback + rng.next() * cfg.spread);
+          // THE PROP'S OWN HALF WIDTH IS PART OF THE SETBACK. The setback is
+          // measured to the ORIGIN, which is the middle of the prop, so a
+          // wide one standing at the minimum setback has its flank over the
+          // carriageway - and since scenery is not collidable, the rider
+          // drives through it and the camera goes inside it.
+          //
+          // Measured on Red Planet, boulders at scale 5.5 against a setback
+          // of 1.2: two captures out of two, four kilometres apart, both had
+          // a rock filling a THIRD OF THE FRAME in black as the camera passed
+          // through it. Every wide prop on every road, invisible until a
+          // theme made one big.
+          const clear = edge + cfg.setback + kind.halfWidth * scale;
+          offset = right * (clear + rng.next() * cfg.spread);
         }
 
         _forward.crossVectors(_lateral, UP);
         _matrix.makeBasis(_lateral, UP, _forward);
 
-        const scale = cfg.scaleMin + rng.next() * (cfg.scaleMax - cfg.scaleMin);
         _scale.set(scale, scale, scale);
         _matrix.scale(_scale);
         _matrix.setPosition(

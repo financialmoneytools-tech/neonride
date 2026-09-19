@@ -201,6 +201,88 @@ the vertical swing from 0.0568 to 0.0134 units, the lateral from 0.0360 to
 0.0057, the roll from 0.0262 to 0.0068 rad, and the strip scroll rate to an
 eighth.
 
+## A road must look like itself - standing requirement
+
+Reported from a phone: three captures of ONE theme in ONE run showed an orange
+sunset, a deep blue starfield and a teal night. "All the roads look the same"
+turned out to be the symptom rather than the disease - none of them held an
+identity long enough to have one.
+
+- **A road's appearance is a pure function of its theme.** Ride any sequence
+  of roads in any order and Sunset Highway is the same Sunset Highway. Three
+  things had to be true for that and each of them was false:
+  - `ThemeBlend` resolves its endpoints over a **frozen baseline**, never over
+    the live config. It writes into `config` and it walks every key under
+    `sky` and `world`, so resolving over the live config means one blend's
+    leftovers become the next blend's starting point - and `PatchSelector`'s
+    undo cannot recover them, because it restores the keys its patch
+    displaced and these are the other ones.
+  - **`applyPatch` copies arrays.** Handing over the array by reference made
+    `config.sky.nebula.clouds` the theme source file's own array, and the
+    blend wrote into it: one blend through Sunset Highway rewrote its own
+    definition. Strip lanes, mountain layers, sky bodies and nebula clouds are
+    all arrays, which is to say the four things a road is most recognisable
+    by.
+  - **A run settles its theme.** The road screen previews a card by starting a
+    real blend; nothing finished one, so a run opened by arriving at its own
+    road wearing whatever was swiped past. `beginRun` calls
+    `themeBlend.settle()`.
+- `npm run sky` captures one theme at 0, 2000 and 4000 m **by `?theme=` AND
+  through the road screen**, and asserts the sky config at the first frame of
+  a run. The menu path is not optional: the fault was invisible to `?theme=`,
+  which is the path every tool in `tools/` had ever taken.
+- **The threshold is relative to a measured noise floor**, not fixed. Two
+  frames of a stable road 800 ms apart differ by real amounts - the nebula
+  breathes, and the road turns ten degrees, which swings a fixed horizon glow
+  across the frame. Sunset Highway measures 27 between consecutive frames. A
+  fixed 8 fails a road for behaving correctly.
+
+## There is a world under the road - standing requirement
+
+Until `world/Ground.js` there was no ground. There was a road ribbon about
+twenty metres across and, beyond its rim, the sky dome: every road a strip of
+tarmac in the sky, with everything beside it hanging in the same sky. It went
+unseen for as long as every sky was black and Sunset Highway's lit horizon
+made it obvious in one frame.
+
+- **The ground undulates with the path.** `road.path.elevationAmplitude` is 6
+  units, so a flat plane at the camera's height sits metres out at the far end
+  of what is visible - which floats a prop at one sign and buries the road at
+  the other.
+- **A prop's setback carries its own half width.** The setback is measured to
+  the ORIGIN. A boulder at Red Planet's scale of 5.5 and setback of 1.2 stands
+  with its flank over the carriageway, and since scenery is not collidable the
+  camera goes inside it: two captures out of two, four kilometres apart, had a
+  rock filling a third of the frame in solid black.
+- **A prop has to read as a solid object, not a silhouette.** Scenery is one
+  `MeshBasicMaterial` per kind with no lights, so anything painted a single
+  colour is an outline with no interior - which is what "flat orange polygons,
+  unidentifiable as anything" were. `scenery/shading.js` bakes a fixed light
+  per face into the vertex colours. It costs no material, no draw call and no
+  triangle.
+- `npm run grounded` reads every scenery instance off the GPU and measures its
+  base against the terrain under it. Below is fine and often right; above is a
+  failure.
+
+## Every check must be shown to fail
+
+A check written after its own fault has been fixed has never been red, and a
+check that cannot go red is a comment. `npm run sky --prove` stubs out the fix
+and expects six failures; `npm run grounded --prove` hides the ground and
+lifts every prop and expects eleven. Both exit 0 only when they fail. New
+checks carry the same flag.
+
+Related: **a PASS line must not print the failure text.** Three tools have
+shipped with `PASS  the ground is off or missing`. Compute the boolean first.
+
+## A run can always be left
+
+`npm run exit`. The pause card has `YENİDEN BAŞLA` and `ANA MENÜ`; before them
+the only ways out of a run were finishing it, crashing three times or
+reloading the page. The menu button confirms once and the arming expires, so a
+card left open is not a trap. Walking away writes nothing - not a best time,
+not a medal, not a level reached.
+
 ## The staged run
 
 Every run can now have an end. `KOŞU` is a ROAD - ten levels of five

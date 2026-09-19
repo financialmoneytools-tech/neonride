@@ -29,7 +29,8 @@
     "distinct": "node tools/road-distinct.mjs",
     "sky": "node tools/sky-stable.mjs",
     "grounded": "node tools/grounded-check.mjs",
-    "exit": "node tools/exit-check.mjs"
+    "exit": "node tools/exit-check.mjs",
+    "shots": "node tools/road-shots.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",
