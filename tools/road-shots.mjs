@@ -22,6 +22,9 @@ const SIZE = { width: 1280, height: 720 };
 const DIR = 'tools/out/roads';
 const MARKS = [0, 4000];
 
+/** Metres a sign gantry must be clear of the camera before a shot is taken. */
+const GANTRY_CLEARANCE = 55;
+
 function startServer() {
   const child = spawn('npm', ['run', 'dev'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let text = '';
@@ -127,6 +130,31 @@ for (const road of roads) {
       (args) => (window.NEON.loop.state.distance || 0) - args[0] >= args[1],
       [start, mark], { timeout: 120000 },
     ).catch(() => {});
+
+    // NOT WHILE PASSING UNDER A GANTRY. A sign gantry spans the road, so for
+    // a fraction of a second its beam is a dark bar across the top of the
+    // frame - which is a true picture of a gantry and a useless picture of a
+    // road. Two of the six captures landed on one, and both were read as a
+    // slab on the horizon before they were read as a gantry. Waiting a few
+    // metres is the whole fix; nothing about the game changes.
+    await page.waitForFunction((clear) => {
+      const N = window.NEON;
+      const camera = N.engine.camera.position;
+      for (const kind of N.scenery.kinds) {
+        if (kind.name !== 'gantry' || !kind.mesh.visible) continue;
+        const a = kind.mesh.instanceMatrix.array;
+        for (let i = 0; i < kind.mesh.count; i++) {
+          const x = a[i * 16 + 12];
+          const z = a[i * 16 + 14];
+          if (Math.abs(x) > 100000) continue;
+          const dx = x - camera.x;
+          const dz = z - camera.z;
+          if (dx * dx + dz * dz < clear * clear) return false;
+        }
+      }
+      return true;
+    }, GANTRY_CLEARANCE, { timeout: 20000 }).catch(() => {});
+
     const path = DIR + '/' + road + '-' + mark + '.jpg';
     await page.screenshot({ path, quality: 82, type: 'jpeg' });
     console.log(path);
