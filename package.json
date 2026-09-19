@@ -24,7 +24,8 @@
     "stage": "node tools/stage-check.mjs",
     "levels": "node tools/level-check.mjs",
     "spacing": "node tools/spacing-check.mjs",
-    "difficulty": "node tools/difficulty-check.mjs"
+    "difficulty": "node tools/difficulty-check.mjs",
+    "steer": "node tools/steer-check.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

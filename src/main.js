@@ -789,6 +789,28 @@ function beginRun(level = lastLevel) {
   // A crash in the last second of the previous run must not bleed red into the
   // first frame of this one.
   flash.reset();
+
+  // THE NEUTRAL IS THE POSE YOU START IN, not the one you happened to be in
+  // when the page loaded.
+  //
+  // core/Controls.js captures the tilt zero on the FIRST usable reading and
+  // never again except from the pause panel's button. That reading happens
+  // while the title card is up - before the rider has settled, and before
+  // they have thumbed their way across the mode, bike, road and level
+  // screens. Every degree the phone drifts between those two moments is a
+  // degree of steering permanently biased one way.
+  //
+  // Reported as "I cannot steer LEFT at all" on three roads out of six, with
+  // the two that worked being the first two cards on the road screen. That
+  // correlation is real and has nothing to do with the roads: tools/steer-
+  // check.mjs holds full lock on all six, by both entry paths, and every one
+  // reaches -5.89 and +5.90 against outer lanes at -5.7 and 5.7. What
+  // differs is how long the phone was in a hand being tilted toward the
+  // thumb doing the swiping - and swiping right to reach a card biases the
+  // captured neutral the same way every time, which is why the direction was
+  // always left.
+  if (controls.enabled && controls.mode === 'tilt') controls.recalibrate();
+
   if (controls.enabled) hints.banner(controls.mode);
 }
 
