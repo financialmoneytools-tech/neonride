@@ -223,6 +223,15 @@ export class Session {
     // shared player model and its original distance-driven ramp.
     state.level = this.staged ? this.levels.level : 0;
     state.levelTravelled = this.staged ? this.stage.travelled : 0;
+
+    // THE ONE THING THE CELEBRATION NEEDS THE BIKE TO DO: stop. Published
+    // rather than reached for, so game/Celebration.js still never touches
+    // the bike and the rule that it only moves the camera survives.
+    //
+    // It is needed because `throttleFloor` means a hands-off bike is pulling
+    // 42 per cent - correct everywhere else, and here it rode straight past
+    // the podium at 150 m/s while the camera waited at it.
+    state.coasting = this.phase === PHASE.FINISHED && this.staged;
   }
 
   /**
@@ -326,7 +335,18 @@ export class Session {
    */
   _finish() {
     this.phase = PHASE.FINISHED;
-    this._overAt = config.stage.resultsDelay;
+    // THE CARD WAITS FOR THE CELEBRATION. `stage.resultsDelay` is 1.4 s and
+    // was written when a finish was a flash and a line; the celebration runs
+    // for seven and a half, and a card that lands at 1.4 sits over the crane,
+    // the podium and the bike for the whole of the shot the scene exists to
+    // produce. Photographed: a results card over a screen of confetti with
+    // the podium invisible behind it.
+    //
+    // A staged run is always the road's end now, so it always waits. Endless
+    // and the failure path are untouched - see `_end`.
+    this._overAt = this.staged
+      ? config.celebration.timing.holdSeconds
+      : config.stage.resultsDelay;
     this.overShown = false;
 
     // The endless high score is still written. A staged run is distance and

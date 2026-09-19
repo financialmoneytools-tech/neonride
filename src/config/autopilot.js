@@ -219,4 +219,75 @@ export const autopilot = {
     // answer is to steer, not to slow down more.
     speedFloor: 0.62,
   },
+
+  // ================= THE NOVICE: A MEASURING INSTRUMENT ==================
+  //
+  // NOT A GAME FEATURE. Nothing ships with this on and no player can reach
+  // it. It exists because the ordinary autopilot turned out to be useless for
+  // the one question the level curve has to answer.
+  //
+  // THE PROBLEM IT SOLVES. `referenceSeconds` is measured with the normal bot
+  // and the table came out FLAT - two per cent from level one to level ten,
+  // against a density that nearly doubles. That is not the levels failing to
+  // get harder; it is the bot being the wrong instrument. It has perfect
+  // information, it weaves rather than lifting, and the guard behind it makes
+  // collisions impossible - so twice the traffic costs it almost no time and
+  // exactly no crashes. A clock held by something that cannot crash cannot
+  // measure a difficulty that is paid in crashes.
+  //
+  // So the novice is deliberately mediocre in the four ways a person is:
+  //
+  //   it reacts late        every input is delayed by `reactionSeconds`
+  //   it sees less far      a shorter time horizon and a shorter lookahead
+  //   it will not thread    a much wider gap before it will take one
+  //   it has no guard       `guard.enabled` off, so it can actually crash
+  //
+  // The last one is the point. With the guard on, the crash count is zero at
+  // every level by construction and the measurement says nothing.
+  //
+  // WHAT TO READ OFF IT: crashes per kilometre, per level, per road. That is
+  // the number that has to rise from level one to level ten. If it does not,
+  // the levels are not getting harder whatever the density says, and the
+  // curve needs changing rather than the reporting.
+  novice: {
+    enabled: false,
+
+    // How long every decision takes to reach the bars. A real reaction is
+    // nearer 0.25 s on something expected and past 0.5 s on something that is
+    // not; this sits between, and it is the single knob that most decides the
+    // crash rate, so it stays fixed once measured - moving it invalidates
+    // every level's number at once.
+    reactionSeconds: 0.45,
+
+    // Applied over `config.autopilot` while the novice is driving, and undone
+    // when it stops. Only the fields that make it worse; everything else is
+    // the shipped bot, so the difference between the two is exactly this list
+    // rather than a second autopilot that could drift from the first.
+    patch: {
+      line: {
+        // Reads the corner late, which is what `lookAhead` itself calls
+        // riding like a novice.
+        lookAhead: 70,
+      },
+      traffic: {
+        // 3 seconds down to 1.4: a vehicle is not planned around until it is
+        // close, which is what "sees less far ahead" means in a planner that
+        // measures its horizon in time.
+        horizon: 1.4,
+        // Will not take a gap under 1.1 units edge to edge, against the
+        // shipped bot's 0.35, and does not especially want one - the weight
+        // that makes the good bot HUNT for slots drops to a quarter.
+        thread: 1.1,
+        threadWeight: 1,
+        // Aims to keep more room, and trusts less of its own lateral reach.
+        safety: 0.6,
+        reachSafety: 0.55,
+        // Shuffles less when there is nowhere to go.
+        escapeReach: 0.8,
+      },
+      // THE CHEAT, OFF. See autopilot/Guard.js - this is what makes failure
+      // impossible, and a bot that cannot fail cannot measure failure.
+      guard: { enabled: false },
+    },
+  },
 };

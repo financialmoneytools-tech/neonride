@@ -49,6 +49,27 @@ export const curveEnds = {
   laneChangeRate: [0, 0.020],
 };
 
+/**
+ * ================= THE TRIM THAT WAS TRIED AND REVERTED =================
+ *
+ * Levels nine and ten were once cut to 0.54/0.39/0.74 and 0.56/0.38/0.76, on
+ * the belief that the top of the curve was unfair. Two measurements killed it:
+ *
+ *   1. It was never unfair. The evidence was a "trapped" count that turned
+ *      out to be a proxy miscounting - it read occupied LANE CENTRES, and the
+ *      bike's lateral position is continuous and rides between lanes. The
+ *      corridor test that replaced it reads zero on every level, both roads,
+ *      both modes.
+ *   2. The trim removed the top end rather than softening it. Measured with
+ *      the novice bot on galaxyRoad, level ten fell from 4.10 crashes per
+ *      kilometre to 1.42 - BELOW levels seven, eight and nine. A level ten
+ *      that is easier than level seven is not a top end.
+ *
+ * Level ten is the one level where both roads agreed closely before the trim
+ * (4.10 and 3.90), which makes it the most trustworthy number in the table
+ * and the last one to go cutting at.
+ */
+
 // --- Ten levels ---
 export const levels = {
   count: 10,

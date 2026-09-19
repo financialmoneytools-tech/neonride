@@ -23,6 +23,7 @@ import { ui } from './config/ui.js';
 import { game } from './config/game.js';
 import { stage } from './config/stage.js';
 import { levels } from './config/levels.js';
+import { celebration } from './config/celebration.js';
 import { comfort } from './config/comfort.js';
 import { bikes, paint, bike, bikeStorageKey } from './config/bikes.js';
 import { theme, themes, plannedThemes, themeStorageKey, MIXED } from './config/themes/index.js';
@@ -51,6 +52,7 @@ export const config = {
   game,
   stage,
   levels,
+  celebration,
   comfort,
   bikes,
   bike,

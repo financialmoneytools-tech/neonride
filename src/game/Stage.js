@@ -63,6 +63,33 @@ export class Stage {
     this._startDistance = state.distance || 0;
   }
 
+  /**
+   * Starts a level with only `remaining` metres left to run.
+   *
+   * THE DEV HOOKS' ENTRY POINT, and nothing else calls it. `?finish=1` needs
+   * to reach the last line in a few seconds rather than in five minutes, and
+   * the honest way to do that is to start the level nearly finished - the
+   * real gate still arms, the real crossing still happens and Session takes
+   * the real path through `_crossLine`. The alternative was reaching in and
+   * setting `_startDistance` from outside, which is the same trick with
+   * nothing naming it.
+   *
+   * @param {object} state loop state
+   * @param {number} remaining metres still to run
+   */
+  beginNear(state, remaining) {
+    this.begin(state);
+    const left = Math.max(0, Math.min(config.stage.length, remaining));
+    // Wound back, so `travelled` already reads almost the whole level.
+    this._startDistance -= config.stage.length - left;
+    // The checkpoints behind that point are counted as passed, or the first
+    // frame would report crossing four of them at once.
+    this.checkpoints = Math.min(
+      this.checkpointCount,
+      Math.floor((config.stage.length - left) / config.stage.checkpointEvery),
+    );
+  }
+
   /** @returns {number} total checkpoints in a level, the finish excluded. */
   get checkpointCount() {
     return Math.max(0, Math.ceil(config.stage.length / config.stage.checkpointEvery) - 1);

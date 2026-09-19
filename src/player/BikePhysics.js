@@ -203,7 +203,12 @@ export class BikePhysics {
     // or the throttle half of a touch control scheme means nothing.
     const floor = config.controls.floorByMode[state && state.controlMode]
       ?? bike.throttleFloor;
-    const throttle = Math.max(input.throttle, floor);
+    // COASTING TO THE PODIUM. The floor is what stops a hands-off bike
+    // stalling, and it is right in every other case - but a run that has
+    // crossed its last line has to come to rest, and with the floor applied
+    // it never can. Set by game/Session.js on the finished phase only.
+    const coasting = !!(state && state.coasting);
+    const throttle = coasting ? 0 : Math.max(input.throttle, floor);
 
     // Kept, because the throttle the bike is ACTUALLY given is not the throttle
     // the rider asked for and anything downstream that cares needs the real
@@ -213,7 +218,11 @@ export class BikePhysics {
     this.drive = throttle;
 
     const drive = throttle * bike.acceleration;
-    const braking = input.brake * bike.brakeForce;
+    // Eased to a halt rather than stood on: a hard stop after a finish line
+    // throws the camera forward on the one frame worth posting.
+    const braking = coasting
+      ? bike.brakeForce * config.celebration.stopBrake
+      : input.brake * bike.brakeForce;
     const drag = bike.dragQuadratic * this.speed * this.speed + bike.dragLinear * this.speed;
 
     this.speed = THREE.MathUtils.clamp(

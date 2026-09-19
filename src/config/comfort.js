@@ -65,6 +65,19 @@ export const comfort = {
     // all is the thing this was added to fix.
     cockpitSway: 0.3,
 
+    // THE CELEBRATION'S CAMERA. CLAUDE.md requires any new camera profile to
+    // be checked with reduced motion on AND off, and the celebration is one:
+    // it lifts the eye, pitches down and orbits the podium, which changes how
+    // much of the frame the ground fills and therefore how much optic flow
+    // there is.
+    //
+    // Not zero. The lift and the pitch are how the shot is composed and
+    // removing them leaves the camera inside the bike; what this cuts is the
+    // ORBIT, which is the only continuous motion in a held shot and the only
+    // part anybody would try to track. At 0.15 it is a drift rather than a
+    // move, and the scene still arrives at the same framing.
+    celebration: 0.15,
+
     // WEATHER, and it is the strongest trigger the project has ever added:
     // high contrast motion straight through the centre of vision, which is the
     // first cause on the list at the top of this file. Snow and rain streak

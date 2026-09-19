@@ -5,6 +5,12 @@ import { createRng } from '../utils/rng.js';
 import { planLine } from './autopilot/planLine.js';
 
 /**
+ * Frames of history the novice's reaction lag keeps. Two seconds at the
+ * loop's 20 fps floor, which is longer than any lag the config allows.
+ */
+const LAG_SAMPLES = 128;
+
+/**
  * Autopilot - drives the bike for recording.
  *
  * It produces steer, throttle and brake, and nothing else. It never moves the
@@ -53,6 +59,28 @@ export class Autopilot {
     this._steer = 0;
     this._brakeTimer = 0;
     this._time = 0;
+
+    // THE NOVICE'S REACTION LAG, and it is a measuring instrument rather than
+    // a feature - see `novice` in config/autopilot.js. A ring of recent
+    // outputs; when the lag is on, the bars are handed what was decided
+    // `reactionSeconds` ago instead of what was decided this frame.
+    //
+    // DELAYED OUTPUT RATHER THAN DELAYED PERCEPTION, which is the cheaper of
+    // two honest models. Delaying what the planner SEES would mean keeping a
+    // history of every vehicle, and the visible result is the same thing: the
+    // bike arrives at the gap the road had a moment ago.
+    //
+    // Allocated once at a size that covers the longest lag the config allows
+    // at the slowest frame rate the loop permits, so it never grows and never
+    // allocates while driving.
+    this._lag = {
+      at: 0,
+      time: new Float32Array(LAG_SAMPLES),
+      steer: new Float32Array(LAG_SAMPLES),
+      throttle: new Float32Array(LAG_SAMPLES),
+      brake: new Float32Array(LAG_SAMPLES),
+      filled: 0,
+    };
 
     // Two independent noise fields: one for the slow wander of the line, one
     // for the fine corrections on the bars. Fixed seeds, so two recordings of
@@ -138,6 +166,51 @@ export class Autopilot {
     this.values.steer = THREE.MathUtils.clamp(this._steer + jitter, -1, 1);
     this.values.throttle = braking ? 0 : 1;
     this.values.brake = braking ? cfg.throttle.brakeForce : 0;
+
+    this._applyLag(cfg);
+  }
+
+  /**
+   * Hands the bars what was decided `reactionSeconds` ago.
+   *
+   * Off unless the novice is driving, and when it is off this costs one
+   * comparison - the ring is not even written, so the shipped autopilot is
+   * byte for byte the autopilot it always was.
+   * @param {object} cfg config.autopilot
+   */
+  _applyLag(cfg) {
+    const novice = cfg.novice;
+    if (!novice || !novice.enabled || novice.reactionSeconds <= 0) {
+      this._lag.filled = 0;
+      return;
+    }
+
+    const lag = this._lag;
+    lag.time[lag.at] = this._time;
+    lag.steer[lag.at] = this.values.steer;
+    lag.throttle[lag.at] = this.values.throttle;
+    lag.brake[lag.at] = this.values.brake;
+    lag.at = (lag.at + 1) % LAG_SAMPLES;
+    if (lag.filled < LAG_SAMPLES) lag.filled++;
+
+    // Nothing old enough yet: hold still rather than acting instantly, which
+    // is what a rider who has not looked up yet would do.
+    const want = this._time - novice.reactionSeconds;
+    if (lag.filled < LAG_SAMPLES && lag.time[0] > want) return;
+
+    // Walk back from the newest for the first sample at or before the wanted
+    // time. At sixty frames and a 0.45 s lag that is about 27 steps, which is
+    // cheaper than keeping a second index in step with a wrapping ring.
+    let index = -1;
+    for (let i = 1; i <= lag.filled; i++) {
+      const at = (lag.at - i + LAG_SAMPLES) % LAG_SAMPLES;
+      if (lag.time[at] <= want) { index = at; break; }
+    }
+    if (index < 0) return;
+
+    this.values.steer = lag.steer[index];
+    this.values.throttle = lag.throttle[index];
+    this.values.brake = lag.brake[index];
   }
 
   /**

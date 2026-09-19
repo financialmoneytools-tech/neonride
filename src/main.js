@@ -13,13 +13,16 @@ import { Fullscreen, Viewport } from './core/Viewport.js';
 import { ControlHints } from './ui/ControlHints.js';
 import { PauseButton } from './ui/PauseButton.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
+import { applyPatch } from './utils/patch.js';
 import { LevelBanner } from './ui/LevelBanner.js';
 import { StartScreen } from './ui/StartScreen.js';
 import { Hud } from './ui/Hud.js';
 import { Panels } from './ui/Panels.js';
-import { PHASE, Session } from './game/Session.js';
-import { CROSSED } from './game/Stage.js';
+import { PHASE, Session, MODE } from './game/Session.js';
+import { CROSSED, medalFor } from './game/Stage.js';
 import { Progress } from './game/Progress.js';
+import { Celebration } from './game/Celebration.js';
+import { referenceFor } from './game/Levels.js';
 import { Results } from './ui/Results.js';
 import { Audio } from './audio/Audio.js';
 import { Sky } from './world/Sky.js';
@@ -411,6 +414,42 @@ function setAutopilot(on) {
   return cfg.enabled;
 }
 
+/**
+ * Turns the novice bot on or off. A MEASURING INSTRUMENT, not a feature.
+ *
+ * It is the answer to a real problem: the shipped autopilot cannot crash -
+ * autopilot/Guard.js makes sure of it - so the clock it produces is flat
+ * across ten levels whose density nearly doubles. Difficulty here is paid in
+ * crashes, and nothing that cannot crash can measure it. See `novice` in
+ * config/autopilot.js for the four ways it is made mediocre.
+ *
+ * It patches config the way a bike does, and keeps the undo, so turning it
+ * off puts the shipped autopilot back exactly rather than approximately.
+ *
+ * Deliberately NOT wired to a key or a URL parameter. tools/difficulty-check
+ * calls it and nothing else does.
+ *
+ * @param {boolean} on
+ * @returns {boolean} whether the novice is now driving
+ */
+function setNovice(on) {
+  const novice = config.autopilot.novice;
+  const want = !!on;
+  if (want === novice.enabled) return novice.enabled;
+
+  if (want) {
+    noviceUndo = applyPatch(config.autopilot, novice.patch);
+    novice.enabled = true;
+  } else {
+    if (noviceUndo) applyPatch(config.autopilot, noviceUndo);
+    noviceUndo = null;
+    novice.enabled = false;
+  }
+  return novice.enabled;
+}
+/** Restores the shipped autopilot's numbers; see setNovice. */
+let noviceUndo = null;
+
 const reveal = new KeySequence(
   config.autopilot.reveal.sequence,
   config.autopilot.reveal.window,
@@ -447,6 +486,36 @@ const panels = new Panels(document.body, session, comfort, controls, audio, sele
 // under the rider, and the best time belongs to the road it finished on.
 const results = new Results(document.body, session, () => themes.name);
 
+/**
+ * The celebration, BUILT ON THE FIRST FINISH and never before.
+ *
+ * Two reasons it is lazy rather than built with everything else. A player who
+ * never reaches level ten never pays for a crowd, a podium and three particle
+ * systems - and the podium bike bakes the CHOSEN bike's paint into its vertex
+ * colours, so building it at boot would paint it before a bike was picked.
+ *
+ * The particle counts scale with the quality preset, because three additive
+ * clouds over a full frame is FILL cost, which is the thing that actually
+ * moves the frame time on a phone.
+ */
+let celebration = null;
+function startCelebration() {
+  if (!celebration) {
+    const quality = device.preset === 'low' ? 0.5 : 1;
+    celebration = new Celebration(engine.scene, engine.renderer, engine.camera,
+      road.path, rider, quality);
+  }
+  celebration.start(loop.state);
+}
+
+// AFTER the view has placed the camera from the bike, so the celebration
+// moves the camera on top of what the ride did rather than fighting it for
+// the same frame - the same relationship the recording guard has with the
+// physics. Registered here, once, rather than inside the lazy build.
+loop.add((dt, state) => {
+  if (celebration) celebration.update(dt, state);
+});
+
 // The only way into the pause card without a keyboard, and so the only way to
 // the control mode switch on a phone.
 const pauseButton = new PauseButton(document.body, () => session.togglePause());
@@ -465,7 +534,12 @@ loop.add((dt, state) => {
   // just finished five kilometres and the fact that another five follow does
   // not make the line they crossed a checkpoint.
   else if (crossed === CROSSED.LEVEL) flash.fire('finish', state);
-  else if (crossed === CROSSED.FINISH) flash.fire('finish', state);
+  else if (crossed === CROSSED.FINISH) {
+    flash.fire('finish', state);
+    // THE REAL FINISH IS THE ONLY TRIGGER. `?finish=1` does not call this -
+    // it arranges for the rider to reach the last line, and the line does.
+    startCelebration();
+  }
   hud.update();
   levelBanner.update(dt);
   panels.update();
@@ -488,6 +562,35 @@ loop.add((dt, state) => {
 // press drops straight into a clean recording run: overlay off, pixel ratio
 // pinned, sound already live.
 const wantsGod = params.get('god') === '1';
+
+/**
+ * ================= THE TWO DEV HOOKS =================
+ *
+ * `?level=N` starts KOSU at any level, so level ten's traffic can be looked
+ * at without riding nine levels to reach it. `?finish=1` goes further and
+ * drops the rider a few hundred metres from the last line, so the
+ * celebration can be seen - and recorded - without a five minute run.
+ *
+ * THEY PLAY THE REAL THING. `?finish=1` does not show a mock: it starts an
+ * ordinary staged run at the last level with the line just ahead, so the
+ * real gate arms, the real flash fires, Session._finish runs and the real
+ * celebration plays. The only thing invented is the RESULT of the nine
+ * levels that were not ridden, which is filled from config so the card has
+ * a plausible total and tally.
+ *
+ * THEY CANNOT WRITE ANYTHING, and that is structural rather than remembered.
+ * A dev run hands game/Levels.js a null Progress. Every write to progress is
+ * already null-guarded - the tools need a Session without storage - so there
+ * is no branch that could unlock a level or record a best time, and no way
+ * to forget one.
+ *
+ * They are excluded from normal play by being URL parameters the selection
+ * flow never sets, the same way `?god=1` is.
+ */
+const askedLevel = Number.parseInt(params.get('level'), 10);
+const wantsFinish = params.get('finish') === '1';
+/** True for a run started by either hook. Suppresses every stored write. */
+let devRun = false;
 // Held while the phone is the wrong way round. A RUNNING session is paused, and
 // resumed on the way back out only if this is what paused it - somebody who
 // paused deliberately and then rotated should still be paused when they rotate
@@ -667,12 +770,19 @@ function beginRun(level = lastLevel) {
   // back to the level select. `lastLevel` is the default so that the restart
   // path repeats the run that was just had without knowing anything about it.
   lastLevel = level;
+  // THE WHOLE SAFETY PROPERTY OF THE DEV HOOKS, in one line. With no Progress
+  // there is nothing for a level to be recorded in, so `?level=` and
+  // `?finish=` cannot unlock anything or write a time however they are used.
+  session.levels.progress = devRun ? null : progress;
   session.begin(loop.state, selection.mode, { road: selection.startingRoad, level });
   // A gate left armed from the previous level would stand somewhere in the
   // middle of this one - the distances are absolute and a new level starts
   // from wherever the bike happens to be.
   checkpointGate.disarm();
   finishGate.disarm();
+  // A podium left standing from the last run would be a kilometre down this
+  // one's road, lit, with a crowd around it.
+  if (celebration) celebration.stop();
   // A crash in the last second of the previous run must not bleed red into the
   // first frame of this one.
   flash.reset();
@@ -731,6 +841,57 @@ if (wantsGod) {
   window.addEventListener('keydown', wake);
 }
 
+/**
+ * The dev hooks' way in. Same shape as god mode's: skip the title card, start
+ * the run, and accept the audio gesture whenever it turns up.
+ *
+ * NEITHER OF THESE IS REACHABLE IN NORMAL PLAY. They are URL parameters the
+ * selection flow never sets, and both run with `devRun` on so nothing they
+ * do can be written down.
+ */
+if (!wantsGod && (wantsFinish || Number.isFinite(askedLevel))) {
+  devRun = true;
+  selection.setMode(MODE.STAGE);
+  selection.applyBike();
+  start.skip();
+
+  const level = wantsFinish
+    ? config.levels.count
+    : Math.max(1, Math.min(config.levels.count, askedLevel));
+  beginRun(level);
+
+  if (wantsFinish) {
+    // THE RESULT OF THE NINE LEVELS NOT RIDDEN, so the card has a real total
+    // and a real tally rather than a single level's time pretending to be a
+    // road. Invented, and the only invented thing here.
+    const times = config.celebration.dev.sampleTimes;
+    for (let i = 0; i < level - 1; i++) {
+      const seconds = times[i % times.length];
+      session.levels.times[i] = seconds;
+      session.levels.medals[i] = medalFor(seconds, referenceFor(i + 1));
+    }
+    // PRESENTED AS A COMPLETE ROAD. A run that starts at level ten is a
+    // practice run and the card correctly refuses it a total - which is
+    // right for a player and wrong for this, whose whole job is to show the
+    // finished card. The two concerns are separate and stay separate: this
+    // changes what is SHOWN, and `progress = null` above is what makes sure
+    // nothing is STORED. The card can say road complete; the save file
+    // cannot.
+    session.levels.startedAt = 1;
+    // And the line a few hundred metres ahead. The gate arms, the crossing
+    // happens, Session._finish runs: the real path, entered late.
+    session.stage.beginNear(loop.state, config.celebration.dev.finishRunway);
+  }
+
+  const wake = () => {
+    audio.unlock(traffic);
+    window.removeEventListener('pointerdown', wake);
+    window.removeEventListener('keydown', wake);
+  };
+  window.addEventListener('pointerdown', wake);
+  window.addEventListener('keydown', wake);
+}
+
 // ?stats=1 / ?stats=0. LAST, because both of the things above set the overlay:
 // applyCapture sets the baseline, and setAutopilot turns capture on and takes
 // the overlay away with it. Applied before the god block, `?god=1&stats=1` came
@@ -752,7 +913,12 @@ if (import.meta.env && import.meta.env.DEV) {
     // The one entry point into a run, exposed so tools/level-check.mjs can
     // start a REAL staged run at a chosen level and let the autopilot ride
     // it. Measuring a level any other way would measure something else.
-    beginRun };
+    beginRun,
+    // The mediocre bot, for tools/difficulty-check.mjs. Not a feature.
+    setNovice,
+    // The celebration, for tools/celebration-check.mjs. Null until a
+    // finish has built it.
+    get celebration() { return celebration; } };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -778,6 +944,7 @@ function disposeAll() {
   selectFlow.dispose();
   themeBlend.dispose();
   gate.dispose();
+  if (celebration) celebration.dispose();
   levelBanner.dispose();
   checkpointGate.dispose();
   finishGate.dispose();
