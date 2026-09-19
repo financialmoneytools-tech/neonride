@@ -41,18 +41,19 @@ export class Hud {
     this.livesEl = document.createElement('div');
     this.livesEl.className = 'hud-lives';
 
-    // THE STAGE READOUT: how much is left, and the clock. Only built once and
-    // simply left empty in endless mode - a HUD that adds and removes elements
-    // per mode is a HUD whose layout changes under the player, and this one has
-    // to not overlap anything at 740x320. See tools/hud-check.mjs.
+    // THE STAGE READOUT: how far into the stage, out of how long it is, and
+    // the clock. Only built once and simply left empty in endless mode - a HUD
+    // that adds and removes elements per mode is a HUD whose layout changes
+    // under the player, and this one has to not overlap anything at 740x320.
+    // See tools/hud-check.mjs.
     this.stageEl = document.createElement('div');
     this.stageEl.className = 'hud-stage';
     this.stageEl.hidden = true;
 
-    // ORDER: score, lives, remaining, distance. The remaining metres are the
-    // most important number on the screen during a stage, so they sit directly
-    // under the two that never change position, not at the bottom of the
-    // column under a distance that a staged rider barely reads.
+    // ORDER: score, lives, stage progress, distance. The progress line is the
+    // most important number on the screen during a stage, so it sits directly
+    // under the two that never change position. In a staged run the line below
+    // it carries near misses alone, so nothing moves when it empties.
     this.el.append(this.scoreEl, this.livesEl, this.stageEl, this.metaEl);
     parent.appendChild(this.el);
 
@@ -88,23 +89,34 @@ export class Hud {
       this.livesEl.textContent = pips;
     }
 
-    // REMAINING, NOT TRAVELLED. A rider who is 3800 metres in has to do
-    // arithmetic to know how much is left; one who is told 1200 does not, and
-    // the number that matters in a race is always the one still to run.
+    // PROGRESS THROUGH THE STAGE, and it is the only distance on the screen
+    // during one. This line used to say KALAN 2866 M - how much was left -
+    // while the line under it said 2134 M, the run's own running total. Two
+    // numbers, both distances, counting in opposite directions, neither of
+    // them saying how long the stage is. `2134 / 5000 M` answers all three
+    // questions at once, and it is the form the clock beside it already uses.
     if (this.stageEl.hidden === session.staged) this.stageEl.hidden = !session.staged;
     if (session.staged) {
       const stageText = config.ui.stageHud;
-      const line = stageText.remaining + ' ' + Math.ceil(session.stage.remaining)
-        + stageText.unit + '   ' + session.stage.time.toFixed(1);
+      const line = Math.floor(session.stage.travelled) + stageText.progress
+        + config.stage.length + stageText.unit
+        + '   ' + session.stage.time.toFixed(1);
       if (line !== this._stage) {
         this._stage = line;
         this.stageEl.textContent = line;
       }
     }
 
+    // THE RUNNING TOTAL BELONGS TO ENDLESS. In a staged run it is the same
+    // metres the line above already reports, only without the thing they are
+    // measured against, so all it ever did was invite the reader to wonder
+    // which of the two was the real one. Endless has no line to run to and the
+    // total IS the result there, so it stays.
     const labels = config.ui.hud;
-    const meta = Math.floor(session.distance) + labels.distanceUnit
-      + (session.nearMisses > 0 ? '   ' + labels.nearMiss + ' ' + session.nearMisses : '');
+    const meta = (session.staged ? '' : Math.floor(session.distance) + labels.distanceUnit)
+      + (session.nearMisses > 0
+        ? (session.staged ? '' : '   ') + labels.nearMiss + ' ' + session.nearMisses
+        : '');
     if (meta !== this._meta) {
       this._meta = meta;
       this.metaEl.textContent = meta;

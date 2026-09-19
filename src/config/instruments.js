@@ -37,7 +37,9 @@ export const instruments = {
   updateHz: 20,
   // No label under the gear: a large digit in the middle of a tachometer is
   // not ambiguous, and the label collided with the speed underneath it.
-  labels: { speed: 'HIZ', unit: 'KM/S', rpm: 'DEVIR x1000', neutral: 'N' },
+  // KM/SA - kilometre per hour in Turkish. It read KM/S for a long time,
+  // which is kilometres per SECOND and is not a unit anything here moves in.
+  labels: { speed: 'HIZ', unit: 'KM/SA', rpm: 'DEVIR x1000', neutral: 'N' },
 
   tach: {
     centre: [256, 214],
@@ -59,7 +61,35 @@ export const instruments = {
   },
 
   gear: { y: 180, size: 84 },
-  speed: { y: 250, size: 34, split: 4 }, // split: where the number ends and the unit starts
+  // ================= THE SPEED IS CONVERTED, NOT COPIED =================
+  //
+  // `state.speed` is in WORLD UNITS PER SECOND and a world unit is a metre -
+  // the lanes are 3.8 of them wide and a car is 4.5 of them long, and the
+  // whole road layout in config/road.js is written in metres. For a long time
+  // this face printed that number raw under a KM/S label, which made the dial
+  // disagree with the only other two numbers in the game that are measured in
+  // the same units: a five kilometre stage finished in 28 s is 643 km/h, and
+  // the dial said 146. The distance and the clock were right; the dial was
+  // the one lying, so it now multiplies by 3.6 like any other speedometer.
+  //
+  // The honest number is large - a bike that covers 229 metres a second is
+  // doing 825 km/h - and that is the world this game is set in rather than a
+  // fault to be tuned away. tools/stage-check.mjs asserts the three agree.
+  speed: {
+    y: 250,
+    size: 34,
+    split: 4, // where the number ends and the unit starts
+    // Metres per second to kilometres per hour.
+    toKmh: 3.6,
+    // WHAT THE FACE IS QUANTISED TO, for the same reason `tach.steps` exists:
+    // the dash is a 512x288 canvas that is re-uploaded as a texture whenever
+    // any shown value changes, and a steady cruise must not do that every
+    // frame. One unit per second is 3.6 km/h, so rounding the converted number
+    // to a whole km/h made every hundredth of a unit of throttle noise a
+    // redraw. Five is under a per cent of the reading at speed and reads as a
+    // digital dash settling, which is what one does.
+    step: 5,
+  },
 
   shift: { y: 12, width: 168, height: 16 },
 

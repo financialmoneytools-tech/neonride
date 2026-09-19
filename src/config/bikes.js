@@ -52,13 +52,20 @@
  * Measured by integrating these constants at 2 kHz (terminal speed, 0-100 from
  * rest, and a clean 5 km from the 120 start speed):
  *
- *   bike     top    0-100   5 km     lateral   brake
- *   VOLT     229.0  2.15 s  23.15 s  13.0      96
- *   NOVA     218.0  1.90 s  23.96 s  13.2      94
- *   EMBER    235.0  2.43 s  22.83 s  12.4      90
- *   FROST    224.0  2.24 s  23.63 s  14.4      108
+ *   bike     top    dial     0-100   5 km     lateral   brake
+ *   VOLT     229.0  825      2.15 s  23.15 s  13.0      96
+ *   NOVA     218.0  785      1.90 s  23.96 s  13.2      94
+ *   EMBER    235.0  845      2.43 s  22.83 s  12.4      90
+ *   FROST    224.0  805      2.24 s  23.63 s  14.4      108
  *
  *   spread:  top 7.5%   0-100 24.4%   lateral 15.1%   brake 18.6%
+ *
+ * `top` is metres per second, which is what the physics carries and what every
+ * other figure here is derived from. `dial` is the same number as the rider
+ * sees it - km/h, quantised to the 5 the dash face steps in, see
+ * config/instruments.js. The 61 km/h between EMBER and NOVA is the whole
+ * top-speed spread and it is the smallest of the four differences on purpose:
+ * choosing a bike must not be able to buy a medal that riding did not earn.
  *
  * Top speed is the most compressed of the four and that is drag, not timidity:
  * it is quadratic, so it takes a large change in power to move the speed it

@@ -50,29 +50,67 @@ export const stage = {
   // re-measured by tools/stage-check.mjs, which drives the autopilot over a
   // full stage and prints what it took.
   //
-  // The autopilot holds 98 per cent of top speed and takes no collisions, so
-  // its time is very close to the theoretical floor. Gold therefore is NOT set
-  // at the reference: a human who has to actually see the traffic cannot match
-  // a machine that knows where all of it is, and a gold nobody can earn is a
-  // medal that only says "you are not the computer".
+  // The autopilot takes no collisions but it is NOT the theoretical floor: it
+  // lifts for traffic it can see, and lands thirteen per cent slower than the
+  // same bike over an empty five kilometres. The bands below are anchored to
+  // that empty-road floor rather than to the bot, which is what lets gold sit
+  // alongside the machine instead of behind it - see the table in `medals`.
   medals: {
-    // MEASURED, not chosen: 5001 units in 26.27 s, autopilot, full length, no
-    // collisions, on 2026-09-18. tools/stage-check.mjs re-measures it on every
-    // run and FAILS if the configured value has drifted more than 15 per cent
-    // from what the game actually does - so a change to top speed or to traffic
-    // density cannot quietly make gold unreachable.
+    // MEASURED, not chosen: autopilot, full length, no collisions, on
+    // 2026-09-19. Three runs gave 26.14, 26.17 and 26.90 s - the spread is the
+    // traffic, which the bot has to lift for and which is not the same twice.
+    // 26.3 sits in the middle of it, and the 0.76 s between the best and the
+    // worst of those runs is worth remembering when reading `gold` below: the
+    // machine itself lands either side of that threshold.
+    //
+    // tools/stage-check.mjs re-measures this on every run and FAILS if the
+    // configured value has drifted more than 15 per cent from what the game
+    // actually does, so a change to top speed or to traffic density cannot
+    // quietly make gold unreachable. It measures on the GAME clock, the same
+    // one the stage keeps - it used to measure on the wall clock and hand the
+    // number to thresholds applied to the other, which made every medal
+    // quietly easier on a machine that dropped frames.
     referenceSeconds: 26.3,
 
-    // 29.5 s. The autopilot knows where every vehicle is and never lifts; a
-    // rider who has to see the traffic first cannot match it, so gold is set
-    // above the machine rather than at it. This is the one threshold here that
-    // is a judgement rather than a measurement, and the judgement is that gold
-    // should need a clean run with the throttle held through traffic - not a
-    // perfect one.
-    gold: 1.12,
-    // 34.7 s. A good ride that braked for a few things, which is where most
-    // finished runs should land.
-    silver: 1.32,
+    // ============ WHY GOLD SITS ALONGSIDE THE MACHINE, NOT BEHIND IT ========
+    //
+    // The first threshold here was 1.12 - 29.5 s - written on the argument
+    // that a rider who has to SEE the traffic cannot match one that knows
+    // where all of it is. That argument was never measured, and the first
+    // human finish broke it: 28.0 s, on a phone, steering by tilt, first time
+    // the line was ever reached. A gold that falls on the first finish is not
+    // a medal, it is a participation mark.
+    //
+    // What the measurement actually says. Integrating the bike constants at
+    // 2 kHz over a clean five kilometres with NO TRAFFIC AT ALL gives 23.15 s
+    // for VOLT (config/bikes.js) - 0.88 of the reference. So the autopilot is
+    // thirteen per cent off the physical floor, and it is off it for one
+    // reason: its Guard lifts for vehicles instead of threading them. That gap
+    // is the room a rider has. Beating the machine here is not beating a
+    // perfect line, it is declining to brake where the machine braked.
+    //
+    // So the bands are set against the floor rather than against the bot:
+    //
+    //   23.15 s   0.88   no traffic at all, throttle pinned. Unreachable.
+    //   26.14 s   1.00   the autopilot, lifting for what it sees.
+    //   26.83 s   1.02   GOLD
+    //   28.0  s   1.065  the first human finish, mid-silver.
+    //   30.25 s   1.15   SILVER
+    //
+    // Gold is two per cent slower than the machine and sixteen per cent slower
+    // than the floor. It asks a rider to match the autopilot, which is a thing
+    // that can be done and has to be ridden for - not to out-drive physics.
+
+    // 26.8 s. Near-perfect: the throttle held through traffic the autopilot
+    // lifted for. This is the one threshold here that is a judgement rather
+    // than a measurement, and the judgement is now anchored to the no-traffic
+    // floor above rather than to a feeling about what machines can do.
+    gold: 1.02,
+    // 30.2 s. A good clean run that braked for a few things, which is where
+    // most finished runs should land - the first human finish sits 2.2 s
+    // inside it, which is the slack a band wants if it is to mean "good" and
+    // not "lucky".
+    silver: 1.15,
     // Crossing the line at all is bronze. Deliberately generous: the stage
     // already has a fail state - three crashes - so a finish is itself the
     // achievement and the medal above bronze is the thing to chase.

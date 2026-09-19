@@ -19,6 +19,14 @@ export class StatsOverlay {
   constructor(parent = document.body, controls = null, audio = null) {
     this.controls = controls;
     this.audio = audio;
+    /**
+     * Assigned by main.js once the Session exists, the way `audio` is. It adds
+     * the stage line: how far into the stage, the stage clock, and the average
+     * speed the two imply - the three numbers that have to agree with each
+     * other and with the dial. tools/stage-check.mjs asserts that they do.
+     * @type {import('../game/Session.js').Session|null}
+     */
+    this.session = null;
     this.el = document.createElement('div');
     this.el.className = 'stats-overlay';
     this.el.textContent = 'measuring...';
@@ -63,17 +71,43 @@ export class StatsOverlay {
     ];
 
     if (state.distance !== undefined) {
+      // ODO, NOT DIST. `state.distance` is BikePhysics' own odometer: it
+      // starts at `startDistance` and counts up for the whole page session,
+      // across every run, because the road is generated from it and restarting
+      // does not send it back to zero. Labelled `dist` next to a five
+      // kilometre stage it read as the stage's distance, and a finish at 28 s
+      // appeared to have covered twelve kilometres. The stage's own progress
+      // is on its own line below, from the only object that owns it.
+      //
+      // BOTH UNITS ON THE SPEED, for the same reason. A world unit is a metre,
+      // so the number the physics carries is metres per second; the dial shows
+      // it in km/h. Printing one and labelling it the other is exactly the
+      // mistake this line existed to make, so it prints both and the
+      // conversion between them is visible.
+      const mps = state.speed || 0;
       lines.push(
-        'dist ' +
+        'odo ' +
           Math.round(state.distance) +
           '  speed ' +
-          (state.speed || 0).toFixed(1) +
-          '  lean ' +
-          (((state.lean || 0) * 180) / Math.PI).toFixed(1),
+          mps.toFixed(1) +
+          ' m/s  ' +
+          Math.round(mps * config.player.rider.instruments.speed.toKmh) +
+          ' km/sa',
       );
       // Signed distance from the centre line, positive to the rider's right.
       // This is the readout to watch when checking that steering moves the bike.
-      lines.push('lateral ' + (state.lateral >= 0 ? '+' : '') + (state.lateral || 0).toFixed(2));
+      lines.push('lateral ' + (state.lateral >= 0 ? '+' : '') + (state.lateral || 0).toFixed(2)
+        + '  lean ' + (((state.lean || 0) * 180) / Math.PI).toFixed(1));
+    }
+
+    // THE STAGE, from the stage. Only while one is running, so an endless run
+    // and a god mode recording keep the overlay the shape they always had.
+    const session = this.session;
+    if (session && session.staged && session.scoring) {
+      const stage = session.stage;
+      lines.push('stage ' + Math.floor(stage.travelled) + ' / ' + config.stage.length
+        + '  ' + stage.time.toFixed(1) + ' s'
+        + '  avg ' + (stage.time > 0 ? (stage.travelled / stage.time).toFixed(1) : '0.0') + ' m/s');
     }
 
     if (inp) {

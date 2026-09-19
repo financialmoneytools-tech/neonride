@@ -96,7 +96,12 @@ export class Instruments {
     const steps = cfg.tach.steps;
     const rpm = Math.round(THREE.MathUtils.clamp(state.rpm || 0, 0, 1) * steps) / steps;
     const gear = state.gear === undefined ? 1 : state.gear;
-    const speed = Math.round(state.speed || 0);
+    // CONVERTED HERE, not in the drawing. `state.speed` is metres per second
+    // and the face reads kilometres per hour; doing it at the one place the
+    // value enters the dash means drawDash stays a function of what is shown.
+    // See the note on `speed` in config/instruments.js for why the raw number
+    // under a KM/SA label was a bug and not a style.
+    const speed = quantise((state.speed || 0) * cfg.speed.toKmh, cfg.speed.step);
     const shift = rpm >= cfg.tach.shiftAt;
 
     const shown = this._shown;
@@ -121,4 +126,14 @@ export class Instruments {
     this.texture.dispose();
     this.group.clear();
   }
+}
+
+/**
+ * Rounds to a step, so a steady cruise does not redraw the dash face.
+ * @param {number} value
+ * @param {number} step
+ * @returns {number}
+ */
+function quantise(value, step) {
+  return step > 0 ? Math.round(value / step) * step : Math.round(value);
 }

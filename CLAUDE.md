@@ -213,7 +213,19 @@ choice: title -> mode -> bike -> road -> run.
   seconds.** `npm run stage` re-measures it - autopilot, full length, no
   collisions - and FAILS if the configured value has drifted more than 15 per
   cent, so a change to top speed or traffic density cannot quietly make gold
-  unreachable. Measured 2026-09-18: 5001 units in 26.27 s.
+  unreachable. Measured 2026-09-19 over three runs: 26.14, 26.17 and 26.90 s
+  for 5000 units; the spread is the traffic. `referenceSeconds` is 26.3.
+  Gold is 1.02 of it and silver 1.15 - 26.8 s and 30.2 s. Gold is set
+  ALONGSIDE the machine, not behind it, because the autopilot is not the
+  floor: the same bike over an empty five kilometres takes 23.15 s, so the
+  bot's time is thirteen per cent of headroom that a rider who threads
+  traffic instead of lifting for it can take. The measurement is read off the
+  GAME clock, the one the stage keeps, never `performance.now()`.
+- **The HUD shows PROGRESS, not a running total**: `2134 / 5000 M` and the
+  clock, and that is the only distance on the screen during a stage. It used
+  to show `KALAN 2866 M` above the run's own total of `2134 M` - two
+  distances counting opposite ways, neither saying how long the stage was.
+  The running total belongs to `SONSUZ`, where it is the result.
 - `game/Stage.js` owns progress and nothing else - no geometry, no camera. The
   gates are `world/ThemeGate.js` with a tint, armed at an ABSOLUTE distance so
   the fourth gate is at four kilometres rather than near it.
@@ -230,6 +242,36 @@ choice: title -> mode -> bike -> road -> run.
   is what drives the finish, so a 400 metre stage runs the real gates, clock,
   counter and card. Calling `session._finish()` would prove the method works
   and nothing about whether anything reaches it.
+
+## Units - one metre, one second, and the dial converts
+
+A world unit is a METRE. `config/road.js` is written in metres, a lane is 3.8
+of them and a car is 4.5 long, and `stage.length` of 5000 is five kilometres.
+Speeds carried on the loop state - `state.speed`, `maxSpeed`, every per-bike
+terminal speed - are therefore METRES PER SECOND, and the clocks are seconds
+of GAME time accumulated from `dt`, never wall clock.
+
+**Only the display converts.** The dash reads km/h, so
+`player/rider/Instruments.js` multiplies by
+`config.player.rider.instruments.speed.toKmh` at the one point the value
+enters the face, and the stats overlay prints both units side by side.
+Nothing else scales anything; the physics is untouched.
+
+For a long time the dash printed `state.speed` raw under a `KM/S` label, and
+the three numbers a player can see stopped agreeing: a 5 km stage finished in
+28.0 s with the dial reading 146. Distance and clock were both right. The
+label was wrong twice over - wrong unit, and KM/S is kilometres per SECOND
+anyway. It reads **KM/SA** now and the numbers are large: 825 km/h for VOLT,
+785 NOVA, 845 EMBER, 805 FROST, quantised to the 5 the face steps in so a
+steady cruise does not re-upload the texture every frame.
+
+`npm run stage` asserts the three agree at the finish - the finish fires at
+the stage length, the average speed is one the bike can physically do and
+matches the speed it was seen doing, the dial reads that speed in km/h, and
+the HUD and overlay are showing the STAGE's metres rather than the lifetime
+odometer. `state.distance` is that odometer: it starts at `startDistance` and
+counts up for the whole page session across every run, which is why the
+overlay calls it `odo` and prints the stage on its own line.
 
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k

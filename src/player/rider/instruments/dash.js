@@ -23,6 +23,8 @@ const MONO = 'ui-monospace, Consolas, "DejaVu Sans Mono", monospace';
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {{rpm: number, gear: number, speed: number, shift: boolean}} shown
+ *   `speed` is already in KM/H and already quantised - Instruments.js converts
+ *   it from the metres per second the physics carries. Nothing here scales it.
  */
 export function drawDash(ctx, shown) {
   const cfg = config.player.rider.instruments;

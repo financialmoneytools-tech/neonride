@@ -140,9 +140,13 @@ export const ui = {
     againTouch: 'TEKRAR İÇİN DOKUN',
   },
 
-  // The staged run's HUD: how much is left, and the clock.
+  // The staged run's HUD: how far in, out of how long, and the clock.
   stageHud: {
-    remaining: 'KALAN',
+    // PROGRESS, not remaining. The HUD read KALAN 2866 M next to a separate
+    // running total of 2134 M, which is two distances for one stage and one of
+    // them counting the wrong way. `2134 / 5000` is the whole state of the run
+    // in one string and needs no label to say which end it is measured from.
+    progress: ' / ',
     unit: ' M',
     checkpoint: 'KONTROL',
   },

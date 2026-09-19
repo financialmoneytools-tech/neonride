@@ -426,6 +426,9 @@ const audio = new Audio();
 // for it up there is a temporal dead zone error and a black screen on load.
 if (stats) stats.audio = audio;
 const session = new Session();
+// Same reason and same shape as `stats.audio` above: the overlay's stage line
+// needs the Session, and the Session cannot exist before the overlay does.
+if (stats) stats.session = session;
 const hud = new Hud(document.body, session);
 const panels = new Panels(document.body, session, comfort, controls, audio, selection);
 // How a run ENDED, both ways. It replaced the game over half of Panels: there
