@@ -425,6 +425,48 @@ odometer. `state.distance` is that odometer: it starts at `startDistance` and
 counts up for the whole page session across every run, which is why the
 overlay calls it `odo` and prints the stage on its own line.
 
+## Work in fifteen minute pieces - standing requirement
+
+One task, about fifteen minutes, then report. Anything bigger is SPLIT and
+reported between the pieces, not delivered as one long silence.
+
+The mountains took one hour and eighteen minutes and that is what this rule
+is for. Roughly seventy per cent of it was capture tools re-rendering the
+same six roads - twelve full browser runs - and about half of that produced
+nothing that survived, because a broken tool takes exactly as long to run as
+a working one and you only find out at the end.
+
+- **Report between pieces even when the next piece is obvious.** A diagnosis
+  is a piece. A fix is a piece. A check is a piece. Re-measuring is a piece.
+- **A measurement that takes longer than the work is a bug in the
+  measurement.** See the budget below.
+- **Never run a slow tool to find out whether it works.** Run it on ONE road
+  first. Two full six-road runs in the mountains work were thrown away by a
+  wrong argument index and a missing function parameter, either of which a
+  single-road run would have shown in forty seconds.
+
+### The capture tool budget
+
+Every tool that drives a browser is on a clock: **under two minutes for all
+six roads.** Measured today, before any of this was done: `npm run shots`
+took about four minutes and `npm run skyline` about six, and a diagnosis that
+needed both plus two ablation passes cost half an hour on its own.
+
+What makes them slow, in order:
+
+1. **A browser page per road.** Six page creations, six WebGL contexts, six
+   warmups of six seconds - about a minute per tool run before anything is
+   measured. ONE session, one page, switch the road in place.
+2. **Riding to the mark in real time.** 4000 metres at ~200 m/s is twenty
+   seconds per road per mark, and the tools ride it again for every tool.
+   ONE ride per road serving every measurement that run needs.
+3. **Full resolution captures.** `skyline-compare` reduces to a 214x120 grid
+   before it measures anything, so capturing at 1280x720 and throwing it
+   away is pure cost. Measure at 640x360; keep full size only for the shots
+   a person is going to look at.
+4. **More samples than the question needs.** Six points per road answered
+   the same question three would have.
+
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k
 - Orta seviye telefonda 30 FPS'in altina dusmemek (preset: low)
