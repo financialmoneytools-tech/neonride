@@ -243,6 +243,61 @@ nothing 3D touches the drawing. Rules that came out of it:
 The primitive cockpit in `player/Rider.js` still exists behind
 `config.player.cockpit.source`. It is a fallback, not a direction.
 
+## Six bugs from building the first camera scene - read before the next one
+
+Building the level ten celebration took six attempts to produce an image at
+all, and not one of them was a hard problem. Every one is the kind of thing
+that will happen again the moment anything else places geometry in the world
+and points a camera at it, so they are here rather than only in the files.
+
+1. **`throttleFloor` keeps a hands-off bike at 42 per cent.** The celebration
+   waited at a podium the bike rode straight past at 150 m/s, because zero
+   throttle is not zero drive - `config.player.bike.throttleFloor` exists so
+   a hands-off bike does not stall, and it is right everywhere except at the
+   end of a run. THIS ONE WILL CATCH THE NEXT CAMERA SCENE. Anything that
+   needs the bike stationary has to say so: `state.coasting`, published by
+   `game/Session.js` and honoured in `BikePhysics._effectiveInput`.
+
+2. **`localToWorld` reads a `matrixWorld` three has not refreshed.** Three
+   only updates it during render, so on the frame an object is placed it
+   still holds the PREVIOUS transform - the identity, first time round. The
+   podium reported its top at the world origin and the camera and all three
+   particle systems went there while the arena stood correctly a quarter of a
+   kilometre down the road. Call `updateMatrixWorld(true)` first.
+
+3. **A pitch applied after a `lookAt` fights the `lookAt`.** The camera was
+   aimed at the podium and then rotated -0.30 rad, which is seventeen degrees,
+   putting the podium off the bottom of the frame. Frame a shot by moving what
+   it aims AT, not by rotating after aiming.
+
+4. **A results card timed for the old finish covered the new one.**
+   `stage.resultsDelay` is 1.4 s, written when a finish was a flash and a
+   line; the celebration runs 7.5 s. Any card with a delay has to be checked
+   against whatever it is now landing on top of.
+
+5. **Near black on near black is invisible, and this is the third time.**
+   `world/ThemeGate.js` fixed it for its legs and `world/Roadside.js` for its
+   pylons, both photographed, both written down - and the podium, the bike
+   and the crowd were still painted 0x10131f against a near black road. There
+   is NO LIGHT in this scene: every material is a `MeshBasicMaterial` with a
+   flat colour, so "dark" means invisible rather than shaded. A silhouette
+   needs something to be a silhouette against, and the hero object has to be
+   lighter than the thing it stands on - the podium bike was darker than its
+   own plinth.
+
+6. **Additive particles stack past white.** Six hundred champagne droplets at
+   0.95, overlapping in a tight cone, sum to a hard edged disc of light -
+   which landed exactly where the bike was and was blamed on the fireworks
+   twice before anybody did the arithmetic. Any additive cloud dense enough
+   to read as a liquid is dense enough to saturate, so the PER PARTICLE value
+   has to be small enough that only the densest part of it reaches white.
+   0.22 and a size under one, against 0.95 and 1.5.
+
+The common thread: five of the six were invisible in the code and obvious in
+a screenshot. Capture the frame early and often when building anything
+visual; a draw call count of 78 said the scene was fine while the scene was
+a white blob.
+
 ## Landscape only
 
 Portrait / 9:16 was dropped. The game is landscape and shows an orientation
