@@ -204,7 +204,12 @@ export const world = {
         side: 'both',
         setback: 1.2, spread: 18,
         scaleMin: 0.6, scaleMax: 2.2,
-        radius: 1.1, squash: 0.7,
+        radius: 1.1, squash: 0.82,
+        // How much light a face turned away from the sun still gets. Low
+        // enough that a boulder has a shadowed side, high enough that the
+        // side is still a rock rather than a hole - see shadeFaces() in
+        // world/scenery/props.js.
+        ambient: 0.34,
         // WHITE, because a rock is one flat colour and its real colour lives
         // in `tint` below. A tint MULTIPLIES the baked vertex colour, so a
         // prop baked at 0x14161c came out near black whatever a theme asked
@@ -379,6 +384,46 @@ export const world = {
     tubeInset: 0.17, // tube pushed off the post face, toward the road
     leftColor: 0x22f7ff,
     rightColor: 0xff2bd0,
+  },
+
+  /**
+   * THE GROUND THE ROAD IS LAID ON. See world/Ground.js for why there was not
+   * one until now and what it cost: every prop and every ridge beside the road
+   * was standing in the sky, which only became visible once a road had a lit
+   * horizon to be seen against.
+   *
+   * It takes its COLOUR from `road.surface.groundColor`, which every theme
+   * already sets and which already means exactly this. A theme does not need
+   * to learn a new key to have a floor.
+   */
+  ground: {
+    enabled: true,
+
+    // How far out to each side. It has to clear the furthest mountain layer -
+    // Red Planet's outer ridge is at 1300 - or the ridges stand beyond the
+    // edge of the world again and nothing has been fixed.
+    halfWidth: 2600,
+
+    // How far along the road it reaches. `ahead` outruns the fog: at the
+    // thickest density any theme uses, 0.0016, a fragment 2400 units out is
+    // fully fogged, so the far rim is never a visible edge.
+    ahead: 2600,
+    behind: 320,
+
+    // Rows along the path, bunched toward the rider. 56 puts the nearest rows
+    // about four metres apart, which is finer than the road's own elevation
+    // can bend inside one.
+    rows: 56,
+
+    // Sunk below the carriageway so the ribbon wins every pixel it covers.
+    // Small, because anything standing on the ground stands at the PATH's
+    // height and this is the gap underneath it.
+    sink: 0.08,
+
+    // Metres of travel before the rows are laid out again. At 200 units a
+    // second that is about seven rebuilds a second, and the horizon cannot be
+    // seen to step because the far rows move by a fraction of a pixel.
+    step: 28,
   },
 
   mountains: {

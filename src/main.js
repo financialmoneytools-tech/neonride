@@ -29,6 +29,7 @@ import { Sky } from './world/Sky.js';
 import { Road } from './world/Road.js';
 import { Roadside } from './world/Roadside.js';
 import { Mountains } from './world/Mountains.js';
+import { Ground } from './world/Ground.js';
 import { Median } from './world/Median.js';
 import { Scenery } from './world/Scenery.js';
 import { Weather } from './world/Weather.js';
@@ -132,6 +133,10 @@ const scenery = new Scenery(engine.scene, road);
 const weather = new Weather(engine.scene, engine.camera, engine.renderer);
 const oncoming = new Oncoming(engine.scene, road);
 const mountains = new Mountains(engine.scene);
+// THE FLOOR, and it goes in before anything that stands on it. Until this
+// there was none: the road was a ribbon in the sky and every boulder, lamp and
+// ridge beside it was hanging in the same sky. See world/Ground.js.
+const ground = new Ground(engine.scene, road);
 
 // THE ROAD CAN CHANGE WITHOUT A RELOAD. ThemeBlend interpolates every
 // continuous value straight into config and asks each module to copy it onto
@@ -151,10 +156,14 @@ const themeBlend = new ThemeBlend({
   roadside,
   median,
   mountains,
+  ground,
   weather,
   scenery,
   fog: engine.scene.fog,
-});
+  // The selector, so the blend can lift the fitted theme off once and keep a
+  // copy of the plain base. Every road it ever resolves is resolved over that
+  // rather than over whatever is on screen - see world/ThemeBlend.js.
+}, themes);
 const bike = new BikePhysics(engine.camera, road.path, framing);
 // THE COCKPIT, either photographed or built. Both present the same three
 // things - a group on the camera, update(dt, state) and dispose() - so nothing
@@ -288,6 +297,7 @@ loop.add((dt, state) => guard.update(dt, state));
 loop.add((dt, state) => bike.place(dt, state));
 loop.add((dt, state) => road.update(dt, state));
 loop.add((dt, state) => mountains.update(dt, state));
+loop.add((dt, state) => ground.update(dt, state));
 loop.add((dt, state) => traffic.update(dt, state));
 // Scenery, so it runs after the traffic the player can actually hit. It reads
 // state.distance and writes nothing.
@@ -479,7 +489,23 @@ const hud = new Hud(document.body, session);
 // pauses nothing and is not a phase - see ui/LevelBanner.js for why that is
 // the requirement rather than a simplification.
 const levelBanner = new LevelBanner(document.body, session);
-const panels = new Panels(document.body, session, comfort, controls, audio, selection);
+const panels = new Panels(document.body, session, comfort, controls, audio, selection, {
+  // Both go through beginRun / selectFlow rather than poking the session, so
+  // they take the same path as every other way into a run and cannot drift
+  // from it - the level banner, the gate disarm and the tilt recentre are all
+  // in there.
+  onRestart: () => beginRun(lastLevel),
+  onMenu: () => {
+    session.abandon();
+    // A podium or an armed gate from the abandoned run would still be
+    // standing a kilometre down the next one's road.
+    if (celebration) celebration.stop();
+    checkpointGate.disarm();
+    finishGate.disarm();
+    flash.reset();
+    selectFlow.start();
+  },
+});
 // How a run ENDED, both ways. It replaced the game over half of Panels: there
 // are two endings now and they have a result to show rather than a score to
 // report. The road is passed as a function because a mixed run changes road
@@ -773,6 +799,15 @@ function beginRun(level = lastLevel) {
   // back to the level select. `lastLevel` is the default so that the restart
   // path repeats the run that was just had without knowing anything about it.
   lastLevel = level;
+  // THE ROAD IS THE ROAD FROM THE FIRST FRAME.
+  //
+  // previewRoad() below starts a real blend for every card the rider swipes
+  // past, and confirming a card used to call straight through to here with
+  // the last one still running - so a run opened by arriving at its own road,
+  // wearing the two roads before it. Settling lands on the chosen road's own
+  // values outright. See ThemeBlend.settle() for what was measured.
+  themes.select(selection.startingRoad);
+  themeBlend.settle(selection.startingRoad);
   // THE WHOLE SAFETY PROPERTY OF THE DEV HOOKS, in one line. With no Progress
   // there is nothing for a level to be recorded in, so `?level=` and
   // `?finish=` cannot unlock anything or write a time however they are used.
@@ -934,7 +969,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, progress, hud, levelBanner, panels, comfort, themes,
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, ground, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, progress, hud, levelBanner, panels, comfort, themes,
     // The one entry point into a run, exposed so tools/level-check.mjs can
     // start a REAL staged run at a chosen level and let the autopilot ride
     // it. Measuring a level any other way would measure something else.
@@ -978,6 +1013,7 @@ function disposeAll() {
   bike.dispose();
   traffic.dispose();
   mountains.dispose();
+  ground.dispose();
   weather.dispose();
   scenery.dispose();
   oncoming.dispose();

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GeometryBuilder, paintVertices } from '../../utils/geometry.js';
+import { painted, paintByHeight, shadeFaces } from './shading.js';
 import { useCell } from './signs.js';
 
 /**
@@ -23,42 +24,6 @@ import { useCell } from './signs.js';
  */
 
 const _matrix = new THREE.Matrix4();
-
-/** @param {THREE.BufferGeometry} geometry @param {number} color */
-function painted(geometry, color) {
-  paintVertices(geometry, color);
-  return geometry;
-}
-
-/**
- * Paints a geometry by height: everything above `line` gets `top`, the rest
- * gets `bottom`.
- *
- * This is how snow gets onto a tree for nothing. A cone built with two height
- * segments has a base ring, a middle ring and an apex, so painting from the
- * middle ring up puts a crisp snow line across the upper half of every tier
- * without adding one triangle. A cap built as its own geometry costs a whole
- * second cone per tier and looks worse, because it reads as a hat rather than
- * as snow lying on the branches.
- * @param {THREE.BufferGeometry} geometry
- * @param {number} line local y above which the top colour applies
- * @param {number} top
- * @param {number} bottom
- */
-function paintByHeight(geometry, line, top, bottom) {
-  const position = geometry.attributes.position;
-  const colors = new Float32Array(position.count * 3);
-  const hot = new THREE.Color(top);
-  const cold = new THREE.Color(bottom);
-  for (let i = 0; i < position.count; i++) {
-    const c = position.getY(i) >= line ? hot : cold;
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  return geometry;
-}
 
 /**
  * A conifer: a trunk and a stack of tiers, with snow lying on the top of every
@@ -101,12 +66,19 @@ export function buildPine(cfg) {
   return builder.build('prop-pine');
 }
 
-/** A boulder: one icosahedron, squashed. Twenty triangles. */
+/**
+ * A boulder: one icosahedron, squashed, and lit. Twenty triangles.
+ *
+ * It sits a quarter of its depth INTO the ground on purpose - a boulder
+ * resting exactly on a plane reads as dropped there. tools/grounded-check.mjs
+ * allows a base below the terrain for that reason and only ever fails one
+ * above it.
+ */
 export function buildRock(cfg) {
   const geometry = new THREE.IcosahedronGeometry(cfg.radius, 0);
   geometry.scale(1, cfg.squash, 1.15);
   geometry.translate(0, cfg.radius * cfg.squash * 0.75, 0);
-  return painted(geometry, cfg.color);
+  return shadeFaces(geometry, cfg.color, cfg.ambient);
 }
 
 /**

@@ -91,6 +91,19 @@ export const ui = {
     record: 'YENİ REKOR',
     restartKey: 'TEKRAR DENEMEK İÇİN BİR TUŞA BAS',
     restartTouch: 'TEKRAR DENEMEK İÇİN DOKUN',
+
+    // THE TWO WAYS OUT OF A RUN - see ui/PauseExit.js. Until these there were
+    // none: a rider who had picked the wrong road had to crash three times on
+    // purpose or reload the page.
+    restartLevel: 'YENİDEN BAŞLA',
+    menu: 'ANA MENÜ',
+    // The armed state of the same button. It says what the second press does,
+    // not "are you sure" - a question nobody reads is not a confirm step.
+    menuConfirm: 'ÇIKMAK İÇİN TEKRAR BAS',
+    // How long the confirm stays armed. Long enough to be a deliberate second
+    // press, short enough that a card left open is not a trap for whoever
+    // picks the phone up next.
+    exitConfirmSeconds: 4,
   },
 
   // THE MODE SCREEN: the first choice, before the bike.

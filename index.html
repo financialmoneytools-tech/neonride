@@ -744,6 +744,46 @@
         outline: none;
       }
 
+      /* THE TWO WAYS OUT OF A RUN. Same shape as the reduced motion switch
+         above, because they sit in the same column and a card with three
+         button languages on it reads as three cards. */
+      .pause-exit {
+        pointer-events: auto;
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.9rem;
+      }
+
+      .pause-exit-button {
+        pointer-events: auto;
+        padding: 10px 16px;
+        border: 1px solid rgba(45, 227, 255, 0.35);
+        border-radius: 999px;
+        background: rgba(6, 10, 24, 0.66);
+        color: rgba(200, 226, 255, 0.78);
+        font: 500 clamp(0.62rem, 2vw, 0.76rem) / 1 ui-monospace, SFMono-Regular, Menlo,
+          Consolas, monospace;
+        letter-spacing: 0.18em;
+        cursor: pointer;
+        min-height: 44px;
+        transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+      }
+
+      .pause-exit-button:hover,
+      .pause-exit-button:focus-visible {
+        border-color: rgba(45, 227, 255, 0.7);
+        color: #eaf6ff;
+        outline: none;
+      }
+
+      /* ARMED. Warm rather than the card's cyan, because the next press ends
+         the run - it should not look like every other button on the card. */
+      .pause-exit-menu.pause-exit-armed {
+        border-color: rgba(255, 138, 92, 0.85);
+        background: rgba(42, 14, 10, 0.78);
+        color: #ffcdb4;
+      }
+
       .comfort-toggle.comfort-on {
         border-color: rgba(57, 255, 136, 0.65);
         background: rgba(10, 30, 20, 0.7);
@@ -1189,6 +1229,8 @@
         .controls-panel { margin-top: 4px; }
         .controls-btn { min-height: 34px; padding: 6px 10px; font-size: 10px; }
         .comfort-toggle { min-height: 34px; padding: 6px 10px; }
+        .pause-exit { margin-top: 6px; gap: 6px; }
+        .pause-exit-button { min-height: 34px; padding: 6px 10px; letter-spacing: 0.1em; }
       }
 
     </style>

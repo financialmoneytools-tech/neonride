@@ -15,15 +15,53 @@
  * restores the original first. The base config is the only truth; a theme is
  * never more than a layer over it.
  *
- * ARRAYS ARE REPLACED, NOT MERGED. A theme that lists two strip lanes means two
- * lanes, not two lanes merged index-wise over the four that were there. Merging
- * them would leave lanes 3 and 4 in place, which is precisely the surprise this
- * file exists to stop.
+ * ARRAYS ARE REPLACED, NOT MERGED, AND COPIED WHILE THEY ARE. A theme that
+ * lists two strip lanes means two lanes, not two lanes merged index-wise over
+ * the four that were there. Merging them would leave lanes 3 and 4 in place,
+ * which is precisely the surprise this file exists to stop. The copy is the
+ * other half of the same promise: a patch describes a road, and nothing
+ * downstream may edit that description by writing to what it was handed.
  */
 
 /** @param {unknown} value @returns {boolean} true for a plain object, not an array */
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * A deep copy of an array of plain data.
+ *
+ * ================= WHY A PATCH MAY NOT HAND OVER ITS OWN ARRAY =================
+ *
+ * Because whoever receives it will eventually write to it, and then the patch
+ * is not a description of a road any more, it is a record of the last road
+ * that was blended over it.
+ *
+ * Measured. `world/ThemeBlend.js` interpolates straight into `config`, and an
+ * array assigned by reference means `config.sky.nebula.clouds` IS
+ * `themes.sunsetHighway.sky.nebula.clouds` - the object in the theme's source
+ * file. One blend through that road rewrote its own definition: its first
+ * nebula cloud came back as 0xff2d6f at 0.45 opacity, which is the BASE
+ * config's cloud, not the 0xff4f9a at 0.22 the file asks for. The same holds
+ * for every array a theme carries, which is to say for the strip lanes, the
+ * mountain layers and the bodies in the sky - the four things a road is most
+ * recognisable by.
+ *
+ * So arrays are copied on the way in. The undo still keeps the ORIGINAL by
+ * reference, which is what it is for: restoring puts back the very object that
+ * was displaced, not a copy of it.
+ * @param {Array} source
+ * @returns {Array}
+ */
+function cloneArray(source) {
+  const out = new Array(source.length);
+  for (let i = 0; i < source.length; i++) {
+    const item = source[i];
+    if (Array.isArray(item)) out[i] = cloneArray(item);
+    else if (isPlainObject(item)) out[i] = { ...item };
+    else out[i] = item;
+  }
+  return out;
 }
 
 /**
@@ -51,8 +89,12 @@ export function applyPatch(target, patch) {
     // reference rather than cloned: nothing else holds it once it has been
     // replaced, and restoring it puts the original object back rather than a
     // copy that merely looks like it.
+    //
+    // The NEW value is copied when it is an array, so the live config never
+    // aliases the library it was patched from - see cloneArray() above for
+    // what that cost when it did.
     undo[key] = current;
-    target[key] = next;
+    target[key] = Array.isArray(next) ? cloneArray(next) : next;
   }
 
   return undo;

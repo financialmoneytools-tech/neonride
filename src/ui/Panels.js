@@ -4,6 +4,7 @@ import { format } from './Hud.js';
 import { ComfortToggle } from './ComfortToggle.js';
 import { ControlsPanel } from './ControlsPanel.js';
 import { ModeSwitch } from './ModeSwitch.js';
+import { PauseExit } from './PauseExit.js';
 
 /**
  * Panels - the pause card.
@@ -32,8 +33,11 @@ export class Panels {
    *   mode switch to the pause card when given
    * @param {import('../game/Selection.js').Selection} [selection] adds the run
    *   mode switch when given
+   * @param {{onRestart: Function, onMenu: Function}} [exits] adds the two ways
+   *   out of a run when given
    */
-  constructor(parent, session, comfort = null, controls = null, audio = null, selection = null) {
+  constructor(parent, session, comfort = null, controls = null, audio = null,
+    selection = null, exits = null) {
     this.session = session;
 
     this.el = document.createElement('div');
@@ -84,6 +88,11 @@ export class Panels {
     // active at all - see ui/ModeSwitch.js.
     this.modeSwitch = selection ? new ModeSwitch(this.actionsEl, selection, session) : null;
 
+    // LAST IN THE COLUMN, deliberately. Everything above changes the run that
+    // is being ridden; these two end it, and the one that cannot be undone is
+    // the furthest from the thumb that just reached for pause.
+    this.exit = exits ? new PauseExit(this.actionsEl, exits) : null;
+
     parent.appendChild(this.el);
 
     this._shown = null;
@@ -102,6 +111,8 @@ export class Panels {
     if (!shown) {
       this.el.classList.remove('panel-in');
       this.el.hidden = true;
+      // An armed confirm must not survive the card closing.
+      if (this.exit) this.exit.setVisible(false);
       return;
     }
 
@@ -118,6 +129,7 @@ export class Panels {
     // Re-rendered every time the card opens, because the run it is comparing
     // against changes underneath it.
     if (this.modeSwitch) this.modeSwitch.render();
+    if (this.exit) this.exit.setVisible(true);
     this.el.hidden = false;
     // Forces a reflow so the transition runs from the hidden state rather than
     // the browser collapsing both style changes into one frame and skipping it.
@@ -129,6 +141,7 @@ export class Panels {
     if (this.toggle) { this.toggle.dispose(); this.toggle = null; }
     if (this.controlsPanel) { this.controlsPanel.dispose(); this.controlsPanel = null; }
     if (this.modeSwitch) { this.modeSwitch.dispose(); this.modeSwitch = null; }
+    if (this.exit) { this.exit.dispose(); this.exit = null; }
     if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
     this.el = null;
   }

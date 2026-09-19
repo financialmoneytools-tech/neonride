@@ -177,6 +177,19 @@ export class Session {
     this.phase = PHASE.FREE;
   }
 
+  /**
+   * Leaves a run without scoring it - the pause card's ANA MENÜ.
+   *
+   * TITLE, not OVER. OVER means the third crash and it raises the results
+   * card; walking away from a run is not a result and must not write one, not
+   * a best time, not a medal, not a level reached. The world keeps running
+   * behind whatever card comes next, which is how every menu in this game
+   * already works.
+   */
+  abandon() {
+    this.phase = PHASE.TITLE;
+  }
+
   /** @returns {boolean} whether the pause actually changed anything. */
   togglePause() {
     if (this.phase === PHASE.RUNNING) {

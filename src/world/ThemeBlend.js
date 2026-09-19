@@ -1,6 +1,6 @@
-import * as THREE from 'three';
 import { config } from '../config.js';
 import { applyPatch } from '../utils/patch.js';
+import { resolve, lerpInto } from './theme/blendValues.js';
 
 /**
  * ThemeBlend - drives every continuous value from one road to the next.
@@ -32,112 +32,33 @@ import { applyPatch } from '../utils/patch.js';
  * world/road/layout.js and no theme may move it, which is what lets traffic
  * keep driving through a road that is changing colour underneath it.
  *
- * ================= COLOURS ARE NOT NUMBERS =================
+ * ================= WHERE THE ARITHMETIC LIVES =================
  *
- * A colour in this config is a hex integer, and lerping 0x050310 toward
- * 0x16232f as an integer travels through whatever happens to lie between them.
- * Keys ending in `color` are interpolated as colours, in LINEAR space, because
- * the midpoint of two sRGB values is muddy - which on a sky gradient is the
- * only part anybody would look at.
+ * Next door, in theme/blendValues.js: what a resolved theme snapshot is, and
+ * what the midpoint of two of them means for a number, a colour, an array and
+ * a boolean. This file owns only the lifecycle - when a change starts, how far
+ * through it is, and who is told when it lands.
  */
-
-const _a = new THREE.Color();
-const _b = new THREE.Color();
-const _out = new THREE.Color();
-
-/**
- * A key that holds a colour.
- *
- * BOTH ENDS, and the suffix-only version was a real bug caught by
- * tools/gate-probe.mjs rather than by reading. The sky writes colour as a
- * PREFIX - `colorBase`, `colorMid`, `colorTop`, `colorLow`, `colorHigh` - and
- * the road writes it as a suffix - `asphaltColor`, `sheenColor`, `bodyColor`.
- * Testing only for the suffix left every sky colour being interpolated as a
- * plain integer, so `0x0e0824` travelled to `0x16232f` through whatever
- * integers lie between them: measured, the dome's channels moved 18818 units of
- * RGB across a transition whose endpoints are 60 apart, lurching up to 429 in a
- * single frame. On screen that is a sky flickering through unrelated colours.
- */
-function isColorKey(key) {
-  return /(^color)|(color$)/i.test(key);
-}
-
-/**
- * Deep-resolves a theme into a complete snapshot of config as that theme would
- * leave it. Applied and then undone, so nothing is left behind.
- * @param {object} theme
- * @returns {object}
- */
-function resolve(theme) {
-  const undo = applyPatch(config, theme);
-  const snapshot = JSON.parse(JSON.stringify({
-    sky: config.sky,
-    world: config.world,
-  }));
-  applyPatch(config, undo);
-  return snapshot;
-}
-
-/**
- * Writes the interpolation of `from` and `to` into `target`, in place.
- *
- * Walks `to`, because that is what is being arrived at: a key the destination
- * does not mention is a key this blend has no opinion about, and is left
- * exactly as it is rather than being reset to a base value nobody asked for.
- */
-function lerpInto(target, from, to, t) {
-  for (const key of Object.keys(to)) {
-    const next = to[key];
-    const previous = from ? from[key] : undefined;
-
-    if (Array.isArray(next)) {
-      if (!Array.isArray(target[key])) continue;
-      for (let i = 0; i < next.length && i < target[key].length; i++) {
-        const fromItem = Array.isArray(previous) ? previous[i] : undefined;
-        if (next[i] !== null && typeof next[i] === 'object') {
-          lerpInto(target[key][i], fromItem, next[i], t);
-        } else if (typeof next[i] === 'number' && typeof fromItem === 'number') {
-          target[key][i] = fromItem + (next[i] - fromItem) * t;
-        } else {
-          target[key][i] = next[i];
-        }
-      }
-      continue;
-    }
-
-    if (next !== null && typeof next === 'object') {
-      if (target[key] === null || typeof target[key] !== 'object') continue;
-      lerpInto(target[key], previous, next, t);
-      continue;
-    }
-
-    if (typeof next === 'number' && typeof previous === 'number') {
-      if (isColorKey(key)) {
-        _a.setHex(previous, THREE.SRGBColorSpace).convertSRGBToLinear();
-        _b.setHex(next, THREE.SRGBColorSpace).convertSRGBToLinear();
-        _out.copy(_a).lerp(_b, t).convertLinearToSRGB();
-        target[key] = _out.getHex();
-      } else {
-        target[key] = previous + (next - previous) * t;
-      }
-      continue;
-    }
-
-    // Anything that is not a number cannot be interpolated. A boolean, a null
-    // weather kind, a string: these SWITCH, and they switch at the halfway
-    // point, which is where the gate's flash is brightest. That is what the
-    // flash is for - docs/THEMES.md says it is there to make the change feel
-    // deliberate, and a value that cannot ramp is exactly the thing it covers.
-    if (t >= 0.5) target[key] = next;
-  }
-}
 
 export class ThemeBlend {
   /**
    * @param {object} modules everything with an applyTheme()
+   * @param {import('../utils/patch.js').PatchSelector} [selector] the live
+   *   theme selector, used once to recover the no-theme baseline
    */
-  constructor(modules) {
+  constructor(modules, selector = null) {
     this.modules = modules;
+    // THE BASELINE, taken once, before this object has blended anything.
+    //
+    // A theme is already fitted by now - main.js selects one before the world
+    // is built - so the baseline is taken by lifting it off, copying, and
+    // putting it back. That is the only moment in the process when config is
+    // guaranteed to be the plain base: from the first blend onward it holds
+    // interpolated values forever, for the reason written over resolve().
+    const fitted = selector ? selector.name : null;
+    if (selector) selector.restore();
+    this.base = JSON.parse(JSON.stringify({ sky: config.sky, world: config.world }));
+    if (selector && fitted) selector.select(fitted);
     this.from = null;
     this.to = null;
     this.name = null;
@@ -162,8 +83,8 @@ export class ThemeBlend {
     const from = config.themes[fromName];
     if (!to || fromName === toName) return false;
 
-    this.from = resolve(from || {});
-    this.to = resolve(to);
+    this.from = resolve(from || {}, this.base);
+    this.to = resolve(to, this.base);
     this.name = toName;
     this.duration = Math.max(0.0001, duration);
     this.t = 0;
@@ -178,6 +99,48 @@ export class ThemeBlend {
     applyPatch(config, theme);
     this.push();
     return true;
+  }
+
+  /**
+   * Ends any blend AT ONCE and leaves `name` fitted exactly, as though it had
+   * been loaded into rather than arrived at.
+   *
+   * ================= WHY A RUN MUST CALL THIS =================
+   *
+   * The road screen previews a card by starting a real blend toward it - that
+   * is the good part, a preview of a place that IS the place. What was missing
+   * is anything that finishes one. Confirming a card called straight through
+   * to the run with the blend still mid-flight, so the first seconds of a run
+   * were spent arriving at the road the rider had already chosen, wearing
+   * whatever they had swiped past on the way to it.
+   *
+   * Measured through the menus, landing on Sunset Highway: at the start line
+   * the blend was at t = 0.89 with `sky.aurora.intensity` at 4.24 - a full
+   * Aurora Pass curtain - the dome base at 0x701c1b instead of 0xd4562a and
+   * the fog deep blue at 0x0d1420. Reported from a phone as three captures of
+   * one theme showing "an orange sunset, a deep blue starfield and a teal
+   * night", which is Sunset Highway, Galaxy Road and Aurora Pass: the three
+   * cards on the way to the one that was picked.
+   *
+   * Note that it does NOT simply stop the blend. Stopping leaves the mush; the
+   * point is to land on the road's own values, which is what resolving over
+   * the baseline gives.
+   * @param {string} name
+   */
+  settle(name) {
+    this.active = false;
+    this.t = 1;
+    this.from = null;
+    this.to = null;
+    this.name = null;
+    const theme = config.themes[name];
+    if (theme) {
+      const exact = resolve(theme, this.base);
+      // t = 1, so every value is assigned rather than interpolated - see the
+      // colour branch in lerpInto.
+      lerpInto({ sky: config.sky, world: config.world }, exact, exact, 1);
+    }
+    this.push();
   }
 
   /** @param {number} dt */
@@ -204,6 +167,7 @@ export class ThemeBlend {
     if (m.roadside) m.roadside.applyTheme();
     if (m.median) m.median.applyTheme();
     if (m.mountains) m.mountains.applyTheme();
+    if (m.ground) m.ground.applyTheme();
     if (m.fog) {
       m.fog.color.set(config.world.fog.color);
       m.fog.density = config.world.fog.density;
@@ -242,5 +206,6 @@ export class ThemeBlend {
     this.modules = {};
     this.from = null;
     this.to = null;
+    this.base = null;
   }
 }
