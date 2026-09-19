@@ -448,9 +448,9 @@ a working one and you only find out at the end.
 ### The capture tool budget
 
 Every tool that drives a browser is on a clock: **under two minutes for all
-six roads.** Measured today, before any of this was done: `npm run shots`
-took about four minutes and `npm run skyline` about six, and a diagnosis that
-needed both plus two ablation passes cost half an hour on its own.
+six roads.** `npm run roads` does it in 1:06, down from about ten minutes for
+the `shots` and `skyline` pair it replaced. The four things that were costing
+that are below, and the fourth is the one that mattered.
 
 What makes them slow, in order:
 
@@ -466,6 +466,14 @@ What makes them slow, in order:
    a person is going to look at.
 4. **More samples than the question needs.** Six points per road answered
    the same question three would have.
+
+**Fast forwarding is how the ride gets cheap, and it is safe here.** Drag to
+zero and the ceiling raised covers four kilometres in about a second and a
+half; everything is restored and left to settle before a pixel is read. The
+world is a function of DISTANCE, not of how fast it was covered, so the road,
+the scenery and the ridges come out identical. Traffic is re-placed by the
+jump, which is why the settle is a second and a half rather than a frame -
+and why no check that measures TRAFFIC may use it.
 
 ## Performans hedefi
 - 1080p'de sabit 60 FPS, draw call < 120, aktif üçgen < 400k

@@ -30,8 +30,7 @@
     "sky": "node tools/sky-stable.mjs",
     "grounded": "node tools/grounded-check.mjs",
     "exit": "node tools/exit-check.mjs",
-    "shots": "node tools/road-shots.mjs",
-    "skyline": "node tools/skyline-check.mjs"
+    "roads": "node tools/road-run.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",
