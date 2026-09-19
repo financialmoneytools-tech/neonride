@@ -16,12 +16,26 @@ import { createRng } from '../../utils/rng.js';
  * birth time. It loops, so the spray can be held for as long as the shot
  * wants without anything being created.
  *
- * It sits at 0.95, above the road's neon rule and below the fireworks, which
- * is where a lit spray belongs: brighter than paint, dimmer than an
- * explosion.
+ * ================= WHY IT IS CLAMPED PER FRAGMENT =================
+ *
+ * Additive blending SUMS, so the brightness of a spray is decided by its
+ * density and not by any per particle value. Six hundred droplets at 0.95 in
+ * a tight cone summed into a hard edged white disc that sat exactly where
+ * the rider's head is - the one part of the frame that has to stay readable
+ * - and it was blamed on the fireworks twice before the arithmetic was done.
+ *
+ * Three things hold it down, and the third is the one that actually
+ * guarantees it: a small per particle value, a small sprite, and a shader
+ * that CLAMPS its own contribution so no fragment can write more than
+ * `maxAlpha` however many droplets land on it. With the clamp the spray gets
+ * denser where it overlaps rather than brighter, which is what a mist does.
+ *
+ * It is also thrown up and AWAY from the machine rather than over it, so the
+ * arc frames the pair instead of crossing them.
  */
 
 const _size = new THREE.Vector2();
+const _offset = new THREE.Vector3();
 
 const VERTEX_SHADER = `
   attribute vec3 aVelocity;
@@ -33,6 +47,7 @@ const VERTEX_SHADER = `
   uniform float uSize;
   uniform float uPixelsPerUnit;
   uniform vec3 uOrigin;
+  uniform float uLean;
 
   varying float vFade;
 
@@ -41,7 +56,12 @@ const VERTEX_SHADER = `
     // spray is continuous without anything being respawned on the CPU.
     float age = mod(uTime + aSeed * aLife, aLife);
 
-    vec3 offset = aVelocity * age;
+    // Leaned outward, so the arc opens away from the bike instead of over
+    // it. Applied to the velocity rather than the origin, or the spray would
+    // start beside the rider and still come down on the machine.
+    vec3 launch = aVelocity;
+    launch.x += length(aVelocity) * uLean;
+    vec3 offset = launch * age;
     offset.y += 0.5 * uGravity * age * age;
 
     vec4 mvPosition = modelViewMatrix * vec4(uOrigin + offset, 1.0);
@@ -58,6 +78,7 @@ const VERTEX_SHADER = `
 
 const FRAGMENT_SHADER = `
   uniform float uIntensity;
+  uniform float uMaxAlpha;
   uniform vec3 uTint;
 
   varying float vFade;
@@ -67,7 +88,13 @@ const FRAGMENT_SHADER = `
     float r = dot(d, d) * 4.0;
     if (r > 1.0) discard;
     float core = 1.0 - r;
-    gl_FragColor = vec4(uTint * uIntensity * core * vFade, core * vFade);
+    // CLAMPED PER FRAGMENT. Additive blending sums, so density decides the
+    // result and no per particle brightness alone can stop a dense spray
+    // reaching white. Holding each droplet's own contribution under a
+    // ceiling means the spray gets DENSER rather than BRIGHTER where it
+    // overlaps, which is what a mist actually does.
+    float a = min(uMaxAlpha, core * vFade);
+    gl_FragColor = vec4(uTint * uIntensity * a, a);
   }
 `;
 
@@ -128,6 +155,8 @@ export class Champagne {
         uSize: { value: cfg.size },
         uPixelsPerUnit: { value: 300 },
         uIntensity: { value: cfg.intensity },
+        uMaxAlpha: { value: cfg.maxAlpha },
+        uLean: { value: cfg.lean },
         uTint: { value: new THREE.Color(cfg.color) },
         uOrigin: { value: new THREE.Vector3() },
       },
@@ -149,12 +178,19 @@ export class Champagne {
     this._running = false;
   }
 
-  /** @param {THREE.Vector3} origin the rider on the podium */
-  start(origin) {
-    const o = this.material.uniforms.uOrigin.value;
-    o.copy(origin);
-    o.y += this.cfg.origin.y;
-    o.z += this.cfg.origin.z;
+  /**
+   * @param {THREE.Vector3} origin the podium top
+   * @param {THREE.Quaternion} [rotation] the arena's turn, so the hand offset
+   *   is read in the arena's frame
+   */
+  start(origin, rotation) {
+    // OFFSET IN THE ARENA'S FRAME, so the spray starts at the rider's hand
+    // wherever the podium happens to be pointing rather than at a fixed
+    // world offset that swings round the bike as the road turns.
+    const cfg = this.cfg;
+    _offset.set(cfg.origin.x, cfg.origin.y, cfg.origin.z);
+    if (rotation) _offset.applyQuaternion(rotation);
+    this.material.uniforms.uOrigin.value.copy(origin).add(_offset);
     this.time = 0;
     this._running = true;
     this.points.visible = true;

@@ -505,6 +505,7 @@ function startCelebration() {
     celebration = new Celebration(engine.scene, engine.renderer, engine.camera,
       road.path, rider, quality);
   }
+  if (Number.isFinite(askedCamera)) celebration.option = askedCamera;
   celebration.start(loop.state);
 }
 
@@ -589,6 +590,8 @@ const wantsGod = params.get('god') === '1';
  */
 const askedLevel = Number.parseInt(params.get('level'), 10);
 const wantsFinish = params.get('finish') === '1';
+/** `?cam=N` picks a celebration camera option; see config/celebration.js. */
+const askedCamera = Number.parseInt(params.get('cam'), 10);
 /** True for a run started by either hook. Suppresses every stored write. */
 let devRun = false;
 // Held while the phone is the wrong way round. A RUNNING session is paused, and

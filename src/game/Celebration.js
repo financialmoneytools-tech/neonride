@@ -43,6 +43,8 @@ import { Champagne } from '../world/celebration/Champagne.js';
 const _look = new THREE.Vector3();
 const _matrix = new THREE.Matrix4();
 const _quaternion = new THREE.Quaternion();
+const _yaw = new THREE.Quaternion();
+const _up = new THREE.Vector3(0, 1, 0);
 
 export class Celebration {
   /**
@@ -57,6 +59,12 @@ export class Celebration {
     this.path = path;
     /** Hidden for the shot; see start(). */
     this.rider = rider;
+    /**
+     * Which camera option is live. Set from `config.celebration.camera.option`
+     * and overridable with `?cam=N`, so three angles can be compared without
+     * a rebuild between them.
+     */
+    this.option = config.celebration.camera.option;
 
     this.arena = new Arena(scene);
     this.crowd = new Crowd(scene, quality);
@@ -71,6 +79,8 @@ export class Celebration {
 
     this._podium = new THREE.Vector3();
     this._rotation = new THREE.Quaternion();
+    /** The arena's turn, plus the camera's azimuth. */
+    this._behind = new THREE.Quaternion();
     this._aim = new THREE.Vector3();
     this._offset = new THREE.Vector3();
   }
@@ -87,9 +97,14 @@ export class Celebration {
     this._podium.copy(top);
     this._rotation.copy(this.arena.group.quaternion);
 
-    this.crowd.placeAt(this.arena.group.position, this._rotation);
-    this.bike.placeAt(top, this._rotation);
-    this.flags.placeAt(this.arena.group.position, this._rotation);
+    // The arena's frame turned to face the camera, for everything that has to
+    // be behind the podium in shot rather than behind it on the road.
+    _yaw.setFromAxisAngle(_up, this.awayYaw);
+    this._behind.copy(this._rotation).multiply(_yaw);
+
+    this.crowd.placeAt(this.arena.group.position, this._behind);
+    this.bike.placeAt(top, this._behind);
+    this.flags.placeAt(this.arena.group.position, this._behind);
 
     this.time = 0;
     this.running = true;
@@ -115,6 +130,29 @@ export class Celebration {
     this.champagne.stop();
   }
 
+  /** @returns {object} the live camera option. */
+  get view() {
+    const cam = config.celebration.camera;
+    const options = cam.options;
+    const index = Math.max(0, Math.min(options.length - 1, this.option | 0));
+    return options[index];
+  }
+
+  /**
+   * The yaw that turns the arena's frame into the CAMERA'S frame.
+   *
+   * Everything that has to sit BEHIND the podium in shot - the crowd, the
+   * fireworks - is placed along the arena's +z and then turned by this, so
+   * moving the camera round moves them with it. Without it, a three quarter
+   * camera looks straight past the podium at an empty road with the crowd
+   * somewhere off to the left.
+   *
+   * @returns {number} radians
+   */
+  get awayYaw() {
+    return -this.view.azimuth;
+  }
+
   /** @returns {boolean} whether the sequence has run its full length. */
   get finished() {
     return this.time >= config.celebration.timing.holdSeconds;
@@ -134,7 +172,7 @@ export class Celebration {
     // than sampled, so a dropped frame delays a cue instead of skipping it.
     if (!this._firing && this.time >= timing.fireworksAt) {
       this._firing = true;
-      this.fireworks.start(this._podium, this._rotation);
+      this.fireworks.start(this._podium, this._behind);
     }
     if (!this._confetting && this.time >= timing.confettiAt) {
       this._confetting = true;
@@ -142,7 +180,7 @@ export class Celebration {
     }
     if (!this._spraying && this.time >= timing.champagneAt) {
       this._spraying = true;
-      this.champagne.start(this._podium);
+      this.champagne.start(this._podium, this._behind);
     }
 
     this.crowd.update(dt);
@@ -164,6 +202,7 @@ export class Celebration {
    */
   _placeCamera() {
     const cam = config.celebration.camera;
+    const view = this.view;
     const timing = config.celebration.timing;
 
     // 0 while the bike is still rolling in, 1 once the crane has finished.
@@ -174,10 +213,13 @@ export class Celebration {
     const ease = t * t * (3 - 2 * t);
     if (ease <= 0) return;
 
-    const orbit = Math.sin(this.time * cam.orbit) * cam.orbitAmount
-      * motionScale('celebration');
+    // The orbit rides ON TOP of the chosen azimuth rather than replacing it,
+    // so a three quarter view drifts around three quarters instead of
+    // swinging back through dead astern.
+    const orbit = view.azimuth
+      + Math.sin(this.time * cam.orbit) * cam.orbitAmount * motionScale('celebration');
 
-    this._offset.set(Math.sin(orbit) * cam.back, cam.lift, -Math.cos(orbit) * cam.back);
+    this._offset.set(Math.sin(orbit) * view.back, view.lift, -Math.cos(orbit) * view.back);
     this._offset.applyQuaternion(this._rotation);
 
     const wanted = this._aim.copy(this._podium).add(this._offset);
@@ -193,7 +235,7 @@ export class Celebration {
     // no podium in it. Raising what it aims AT composes the same shot and
     // cannot fight itself.
     _look.copy(this._podium);
-    _look.y += config.celebration.bike.height * 0.5 + cam.aimLift;
+    _look.y += config.celebration.bike.height * 0.5 + view.aimLift;
 
     // Scratch objects, not fresh ones. This runs every frame of the shot and
     // the project's rule is that nothing allocates inside the loop.

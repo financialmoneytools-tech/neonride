@@ -94,25 +94,66 @@ export const celebration = {
   // ================= THE CAMERA =================
   //
   // A NEW PROFILE, which CLAUDE.md requires be checked with reduced motion on
-  // AND off. It raises the eye and pitches down, which changes how much of the
-  // frame the ground fills and therefore how much optic flow there is - the
-  // same reason the cinematic profile has to be checked.
+  // AND off. It raises the eye and orbits, which changes how much of the frame
+  // the ground fills and therefore how much optic flow there is - the same
+  // reason the cinematic profile has to be checked.
+  //
+  // ================= WHY THREE QUARTER AND NOT BEHIND =================
+  //
+  // The first build put the camera directly behind the podium, and the frame
+  // said ARRIVED rather than WON. End on, a motorcycle is foreshortened to
+  // almost nothing and the rider's raised arm overlaps their own torso, so
+  // the two things the silhouette exists to show - a machine with a length,
+  // and a person with an arm up - were the two things the angle threw away.
+  //
+  // `azimuth` is the angle round the podium from dead astern. Anything near
+  // 45 degrees puts the bike's whole length across the frame and separates
+  // the arm from the body against the sky, which is the entire point.
+  //
+  // EVERYTHING ELSE FOLLOWS IT. The crowd and the fireworks are placed
+  // relative to the camera's axis rather than to the road, so the crowd is
+  // always BEHIND the podium in frame and the bursts are always behind and
+  // above - which is what lights the bike's rim from behind instead of
+  // flattening it. See Celebration._awayYaw.
   camera: {
-    // Where it ends up, relative to the rider's eye at rest.
-    // CLOSER AND LOWER than it was. At 3.4 up and 7.0 back a two metre bike
-    // is a small dark object in the middle of a large empty podium; the shot
-    // is of the machine, so the machine has to fill something.
-    lift: 2.5,
-    back: 5.2,
-    // HOW THE SHOT IS FRAMED, as a raised aim point rather than a pitch.
-    // Pitching after a lookAt fights the lookAt; raising what it aims at
-    // lifts the podium in frame and leaves room for the fireworks above it.
-    aimLift: 1.1,
-    // A slow orbit around the podium. Small: this is the one moving thing in
-    // a held shot and it goes through motionScale('celebration'), so on
-    // reduced motion it very nearly stops.
+    /** Which option below is live. `?cam=N` overrides it for comparisons. */
+    option: 1,
+
+    options: [
+      {
+        // The original. Kept only so a comparison has a baseline in it.
+        name: 'astern',
+        azimuth: 0,
+        lift: 2.5,
+        back: 5.2,
+        aimLift: 1.1,
+      },
+      {
+        // The one this was rebuilt for: low, close, and round far enough that
+        // the bike is a bike. Eye height above the podium rather than above
+        // the rider, so the crowd sits behind the podium rather than under it.
+        name: 'three-quarter',
+        azimuth: 0.82, // 47 degrees
+        lift: 1.5,
+        back: 6.0,
+        aimLift: 0.75,
+      },
+      {
+        // Wider and further round, with more sky over the podium for the
+        // fireworks to land in. Reads as a scene rather than a portrait.
+        name: 'wide-quarter',
+        azimuth: 1.15, // 66 degrees
+        lift: 2.0,
+        back: 7.6,
+        aimLift: 0.95,
+      },
+    ],
+
+    // A slow orbit. Small: this is the one moving thing in a held shot and it
+    // goes through motionScale('celebration'), so on reduced motion it very
+    // nearly stops.
     orbit: 0.16, // radians a second
-    orbitAmount: 0.5, // radians total, either side of centre
+    orbitAmount: 0.35, // radians total, either side of centre
   },
 
   // ================= THE ARENA =================
@@ -172,7 +213,30 @@ export const celebration = {
     // read did not exist on screen. This is a prop three metres from a
     // camera, not a line on a carriageway.
     rimWidth: 0.09,
-    rider: { height: 1.15, shoulders: 0.52, color: 0x39435e },
+    // Where the machine sits on the podium, so the rider has room beside it.
+    offsetX: -0.62,
+
+    // ================= THE RIDER STANDS BESIDE IT =================
+    //
+    // NOT ASTRIDE. Sitting on the bike, the two silhouettes are one lump:
+    // the torso grows out of the tank and the raised arm reads as part of
+    // the machine. Standing clear, there is a motorcycle and there is a
+    // person with their arm up, which is the whole of what the frame has to
+    // say in its first second.
+    rider: {
+      standX: 0.92, // beside the bike, on the podium
+      height: 1.76,
+      legs: 0.84,
+      hips: 0.15,
+      shoulders: 0.46,
+      head: 0.13,
+      color: 0x5a6a8f,
+      // The arm goes UP AND OUT, not up. Straight up puts the hand over the
+      // head and the arm over the torso, which is the overlap this pose
+      // exists to avoid; out at 40 degrees clears the body against the sky.
+      armOut: 0.7, // radians from vertical
+      armLength: 0.66,
+    },
   },
 
   // ================= THE CROWD =================
@@ -181,9 +245,15 @@ export const celebration = {
   // crowd is a texture, and anything detailed enough to be a person is
   // detailed enough to be a likeness.
   crowd: {
-    count: 240,
-    rows: 5,
-    radius: 21,
+    // CLOSER, TALLER AND MORE OF THEM, so the background is a crowd rather
+    // than a dark line on the horizon. At a radius of 21 with three metre
+    // stands, a camera six metres from the podium saw them twenty seven
+    // metres away and half a degree tall - technically behind the podium and
+    // visually absent, which makes the moment feel small. That was the one
+    // thing the brief said an empty backdrop must not do.
+    count: 320,
+    rows: 6,
+    radius: 15,
     spread: 2.4, // radians of arc they occupy, centred behind the podium
     height: [1.5, 1.9],
     width: 0.46,
@@ -192,9 +262,11 @@ export const celebration = {
     color: 0x222a3d,
     // A waving flag per few people, tilted and animated in the vertex shader
     // so the whole crowd is still one draw call.
-    flags: { count: 120, width: 0.5, height: 0.34, stick: 0.5, sway: 0.5, rate: 1.4 },
+    flags: { count: 170, width: 0.5, height: 0.34, stick: 0.5, sway: 0.5, rate: 1.4 },
     // Tiers behind them, so the crowd is standing on something.
-    stand: { rows: 4, rise: 0.75, depth: 1.5, color: 0x1b2233 },
+    // Rising harder, so the back rows stand above the front ones and the
+    // crowd reads as a bank of people instead of a single row.
+    stand: { rows: 6, rise: 0.95, depth: 1.5, color: 0x1b2233 },
   },
 
   // ================= THE CHEQUERED FLAGS =================
@@ -277,8 +349,20 @@ export const celebration = {
 
   champagne: {
     count: 420,
-    // From the rider, forward and up.
-    origin: { y: 1.7, z: -0.4 },
+
+    // ================= IT FRAMES, IT DOES NOT CROSS =================
+    //
+    // From the RIDER'S RAISED HAND and thrown up and AWAY from the machine,
+    // so the arc opens behind the pair instead of passing over them. Sprayed
+    // from the podium centre it went straight through the rider's head and
+    // put the brightest thing in the scene exactly where the face is - the
+    // one part of the frame that has to stay readable.
+    //
+    // `x` is toward the rider's raised side; the bike sits at negative x.
+    origin: { x: 1.35, y: 2.45, z: -0.15 },
+    // Thrown outward as well as up, which is what opens the arc away from
+    // the bike rather than over it.
+    lean: 0.55,
     speed: [6, 13],
     // Wide, so it disperses into a spray instead of staying a column.
     cone: 0.6, // radians
@@ -298,8 +382,15 @@ export const celebration = {
     //
     // 0.22 and a size under one are what make it a mist with a bright core
     // rather than a core with nothing around it.
-    size: 0.85,
-    intensity: 0.22,
+    // AND THE CAP. Additive stacking is not something a per-particle value
+    // alone can fix - it is the DENSITY that saturates - so three things
+    // hold it down together: a small per particle value, a small sprite, and
+    // a shader that clamps its own contribution so no single fragment can
+    // write more than `maxAlpha` however many droplets land on it. Without
+    // the clamp the densest part of any spray is white by construction.
+    size: 0.6,
+    intensity: 0.5,
+    maxAlpha: 0.16,
     color: 0xfff1c9,
   },
 

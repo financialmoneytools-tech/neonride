@@ -140,13 +140,20 @@ export class Crowd {
       const radius = cfg.radius + row * stand.depth + stand.depth * 0.5;
       const standHeight = (Math.min(row, stand.rows - 1) + 1) * stand.rise;
       const angle = Math.PI * 0.5 + (rng.next() - 0.5) * cfg.spread;
-      const lift = standHeight + rng.range(1.7, 2.3);
+      // SCATTERED THROUGH THE CROWD, not a band across the top of it. The
+      // heights were 1.7 to 2.3 above whatever tier the holder stood on,
+      // which across four tiers of equal rise is four neat rows - read as a
+      // fence rather than as a crowd. A wide range breaks the rows up.
+      const lift = standHeight + rng.range(0.9, 2.9);
 
       const cloth = new THREE.PlaneGeometry(flagCfg.width, flagCfg.height);
-      // Bright, so the crowd is not a solid black band: the flags are the
+      // Bright, so the crowd is not a solid dark band: the flags are the
       // only thing in the stands that catches the light.
       paintVertices(cloth, new THREE.Color().setHSL(rng.next(), 0.7, 0.55));
-      cloth.rotateY(angle + Math.PI * 0.5);
+      // Tilted, each its own way. Held flags are never square to anything,
+      // and a field of parallel rectangles reads as signage.
+      cloth.rotateZ(rng.range(-0.5, 0.5));
+      cloth.rotateY(angle + Math.PI * 0.5 + rng.range(-0.45, 0.45));
       flags.add(cloth, matrix.makeTranslation(
         Math.cos(angle) * radius,
         lift,
