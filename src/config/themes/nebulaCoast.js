@@ -138,9 +138,10 @@ export const nebulaCoast = {
         {
           // The big one, low and left, with a shaded limb so it is a sphere
           // rather than a disc.
+          // 8 degrees across, centred 16 up: spans 12 to 20.
           azimuth: -0.55,
-          elevation: 0.17,
-          radius: 122,
+          elevation: 0.279,
+          radius: 95,
           color: 0xf0e4d8,
           edgeColor: 0xc9a6b8,
           opacity: 0.88,
@@ -154,9 +155,10 @@ export const nebulaCoast = {
           // The small one, higher and to the other side. DIFFERENT SIZE AND
           // DIFFERENT HEIGHT: two matching discs read as a rendering fault
           // rather than as two moons.
+          // 4 degrees across, centred 26 up: spans 24 to 28.
           azimuth: 0.95,
-          elevation: 0.38,
-          radius: 58,
+          elevation: 0.454,
+          radius: 47,
           color: 0xffd9e8,
           edgeColor: 0xd88fb8,
           opacity: 0.8,

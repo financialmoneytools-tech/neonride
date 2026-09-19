@@ -73,6 +73,16 @@ export class Scenery {
       if (!build) continue;
 
       const geometry = build(kind);
+      // WHITE BASE, TINTED PER THEME. The prop's own vertex colours carry its
+      // internal shading - a lamp's dark pole against its bright head - and
+      // the material's colour multiplies the lot, so a theme can recolour
+      // every rock on the road without touching geometry.
+      //
+      // IT HAS TO BE A UNIFORM RATHER THAN BAKED, and that is the whole
+      // point: vertex colours are written once at build, and the world is
+      // built before the player has chosen a road. A baked tint is the tint
+      // of whatever theme happened to be stored, which is why six roads all
+      // had the same near-black rocks beside them.
       const material = new THREE.MeshBasicMaterial({
         vertexColors: true,
         toneMapped: kind.toneMapped !== false,
@@ -144,6 +154,28 @@ export class Scenery {
 
     this._onChunkBuilt = this._fillChunk.bind(this);
     road.onChunkBuilt(this._onChunkBuilt);
+    this.applyTheme();
+  }
+
+  /**
+   * Reads the theme's per-kind tint into the materials, and is called once
+   * at construction so a road entered by `?theme=` is correct on frame one
+   * rather than only once a blend has touched it.
+   *
+   * CONTINUOUS, so a blend can call it every frame, and every kind is written
+   * on every call - a kind left alone keeps the previous road's colour, which
+   * is the parked-instance rule applied to paint.
+   */
+  applyTheme() {
+    const tints = config.world.scenery.tint || {};
+    for (const kind of this.kinds) {
+      const tint = tints[kind.name];
+      kind.material.color.set(tint === undefined ? 0xffffff : tint);
+      if (kind.glow) {
+        const glowTint = tints[kind.name + 'Glow'];
+        kind.glow.material.color.set(glowTint === undefined ? 0xffffff : glowTint);
+      }
+    }
   }
 
   /**

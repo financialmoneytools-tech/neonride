@@ -269,7 +269,7 @@ export class Traffic {
         // `_respawn` runs `_admits`, so a returning vehicle lands somewhere
         // legal by the same rule a new one does. It costs a teleport of
         // something that was invisible a frame ago, which is nothing.
-        if (live && !vehicle.active) {
+        if (live && !vehicle.active && Math.abs(playerDistance - vehicle.distance) < 30) {
           this._respawn(fleet, vehicle, playerDistance + cfg.spawnAhead, i);
         }
         vehicle.active = live;

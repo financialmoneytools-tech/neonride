@@ -222,6 +222,9 @@ export class ThemeBlend {
     // every prop in eight chunks sixty times a second to achieve nothing is the
     // one part of this that would show up as a stutter.
     if (m.scenery) {
+      // Colour is cheap - a handful of uniform writes - so it goes every
+      // frame, unlike the densities below which re-place geometry.
+      m.scenery.applyTheme();
       const densities = config.world.scenery.density;
       let changed = false;
       for (const kind of Object.keys(densities)) {

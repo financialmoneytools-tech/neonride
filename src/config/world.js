@@ -159,6 +159,24 @@ export const world = {
     // no trees beside it.
     density: { pine: 0, rock: 0, lampLeft: 0, lampRight: 0, gantry: 0 },
 
+    // PER-THEME COLOUR, as a multiplier over each prop's own vertex colours.
+    // White leaves a prop exactly the colour props.js painted it; anything
+    // else recolours the whole kind. This is a CONTINUOUS value - it is a
+    // uniform, not baked - because the world is built before the player has
+    // picked a road, so a baked tint is the wrong road's tint.
+    //
+    // `<kind>Glow` tints the light a prop throws, separately from the prop,
+    // because a sodium lamp on a desert road and a cold LED in a city are
+    // the same pole with a different bulb in it.
+    tint: {
+      // Rock carries its colour HERE rather than in its geometry, so a theme
+      // can set it. This value is the near black props.js used to bake, so
+      // a road that says nothing looks exactly as it did.
+      pine: 0xffffff, rock: 0x14161c,
+      lampLeft: 0xffffff, lampRight: 0xffffff, gantry: 0xffffff,
+      lampLeftGlow: 0xffffff, lampRightGlow: 0xffffff, gantryGlow: 0xffffff,
+    },
+
     kinds: {
       pine: {
         shape: 'pine',
@@ -187,7 +205,13 @@ export const world = {
         setback: 1.2, spread: 18,
         scaleMin: 0.6, scaleMax: 2.2,
         radius: 1.1, squash: 0.7,
-        color: 0x14161c,
+        // WHITE, because a rock is one flat colour and its real colour lives
+        // in `tint` below. A tint MULTIPLIES the baked vertex colour, so a
+        // prop baked at 0x14161c came out near black whatever a theme asked
+        // for - Red Planet set a rust tint, the material took it, and the
+        // boulders stayed black because dark times warm is dark. Anything
+        // that wants to be recoloured per road has to be baked white.
+        color: 0xffffff,
       },
       // OVERHEAD SIGN GANTRY. The one prop that spans the road instead of
       // standing beside it, so it is placed on the path centre - see the

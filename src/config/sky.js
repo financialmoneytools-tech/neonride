@@ -117,6 +117,29 @@ export const sky = {
   // Galaxy Road, Aurora Pass, Neon Metropolis - simply leaves them at opacity
   // zero. That is the rule from docs/THEMES.md: a theme selects and tints, it
   // never allocates, so a mixed run can fade a sun in without a reload.
+  // ================= SIZE AND HEIGHT ARE ANGLES =================
+  //
+  // A body is at the sky shell, `distance` units out, so what a rider
+  // actually sees is an ANGULAR size and an ANGULAR elevation. Setting a
+  // radius in units and an elevation in radians and hoping is how the first
+  // pass produced a sun 15.9 degrees across whose lower limb was 3.1 degrees
+  // BELOW the horizon, and a planet 34.3 degrees across covering a third of
+  // the frame - both of which sat on the road's vanishing point and were
+  // reported as "blocking the road ahead".
+  //
+  //     diameter = 2 * atan(radius / distance)
+  //     radius   = distance * tan(diameter / 2)
+  //
+  // THE RULE: a body's LOWER LIMB stays above 6 degrees of elevation. The
+  // road's vanishing point sits at about 0 and the frame's top edge at 31.8,
+  // so 6 keeps the horizon and the road clear while leaving the whole upper
+  // frame to play with. Every body's span is written beside it.
+  //
+  // WHAT IS NOT A BUG: a body DRIFTS across the frame as the road curves.
+  // The sky group copies the camera's POSITION and never its rotation, so a
+  // body holds a fixed world direction - which is what being at infinity
+  // means, and what the sun does. It only became a fault when the body was
+  // low enough and large enough that drifting meant crossing the road.
   bodies: {
     // Three is the most any theme asks for and there is no reason to carry a
     // fourth. Two moons is the largest set; one huge planet is the largest

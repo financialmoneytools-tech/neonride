@@ -33,9 +33,25 @@
  * first kilometre; here every level starts at its full difficulty, because
  * the worst case is the only case a zero tolerance check is interested in.
  *
- * It is deliberately FAST - a few seconds a level - so it can run as often as
- * the phone probe does. Depth comes from npm run levels, which rides the whole
- * thing; this is the one that must never be allowed to go red.
+ * ================= AND THE DENSITY IS CHURNED ON PURPOSE =================
+ *
+ * This guard once passed on all six roads while the deep check found TEN
+ * overlapping pairs. That is the worst thing a fast guard can do, and the
+ * reason was that it sampled a steady road: three seconds a level at a
+ * constant density never crosses a POOL BOUNDARY, and crossing one was the
+ * entire bug. A vehicle deactivates, keeps its distance while car following
+ * ignores it, and the density ramp switches it back on wherever it was left
+ * - possibly inside something.
+ *
+ * So the density is now driven up and down through the whole sample. Every
+ * cycle deactivates a batch of vehicles and reactivates them, which is the
+ * case that was invisible, and the run reports how many activation events it
+ * forced so a sample that churned nothing is visible rather than silently
+ * reassuring.
+ *
+ * It is still FAST - a few seconds a level - so it can run as often as the
+ * phone probe does. Depth comes from npm run levels; this is the one that
+ * must never be allowed to go red.
  */
 
 import { spawn } from 'node:child_process';
@@ -115,17 +131,51 @@ async function sweep(road) {
       // Let the pools fill and the density settle before anything is counted.
       await new Promise((r) => setTimeout(r, 2500));
 
+      // WHERE THE DENSITY LIVES for whichever mode this is. A level reads its
+      // own row; endless reads the shared model's start, which was pinned to
+      // the cap above.
+      const row = level === 0
+        ? N.config.world.traffic.models.player.density
+        : N.config.levels.rows[level - 1];
+      const key = level === 0 ? 'start' : 'density';
+      const base = row[key];
+
+      const countActive = () => {
+        let n = 0;
+        for (const fleet of N.traffic.fleets) {
+          for (const v of fleet.vehicles) if (v.active) n++;
+        }
+        return n;
+      };
+
       // eslint-disable-next-line no-undef
       const scan = makeScan(N);
+      let activations = 0;
+      let previous = countActive();
       await new Promise((done) => {
-        const until = performance.now() + sampleMs;
+        const began = performance.now();
+        const until = began + sampleMs;
         const tick = () => {
+          // THE CHURN. A full cycle every 0.8 s, swinging the density between
+          // 35 and 100 per cent of this level's own value - enough to switch
+          // a large batch of vehicles off and back on many times inside a
+          // three second sample. The peak is never ABOVE the level's real
+          // density, so nothing here tests a road harder than the road is.
+          const t = (performance.now() - began) / 800;
+          row[key] = base * (0.675 + 0.325 * Math.sin(t * Math.PI * 2));
+
           scan.sample();
+          const now = countActive();
+          activations += Math.abs(now - previous);
+          previous = now;
+
           if (performance.now() >= until) done();
           else requestAnimationFrame(tick);
         };
         tick();
       });
+      row[key] = base;
+
       const shot = scan.snapshot();
       return {
         level,
@@ -134,6 +184,7 @@ async function sweep(road) {
         overlaps: shot.overlaps,
         minEdgeGap: shot.minEdgeGap,
         noCorridor: shot.noCorridor,
+        activations,
       };
     };
 
@@ -162,7 +213,7 @@ let closest = Infinity;
 for (const road of roads) {
   console.log('');
   console.log(`=== ${road} ===`);
-  console.log('  mode        frames   same-lane pairs   overlapping   closest gap   no corridor');
+  console.log('  mode        frames   pairs   activations   overlapping   closest gap   walled');
   const rows = await sweep(road);
 
   for (const row of rows) {
@@ -170,14 +221,24 @@ for (const road of roads) {
     totalPairs += row.pairs;
     totalOverlaps += row.overlaps;
     if (row.minEdgeGap !== null && row.minEdgeGap < closest) closest = row.minEdgeGap;
-    console.log('  %s  %s   %s   %s   %s m   %s',
+    console.log('  %s  %s   %s   %s   %s   %s m   %s',
       label.padEnd(10),
       String(row.frames).padStart(6),
-      String(row.pairs).padStart(15),
+      String(row.pairs).padStart(7),
+      String(row.activations).padStart(11),
       String(row.overlaps).padStart(11),
       (row.minEdgeGap === null ? '-' : row.minEdgeGap.toFixed(2)).padStart(8),
-      String(row.noCorridor).padStart(11));
+      String(row.noCorridor).padStart(6));
   }
+
+  // A SAMPLE THAT CHURNED NOTHING PROVES NOTHING. If the density swing did
+  // not actually switch vehicles on and off, this guard is back to sampling
+  // a steady road and is blind to the bug it exists to catch - so that is a
+  // failure in its own right rather than a quiet pass.
+  const idle = rows.filter((r) => r.activations < 20);
+  check(`${road}: the sample actually churned the pool`, idle.length === 0,
+    idle.map((r) => `${r.level === 0 ? 'SONSUZ' : 'level ' + r.level} saw only `
+      + `${r.activations} activations`).join('; '));
 
   // ANY. Not a rate, not a threshold - see the header.
   const bad = rows.filter((r) => r.overlaps > 0);
