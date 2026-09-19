@@ -93,6 +93,35 @@ function startServer() {
   });
 }
 
+/**
+ * Picks `road` on the road screen and confirms it, then checks that the run
+ * about to start is actually on that road.
+ * @returns {Promise<string|null>} an error, or null
+ */
+async function confirmRoad(page, road, all) {
+  for (let attempt = 0; attempt < all.length + 2; attempt++) {
+    if (await page.evaluate(() => window.NEON.themes.name) === road) {
+      await page.click('.road-screen .select-confirm');
+      await page.waitForTimeout(450);
+      const picked = await page.evaluate(() => ({
+        road: window.NEON.selection.road,
+        mixed: window.NEON.selection.mixed,
+      }));
+      if (picked.road === road && !picked.mixed) return null;
+      // The mixed card. Step off it and keep looking.
+      await page.evaluate(() => window.NEON.selectFlow.start());
+      await page.waitForTimeout(400);
+      await page.click('.mode-screen .select-confirm');
+      await page.waitForTimeout(350);
+      await page.click('.bike-screen .select-confirm');
+      await page.waitForTimeout(350);
+    }
+    await page.click('.road-screen .select-arrow-next');
+    await page.waitForTimeout(260);
+  }
+  return 'never confirmed the ' + road + ' card';
+}
+
 const server = await startServer();
 mkdirSync(DIR, { recursive: true });
 const browser = await chromium.launch({
@@ -243,18 +272,24 @@ async function viaFlow(road) {
   // card is CONFIRMED. Reading the wrong one walked past the target every
   // time and confirmed whichever card the guard ran out on - measured, three
   // roads in a row all started on Nebula Coast.
-  let found = false;
-  for (let guard = 0; guard < all.length * 2; guard++) {
-    if (await page.evaluate(() => window.NEON.themes.name) === road) { found = true; break; }
-    await page.click('.road-screen .select-arrow-next');
-    await page.waitForTimeout(260);
-  }
-  if (!found) errors.push('never reached the ' + road + ' card on the road screen');
+  // THE CARD, NOT THE THEME THAT IS FITTED.
+  //
+  // Walking by `themes.name` alone confirmed the wrong card. The road screen
+  // carries a TUM YOLLAR card for the changing road, and previewing IT fits
+  // `selection.startingRoad`, which is the first theme - so `themes.name`
+  // reads 'galaxyRoad' while the highlighted card is the mixed one. Measured:
+  // a capture labelled galaxyRoad was Galaxy Road at 0 m and Aurora Pass at
+  // 4000 m, because the run was a mixed one that gated to another road
+  // halfway through it.
+  //
+  // `selection.road` is the truth and it only moves on CONFIRM, so the card
+  // is chosen, confirmed, and then checked - and a wrong one is stepped past
+  // and tried again.
   if (PROVE) {
     await page.evaluate(() => { window.NEON.themeBlend.settle = () => {}; });
   }
-  await page.click('.road-screen .select-confirm');
-  await page.waitForTimeout(500);
+  const wrong = await confirmRoad(page, road, all);
+  if (wrong) errors.push(wrong);
   if (await page.isVisible('.level-screen').catch(() => false)) {
     await page.click('.level-screen .select-confirm');
     await page.waitForTimeout(600);
