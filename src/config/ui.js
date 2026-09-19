@@ -138,6 +138,33 @@ export const ui = {
     medalPip: '●',
     againKey: 'TEKRAR İÇİN BİR TUŞA BAS',
     againTouch: 'TEKRAR İÇİN DOKUN',
+
+    // ================= TEN LEVELS =================
+    // A run now ends in one of three places and each wants a different first
+    // line: fell short on level seven, finished level seven of ten, or
+    // finished the road. The third is the only one that gets a total.
+    roadDone: 'YOL TAMAMLANDI',
+    levelShort: 'SEVİYE',      // SEVİYE 7 - 3600 / 5000 M
+    levelOf: 'SEVİYE %1 / %2', // finished a level that was not the last
+    total: 'TOPLAM',
+    // The medal tally on the finished-road card: "7 ALTIN  2 GÜMÜŞ  1 BRONZ".
+    // Zero counts are dropped rather than shown as 0, because a road finished
+    // entirely in gold should say so and not carry two empty columns.
+    tallyJoin: '   ',
+    // Only an unbroken level 1 to 10 run gets a total; a replay says this
+    // instead, so the card never implies a road time that was not ridden.
+    practice: 'ALIŞTIRMA TURU',
+  },
+
+  // The level banner: the one thing that marks a level boundary, and it is
+  // deliberately not a card. It appears over a world that has not stopped,
+  // takes no input and dismisses itself - see ui/LevelBanner.js.
+  levelBanner: {
+    label: 'SEVİYE',
+    // Shown under the number when a life comes back, and only then: at three
+    // lives nothing is handed back and a banner claiming otherwise would be
+    // the game lying about the one resource the player is counting.
+    life: '+1 CAN',
   },
 
   // The staged run's HUD: how far in, out of how long, and the clock.
@@ -211,5 +238,24 @@ export const ui = {
     // menu stops being readable.
     mixed: 'TÜM YOLLAR',
     mixedBlurb: 'YOL, IŞIK KAPILARINDA DEĞİŞİR.',
+    // Progress on each road card: "SEVİYE 7 / 10". Only on the staged mode -
+    // SONSUZ has no levels and a card advertising them there would be a
+    // promise the mode does not keep.
+    progress: 'SEVİYE %1 / %2',
+    done: 'TAMAMLANDI',
+  },
+
+  // The level select, which opens after a road in staged mode. Every level up
+  // to the highest REACHED may be started; see game/Progress.js for why
+  // replay is allowed and what it costs.
+  levels: {
+    title: 'SEVİYE SEÇ',
+    label: 'SEVİYE',
+    locked: 'KİLİTLİ',
+    // Shown under a level that has been finished, with its best time.
+    best: 'EN İYİ',
+    // The first card, which is the one a rider who wants the road total picks.
+    fromStart: 'BAŞTAN BAŞLA',
+    fromStartBlurb: 'ON SEVİYE, TEK KOŞU. TOPLAM SÜRE İÇİN TEK YOL.',
   },
 };

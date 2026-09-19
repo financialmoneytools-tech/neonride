@@ -4,6 +4,7 @@ import { createRng } from '../utils/rng.js';
 import { VehicleMesh } from './traffic/VehicleMesh.js';
 import { testVehicle } from './traffic/TrafficEvents.js';
 import { roadLayout } from './road/layout.js';
+import { levelRow } from '../config/levels.js';
 
 /**
  * Traffic - vehicles running the player's way at varied speeds, pooled per type
@@ -38,6 +39,17 @@ const _quaternion = new THREE.Quaternion();
 const _scale = new THREE.Vector3();
 const _forward = new THREE.Vector3();
 const _color = new THREE.Color();
+
+/**
+ * Lane first, then distance along it, so a sorted list puts every vehicle
+ * immediately before the one it is following.
+ * @param {object} a
+ * @param {object} b
+ * @returns {number}
+ */
+function byLaneThenDistance(a, b) {
+  return a.lane === b.lane ? a.distance - b.distance : a.lane - b.lane;
+}
 
 export class Traffic {
   /**
@@ -79,6 +91,31 @@ export class Traffic {
     this._nearMissCooldown = 0;
     this._beaconPhase = 0;
 
+    // THE LEVEL'S MODEL, allocated once and MUTATED per frame. A staged run
+    // scales five fields of the shared player model per level, and building a
+    // fresh object every frame would be the one thing in this file that
+    // allocates inside the loop - which is the discipline the whole pool
+    // system exists to keep. `escape` is deliberately a reference to the
+    // shared one rather than a copy: the fairness floor is not per level and
+    // copying it is how it would quietly become per level later.
+    // THE CAR FOLLOWING BUFFER, allocated once at the union of every pool.
+    // Sorted in place each frame and never resized, because a per-frame array
+    // in the one system that has 79 live objects is exactly the allocation the
+    // pooling discipline exists to avoid.
+    this._order = [];
+    this._orderCount = 0;
+
+    this._level = 0;
+    this._levelModel = {
+      density: null, // unused on a level; see _densityFraction
+      gap: { base: 0, reaction: 0 },
+      speedSpread: 1,
+      weaveScale: 1,
+      truckShare: 1,
+      laneChange: 0,
+      escape: null,
+    };
+
     /** One fleet per type: its meshes and its own pool of vehicles. */
     this.fleets = [];
     const start = config.player.bike.startDistance;
@@ -97,6 +134,17 @@ export class Traffic {
           lateral: 0,
           laneLateral: 0,
           speed: 0,
+          // THE SPEED IT WANTS, as opposed to the one it is doing. Car
+          // following clamps `speed` behind a slower leader and releases it
+          // back to `cruise` once the gap reopens, so the two have to be
+          // separate - with one field a vehicle that slowed for a truck would
+          // never speed up again.
+          cruise: 0,
+          // Half the type's length, kept on the vehicle so the car following
+          // pass can measure edge to edge without reaching back to the fleet.
+          // Declared here rather than assigned later so every vehicle has one
+          // shape from the first frame.
+          halfLength: 0,
           scale: 1,
           weavePhase: 0,
           wasBehind: true,
@@ -149,15 +197,26 @@ export class Traffic {
     const maxSpeed = config.player.bike.maxSpeed;
     this._playerSpeed = state.speed || 0;
 
-    // Density ramp: the road starts sparse and fills out as the run goes on,
-    // and stops at a cap. The cap is the part that matters - a curve that keeps
-    // climbing arrives back at the density that was unplayable to begin with.
-    const density = this.model.density;
-    const progress = THREE.MathUtils.clamp(playerDistance / density.fullAt, 0, 1);
-    const fraction = Math.min(
-      density.max,
-      density.start + (density.max - density.start) * Math.pow(progress, density.curve),
-    );
+    // FIRST, before anything reads `this.model`. Every rule below - the
+    // density, the spacing, the spread, the weave - is per level in a staged
+    // run, and a frame that spawned against the previous level's model would
+    // put level nine's traffic on level ten's road for one frame. Once a
+    // vehicle is placed nothing moves it.
+    this._syncLevel(state);
+
+    // Density ramp: the road starts sparse and fills out, and stops at a cap.
+    // The cap is the part that matters - a curve that keeps climbing arrives
+    // back at the density that was unplayable to begin with.
+    const fraction = this._densityFraction(playerDistance, state);
+    // BEFORE ANYTHING MOVES. Every vehicle's speed for this frame is decided
+    // here, from the gap it has to the vehicle in front of it.
+    this._maintainSpacing(this._playerSpeed);
+
+    // How much of the theme's truck mix this level is running. Trucks are the
+    // widest thing on the road and the thing worth overtaking, so thinning
+    // them is the largest relief available early and restoring them the
+    // largest squeeze late.
+    const truckShare = this._level > 0 ? this._levelModel.truckShare : 1;
 
     for (let f = 0; f < this.fleets.length; f++) {
       const fleet = this.fleets[f];
@@ -174,7 +233,12 @@ export class Traffic {
       // -> mix, docs/THEMES.md and tools/theme-check.mjs, which fails a theme
       // that reaches past it.
       const mix = cfg.mix ? cfg.mix[fleet.type.name] : undefined;
-      const share = mix === undefined ? 1 : THREE.MathUtils.clamp(mix, 0, 1);
+      let share = mix === undefined ? 1 : THREE.MathUtils.clamp(mix, 0, 1);
+      // THE LEVEL THINS TRUCKS ON TOP OF THE THEME'S MIX, and only trucks.
+      // It multiplies rather than replaces, so a theme that runs few trucks
+      // still runs few of them at level ten - the level says how hard, the
+      // theme still says what road this is.
+      if (fleet.type.truck) share *= truckShare;
 
       // An inactive vehicle is scaled to nothing, so it costs no fragments, and
       // is skipped entirely so it cannot be collided with either.
@@ -259,8 +323,176 @@ export class Traffic {
    * road should fill in behind that rather than need a reload.
    */
   get model() {
+    // THE MODEL FOLLOWS THE RUN, NOT WHO IS STEERING. A level's traffic is a
+    // property of the level, so a staged run gets the level model whether a
+    // person or the autopilot is riding it - which is the only way
+    // tools/level-check.mjs can measure what level seven is actually like.
+    //
+    // God mode still gets the god model, and gets it for free: its phase is
+    // `free`, never staged, so `state.level` is zero there and always was.
+    if (this._level > 0) return this._levelModel;
     const models = config.world.traffic.models;
     return config.autopilot.enabled ? models.god : models.player;
+  }
+
+  /**
+   * Points `_levelModel` at the level being ridden.
+   *
+   * THE PLAYER MODEL IS THE LEVEL ONE BASELINE and this scales five fields of
+   * it. Everything it does not name - the escape guarantee, `gap.base`, the
+   * spawn distances, every per-type `minLane` - stays the shared model,
+   * because those are the things config/traffic.js calls the reason the road
+   * is playable. See config/levels.js `floor`, and tools/level-check.mjs,
+   * which asserts them against a real run rather than against this comment.
+   *
+   * @param {object} state loop state; reads level
+   */
+  _syncLevel(state) {
+    // Zero in endless mode and in god mode, where game/Session.js publishes no
+    // level at all. It is NOT read off `config.autopilot.enabled`: doing that
+    // would mean a staged run could never be driven by the bot, and a
+    // difficulty curve nothing can drive is a difficulty curve nobody has
+    // measured.
+    const level = state.level || 0;
+    this._level = level;
+    if (level <= 0) return;
+
+    const base = config.world.traffic.models.player;
+    const row = levelRow(level);
+    const model = this._levelModel;
+    model.gap.base = base.gap.base;
+    model.gap.reaction = row.gapReaction;
+    model.speedSpread = row.speedSpread;
+    model.weaveScale = row.weaveScale;
+    model.truckShare = row.truckShare;
+    model.laneChange = row.laneChange;
+    model.escape = base.escape;
+  }
+
+  /**
+   * What share of every pool should be live this frame.
+   *
+   * Two behaviours, and the branch is the mode rather than a setting. Endless
+   * and god mode keep the original curve, which ramps with absolute distance
+   * travelled. A LEVEL does not: it would be meaningless across fifty
+   * kilometres, where the old curve saturates by level four and every level
+   * after it is identical.
+   *
+   * Instead a level ramps from the PREVIOUS level's density to its own over
+   * the first `rampMeters`, so a level begins by getting harder rather than
+   * by being harder - nothing steps on the frame the gate is crossed.
+   *
+   * @param {number} playerDistance
+   * @param {object} state loop state
+   * @returns {number} 0..1
+   */
+  _densityFraction(playerDistance, state) {
+    if (this._level <= 0) {
+      const density = this.model.density;
+      const progress = THREE.MathUtils.clamp(playerDistance / density.fullAt, 0, 1);
+      return Math.min(
+        density.max,
+        density.start + (density.max - density.start) * Math.pow(progress, density.curve),
+      );
+    }
+
+    const level = this._level;
+    const target = levelRow(level).density;
+    // Level one ramps up from the shared model's own opening density, so the
+    // very first kilometre of a road is as clean as the first kilometre of the
+    // single stage always was.
+    const from = level > 1
+      ? levelRow(level - 1).density
+      : config.world.traffic.models.player.density.start;
+    const ramp = Math.max(1, config.levels.rampMeters);
+    const t = THREE.MathUtils.clamp((state.levelTravelled || 0) / ramp, 0, 1);
+    return from + (target - from) * t;
+  }
+
+  /**
+   * Keeps every vehicle behind the one in front of it.
+   *
+   * THE GUARANTEE IS AN INVARIANT NOW, not a placement filter. `_admits`
+   * still decides where a vehicle may APPEAR; this decides that it stays
+   * there. Without it a follower closed on its leader at their speed
+   * difference until the two were inside each other - measured in endless
+   * mode on a build with no levels: 2400 overlapping pairs over 721 frames,
+   * worst edge gap -10.7 m. See `follow` in config/traffic.js for what that
+   * cost the difficulty curve.
+   *
+   * ONE SORTED PASS. The buffer is reused between frames and sorted in place
+   * by lane and then by distance, so every vehicle's leader is simply the next
+   * entry with the same lane. That is O(n log n) on at most 79 entries, once a
+   * frame, against the O(n^2) of asking each vehicle to find its own leader.
+   *
+   * IT RUNS BEFORE ANYTHING INTEGRATES, so the speed a vehicle moves at this
+   * frame is the speed this pass allowed. Clamping afterwards would let an
+   * overlap exist for a frame and then teleport out of it.
+   *
+   * @param {number} playerSpeed
+   */
+  _maintainSpacing(playerSpeed) {
+    const follow = config.world.traffic.follow;
+    const model = this.model;
+    // The same gap the spawner promises, so a level with tighter spacing runs
+    // traffic closer together rather than answering to a second number.
+    const keep = model.gap.base + model.gap.reaction * playerSpeed;
+
+    const order = this._order;
+    let n = 0;
+    for (let f = 0; f < this.fleets.length; f++) {
+      const fleet = this.fleets[f];
+      const half = fleet.type.size.length * 0.5;
+      for (let i = 0; i < fleet.vehicles.length; i++) {
+        const vehicle = fleet.vehicles[i];
+        if (!vehicle.active) continue;
+        // Released to its own speed first, then clamped below if it has a
+        // leader. A vehicle whose leader recycled away must be able to go
+        // back to cruising, and this is the only place that can let it.
+        vehicle.speed = vehicle.cruise;
+        // SCALED. `_place` composes the matrix with `setScalar(vehicle.scale)`
+        // and `scaleJitter` is 8 per cent, so a 16 m semi is drawn anywhere
+        // between 14.7 and 17.3 m long. Following the unscaled length would
+        // enforce a gap the geometry does not have, which with a zero
+        // tolerance overlap check is the difference between true and nearly.
+        vehicle.halfLength = half * vehicle.scale;
+        order[n] = vehicle;
+        n++;
+      }
+    }
+    order.length = n;
+    this._orderCount = n;
+    if (n < 2) return;
+
+    order.sort(byLaneThenDistance);
+
+    // FROM THE FRONT BACKWARDS, and the direction is the whole correctness of
+    // this. Walking forwards clamps a follower against its leader's UNCLAMPED
+    // speed and only then slows the leader, so in any queue of three or more
+    // every vehicle is matched to a speed its leader is about to drop below -
+    // and the queue closes up anyway. Measured: forwards still left 0.1 to 2.1
+    // overlapping pairs a frame. Backwards, each leader is already final by
+    // the time the vehicle behind it is asked to follow.
+    for (let i = n - 2; i >= 0; i--) {
+      const behind = order[i];
+      const ahead = order[i + 1];
+      if (ahead.lane !== behind.lane) continue;
+
+      const gap = ahead.distance - behind.distance - ahead.halfLength - behind.halfLength;
+      if (gap >= keep) continue;
+
+      if (gap <= follow.minEdge) {
+        // Inside the settling distance: drop UNDER the leader so a gap that
+        // has already closed reopens. Matching the leader exactly would hold
+        // a bunched pair bunched for the rest of its life.
+        behind.speed = Math.min(behind.cruise, ahead.speed * follow.easeBack);
+      } else {
+        // Between the settling distance and the promised gap, ease back up to
+        // its own cruising speed.
+        const t = (gap - follow.minEdge) / Math.max(1e-6, keep - follow.minEdge);
+        behind.speed = Math.min(behind.cruise, ahead.speed + (behind.cruise - ahead.speed) * t);
+      }
+    }
   }
 
   /**
@@ -359,7 +591,8 @@ export class Traffic {
     const model = this.model;
     const mid = (type.speed.min + type.speed.max) * 0.5;
     const half = (type.speed.max - type.speed.min) * 0.5 * model.speedSpread;
-    vehicle.speed = rng.range(mid - half, mid + half);
+    vehicle.cruise = rng.range(mid - half, mid + half);
+    vehicle.speed = vehicle.cruise;
 
     vehicle.scale = 1 + (rng.next() * 2 - 1) * cfg.vehicle.scaleJitter;
     vehicle.weavePhase = rng.next() * Math.PI * 2;

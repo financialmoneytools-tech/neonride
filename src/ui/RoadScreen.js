@@ -25,11 +25,15 @@ export class RoadScreen {
    * @param {() => void} [handlers.onBack]
    * @param {(key: string) => void} [handlers.onPreview]
    * @param {string} [handlers.mode] the active MODE, shown on the screen
+   * @param {(road: string) => object} [handlers.recordFor] per-road progress,
+   *   for the SEVIYE 7 / 10 badge. Omitted in endless mode, where there are
+   *   no levels and a badge would be advertising a thing the mode does not do.
    * @param {string} [initial]
    */
   constructor(parent, handlers, initial) {
     const text = config.ui.roads;
     this.mode = handlers.mode;
+    const staged = handlers.mode === MODE.STAGE && !!handlers.recordFor;
     const items = [];
 
     for (const key of Object.keys(config.themes)) {
@@ -39,6 +43,7 @@ export class RoadScreen {
         blurb: (text.blurb && text.blurb[key]) || '',
         thumb: `thumbs/${key}.jpg`,
         locked: false,
+        progress: staged ? handlers.recordFor(key) : null,
       });
     }
 
@@ -78,6 +83,7 @@ export class RoadScreen {
   }
 
   _build() {
+    const text = config.ui.roads;
     const body = this.screen.body;
     this.grid = document.createElement('div');
     this.grid.className = 'road-grid';
@@ -99,6 +105,23 @@ export class RoadScreen {
       label.className = 'road-label';
       label.textContent = item.label;
       card.append(shot, label);
+
+      // HOW FAR INTO THIS ROAD, on the card itself. Ten levels per road means
+      // "which road shall I ride" and "how far did I get on it" are the same
+      // question, and answering only the first would send a rider into a road
+      // with no idea whether they had a level to finish or a road to start.
+      if (item.progress) {
+        const badge = document.createElement('span');
+        badge.className = 'road-progress';
+        const done = item.progress.totalBest !== null;
+        badge.textContent = done
+          ? text.done
+          : text.progress
+            .replace('%1', String(item.progress.reached))
+            .replace('%2', String(config.levels.count));
+        if (done) badge.classList.add('road-progress-done');
+        card.append(badge);
+      }
 
       if (item.locked) {
         const lock = document.createElement('span');

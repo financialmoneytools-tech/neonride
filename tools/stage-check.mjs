@@ -126,12 +126,22 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
   await page.waitForTimeout(1500);
 
-  // THE FAST FINISH HOOK. A short stage, not a fake one: 600 metres with a
-  // checkpoint every 200, so three checkpoints and a finish all happen for
-  // real inside a few seconds.
+  // THE FAST FINISH HOOK. A short road, not a fake one: two levels of 600
+  // metres with a checkpoint every 200, so two checkpoints, a LEVEL BOUNDARY
+  // and a finish all happen for real inside a few seconds.
+  //
+  // TWO LEVELS RATHER THAN ONE, because the boundary is the interesting case
+  // and it is the one that cannot be reached by shortening a single stage:
+  // level one has to hand back a life and carry straight on, and level two
+  // has to end the run. A one level road would only ever exercise the second.
   await page.evaluate(() => {
-    window.NEON.config.stage.length = 600;
-    window.NEON.config.stage.checkpointEvery = 200;
+    const N = window.NEON;
+    N.config.stage.length = 600;
+    N.config.stage.checkpointEvery = 200;
+    N.config.levels.count = 2;
+    // Generous, so a short level still earns a medal and the medal path is
+    // exercised. The thresholds themselves are measured by npm run levels.
+    N.config.levels.referenceSeconds = [6, 6];
   });
 
   // --- the flow: title -> mode -> bike -> road -> run ---------------------
@@ -150,20 +160,36 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
   const onRoad = await page.isVisible('.road-screen').catch(() => false);
   check('the road screen follows the bike', onRoad, onRoad ? '' : 'never appeared');
   await page.keyboard.press('Enter');
+  await page.waitForTimeout(500);
+  // THE LEVEL SCREEN, which only exists in staged mode. It opens on level one,
+  // which is the run that counts for a road total.
+  const onLevel = await page.isVisible('.level-screen').catch(() => false);
+  check('the level screen follows the road', onLevel, onLevel ? '' : 'never appeared');
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(800);
 
   const started = await page.evaluate(() => ({
     phase: window.NEON.session.phase,
     mode: window.NEON.session.mode,
     staged: window.NEON.session.staged,
+    level: window.NEON.session.levels.level,
   }));
   check('the run starts in stage mode', started.staged && started.phase === 'running',
     `phase ${started.phase}, mode ${started.mode}`);
+  check('it starts on level one', started.level === 1, `level ${started.level}`);
 
   // --- ride it to the line -----------------------------------------------
   const finished = await page.evaluate(async () => {
     const N = window.NEON;
-    const seen = { checkpoints: 0, gatesArmed: 0, speedSum: 0, speedSamples: 0, topSpeed: 0 };
+    const seen = {
+      checkpoints: 0, gatesArmed: 0, speedSum: 0, speedSamples: 0, topSpeed: 0,
+      // THE LEVEL BOUNDARY, caught as it happens. Both of these are only true
+      // for a frame or two: the banner fades itself out and the phase never
+      // changes, so a check that looked afterwards would find no evidence a
+      // level boundary had ever occurred - which is exactly the property the
+      // boundary is supposed to have, and exactly why it has to be watched.
+      topLevel: 1, bannerSeen: 0, livesAtLevel2: 0, phaseAtBoundary: '',
+    };
     // SAMPLED MID-RUN, not at the line. The HUD is only up while the run is
     // RUNNING and the dash stops being driven once the card is out, so a
     // reading taken at the finish is a reading of neither. Halfway is also
@@ -175,6 +201,18 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
       const tick = () => {
         seen.checkpoints = Math.max(seen.checkpoints, N.session.stage.checkpoints);
         if (N.checkpointGate.armed || N.finishGate.armed) seen.gatesArmed = 1;
+
+        const level = N.session.levels.level;
+        if (level > seen.topLevel) {
+          seen.topLevel = level;
+          seen.livesAtLevel2 = N.session.lives;
+          // THE RUN MUST NOT HAVE STOPPED. This is the whole requirement of a
+          // level boundary in one assertion: on the frame the level changed,
+          // the phase is still `running` and the loop is not paused.
+          seen.phaseAtBoundary = N.session.phase + (N.loop.paused ? '+paused' : '');
+        }
+        const banner = document.querySelector('.level-banner');
+        if (banner && !banner.hidden) seen.bannerSeen = 1;
         const speed = N.loop.state.speed || 0;
         seen.speedSum += speed;
         seen.speedSamples++;
@@ -199,7 +237,15 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
       gatesArmed: seen.gatesArmed,
       travelled: N.session.stage.travelled,
       time: N.session.stage.time,
-      medal: N.session.stage.medal,
+      medal: N.session.levels.medals[N.session.levels.medals.length - 1],
+      medals: N.session.levels.medals.slice(),
+      levelCount: N.config.levels.count,
+      total: N.session.levels.total,
+      unbroken: N.session.levels.unbroken,
+      topLevel: seen.topLevel,
+      bannerSeen: seen.bannerSeen,
+      livesAtLevel2: seen.livesAtLevel2,
+      phaseAtBoundary: seen.phaseAtBoundary,
       lives: N.session.lives,
       length: N.config.stage.length,
       maxSpeed: N.config.player.bike.maxSpeed,
@@ -223,6 +269,32 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
     finished.gatesArmed ? '' : 'no checkpoint or finish gate was ever armed');
   check('a medal is awarded', !!finished.medal,
     `${finished.medal} in ${finished.time.toFixed(1)} s`);
+
+  // ============ THE LEVEL BOUNDARY, WHICH MUST NOT BE AN EVENT ==========
+  //
+  // Everything here is about the boundary being invisible to the machinery:
+  // the level goes up, a life comes back and a banner appears, and NOTHING
+  // ELSE happens. The moment a boundary starts pausing the loop or changing
+  // the phase it has become a card with no button, which is the build this
+  // feature exists to not be.
+  check('the run reaches the second level', finished.topLevel === finished.levelCount,
+    `reached level ${finished.topLevel} of ${finished.levelCount}`);
+  check('the run never stops at a level boundary', finished.phaseAtBoundary === 'running',
+    `phase was "${finished.phaseAtBoundary}" on the frame the level changed`);
+  check('a banner marks the level', finished.bannerSeen === 1,
+    finished.bannerSeen ? '' : 'the level banner never appeared');
+  // Three lives is the cap and the run starts there, so a clean short run
+  // cannot gain one. What must be true is that the grant never EXCEEDS it.
+  check('the level grant never goes over the cap',
+    finished.livesAtLevel2 > 0 && finished.livesAtLevel2 <= 3,
+    `${finished.livesAtLevel2} lives on entering level 2`);
+  check('every level scored a medal',
+    finished.medals.filter(Boolean).length === finished.levelCount,
+    `${finished.medals.filter(Boolean).length} medals for ${finished.levelCount} levels`);
+  // A run from level one that reached the end is unbroken, so it gets a total
+  // - and the total is the sum of the levels, not one level's clock.
+  check('an unbroken road gets a total', finished.unbroken && finished.total !== null,
+    `unbroken ${finished.unbroken}, total ${finished.total}`);
 
   // ============ DO THE THREE NUMBERS ADD UP? ============================
   //

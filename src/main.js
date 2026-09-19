@@ -13,11 +13,13 @@ import { Fullscreen, Viewport } from './core/Viewport.js';
 import { ControlHints } from './ui/ControlHints.js';
 import { PauseButton } from './ui/PauseButton.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
+import { LevelBanner } from './ui/LevelBanner.js';
 import { StartScreen } from './ui/StartScreen.js';
 import { Hud } from './ui/Hud.js';
 import { Panels } from './ui/Panels.js';
 import { PHASE, Session } from './game/Session.js';
 import { CROSSED } from './game/Stage.js';
+import { Progress } from './game/Progress.js';
 import { Results } from './ui/Results.js';
 import { Audio } from './audio/Audio.js';
 import { Sky } from './world/Sky.js';
@@ -425,11 +427,19 @@ const audio = new Audio();
 // early, with Controls, and `audio` is a const declared further down - reaching
 // for it up there is a temporal dead zone error and a black screen on load.
 if (stats) stats.audio = audio;
-const session = new Session();
+// Per-road level progress, read by the road cards and the level select and
+// written as levels are entered and finished. Built before the Session
+// because the Session records the first level on the frame a run begins.
+const progress = new Progress();
+const session = new Session(progress);
 // Same reason and same shape as `stats.audio` above: the overlay's stage line
 // needs the Session, and the Session cannot exist before the overlay does.
 if (stats) stats.session = session;
 const hud = new Hud(document.body, session);
+// The ONLY thing that marks a level boundary. Not a panel: it takes no input,
+// pauses nothing and is not a phase - see ui/LevelBanner.js for why that is
+// the requirement rather than a simplification.
+const levelBanner = new LevelBanner(document.body, session);
 const panels = new Panels(document.body, session, comfort, controls, audio, selection);
 // How a run ENDED, both ways. It replaced the game over half of Panels: there
 // are two endings now and they have a result to show rather than a score to
@@ -451,8 +461,13 @@ loop.add((dt, state) => {
   // readers sampled it.
   const crossed = session.update(dt, state);
   if (crossed === CROSSED.CHECKPOINT) flash.fire('checkpoint', state);
+  // A LEVEL LINE GETS THE FINISH FLASH, because it is one - the rider has
+  // just finished five kilometres and the fact that another five follow does
+  // not make the line they crossed a checkpoint.
+  else if (crossed === CROSSED.LEVEL) flash.fire('finish', state);
   else if (crossed === CROSSED.FINISH) flash.fire('finish', state);
   hud.update();
+  levelBanner.update(dt);
   panels.update();
   results.update();
   // Pausing hands every listener a delta of zero; see core/Loop.js. Set here
@@ -601,17 +616,26 @@ function menuOpen() {
   return !start.started || selectFlow.open;
 }
 
+/**
+ * Which level the next run starts on.
+ *
+ * Set by the level select and then kept, so that the press which retries a
+ * failed run repeats the level that failed. A restart is not a new choice.
+ */
+let lastLevel = 1;
+
 const selectFlow = new SelectFlow(document.body, selection, {
   onBikePreview: (key) => {
     // Colour only, and instant: four uniform writes on the cockpit sprite.
     if (rider.setBike) rider.setBike(key);
   },
   onRoadPreview: previewRoad,
-  onDone: () => {
+  onDone: (level) => {
     selection.applyBike();
     nextGateAt = 0;
-    beginRun();
+    beginRun(level);
   },
+  recordFor: (road) => progress.for(road),
 });
 
 const start = new StartScreen(document.body, () => {
@@ -632,14 +656,20 @@ const start = new StartScreen(document.body, () => {
  * which is exactly the shape of bug that leaves a feature working on the first
  * run of a session and nowhere else.
  */
-function beginRun() {
+function beginRun(level = lastLevel) {
   // THE MODE COMES FROM THE SELECTION, every time. Not remembered by Session
   // across a restart on its own, because a restart after a finish has to repeat
   // the run that was just played, and the only thing that knows which run that
   // was is what the player chose.
-  session.begin(loop.state, selection.mode);
-  // A gate left armed from the previous stage would stand somewhere in the
-  // middle of this one - the distances are absolute and the new stage starts
+  //
+  // THE LEVEL IS REMEMBERED THE SAME WAY, and for the same reason: a press
+  // after failing level seven has to retry level seven, not send the rider
+  // back to the level select. `lastLevel` is the default so that the restart
+  // path repeats the run that was just had without knowing anything about it.
+  lastLevel = level;
+  session.begin(loop.state, selection.mode, { road: selection.startingRoad, level });
+  // A gate left armed from the previous level would stand somewhere in the
+  // middle of this one - the distances are absolute and a new level starts
   // from wherever the bike happens to be.
   checkpointGate.disarm();
   finishGate.disarm();
@@ -718,7 +748,11 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, hud, panels, comfort, themes };
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, progress, hud, levelBanner, panels, comfort, themes,
+    // The one entry point into a run, exposed so tools/level-check.mjs can
+    // start a REAL staged run at a chosen level and let the autopilot ride
+    // it. Measuring a level any other way would measure something else.
+    beginRun };
 }
 
 /** Releases every resource in order (the loop stops first). */
@@ -744,6 +778,7 @@ function disposeAll() {
   selectFlow.dispose();
   themeBlend.dispose();
   gate.dispose();
+  levelBanner.dispose();
   checkpointGate.dispose();
   finishGate.dispose();
   rider.dispose();

@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { Stage, CROSSED } from './Stage.js';
+import { Levels } from './Levels.js';
 
 /**
  * Session - one run: what it scored, whether it is still going, and why it
@@ -25,12 +26,20 @@ import { Stage, CROSSED } from './Stage.js';
  * nothing: the bike accelerates on its own from `throttleFloor`. A near miss is
  * the one event here that cannot happen by accident.
  *
- * TWO MODES, ONE SET OF RULES. A staged run is five kilometres with a finish
- * line; an endless run is the original ride-until-you-crash. They share the
- * lives, the scoring, the pause and the fail state, and differ in exactly one
- * thing: whether there is a distance at which the run ENDS WELL. That is why
- * the mode is a field here rather than a second Session subclass - the moment
- * the rules were duplicated they would start to disagree.
+ * TWO MODES, ONE SET OF RULES. A staged run is ten levels of five kilometres
+ * with a finish line at the end of each; an endless run is the original
+ * ride-until-you-crash. They share the lives, the scoring, the pause and the
+ * fail state, and differ in exactly one thing: whether there is a distance at
+ * which the run ENDS WELL. That is why the mode is a field here rather than a
+ * second Session subclass - the moment the rules were duplicated they would
+ * start to disagree.
+ *
+ * A LEVEL BOUNDARY IS NOT AN ENDING. Crossing five kilometres on levels one
+ * to nine advances the level and changes nothing else: the phase stays
+ * RUNNING, the loop is never paused, no card appears and the bike is not
+ * touched. The only things that happen are a life handed back, a banner, and
+ * the traffic re-tuning. That is what "riding continues without a break in
+ * flow" means in code - there is no state to leave and re-enter.
  */
 
 export const PHASE = {
@@ -47,7 +56,8 @@ export const PHASE = {
 
 /**
  * What kind of run this is. ENDLESS is the original game and still owns the
- * high score; STAGE is five kilometres with a result at the end.
+ * high score; STAGE is ten levels of five kilometres with a result at the end
+ * of each and a celebration at the end of the tenth.
  */
 export const MODE = {
   STAGE: 'stage',
@@ -55,12 +65,34 @@ export const MODE = {
 };
 
 export class Session {
-  constructor() {
+  /**
+   * @param {import('./Progress.js').Progress} [progress] per-road records. A
+   *   Session without one still runs - every level simply records nothing -
+   *   which is what keeps the endless mode and the tools free of storage.
+   */
+  constructor(progress = null) {
     this.phase = PHASE.TITLE;
     /** A MODE value. Chosen on the title card; god mode ignores it entirely. */
     this.mode = MODE.ENDLESS;
-    /** Progress through a staged run. Untouched, and unread, in endless mode. */
+    /** Progress through the LEVEL being ridden. Unread in endless mode. */
     this.stage = new Stage();
+    /** Which level that is, and what the ten of them were worth. */
+    this.levels = new Levels(progress);
+    /** The road being ridden, for the per-road record. Set by `begin`. */
+    this.road = '';
+    /**
+     * Set on the frame a level boundary is crossed, for the banner to read
+     * once. Cleared by whoever consumed it; see ui/LevelBanner.js.
+     */
+    this.levelJustReached = 0;
+    /**
+     * Whether that crossing actually handed a life back. Published rather
+     * than inferred: after the fact the banner sees `lives === 3` and cannot
+     * tell a rider who was given their third from one who already had it, and
+     * a banner that claims +1 CAN when nothing was given is the game lying
+     * about the one resource the player is counting.
+     */
+    this.levelGainedLife = false;
     this.score = 0;
     this.distance = 0;
     this.nearMisses = 0;
@@ -106,8 +138,11 @@ export class Session {
    * @param {object} state loop state
    * @param {string} [mode] a MODE value; the previous one is kept when omitted,
    *   so a restart repeats the run the player was actually having.
+   * @param {object} [run] which road and which level to start on
+   * @param {string} [run.road] the road, for the per-road record
+   * @param {number} [run.level] the level to begin at, 1 unless replaying
    */
-  begin(state, mode) {
+  begin(state, mode, run = {}) {
     if (mode) this.mode = mode;
     this.phase = PHASE.RUNNING;
     this.score = 0;
@@ -121,6 +156,15 @@ export class Session {
     this._startHits = state.hits || 0;
     this._startNearMisses = state.nearMisses || 0;
     this._countedHits = 0;
+    this.levelJustReached = 0;
+    this.levelGainedLife = false;
+    if (run.road !== undefined) this.road = run.road;
+    this.levels.reset(run.level || 1);
+    // Recorded as REACHED on entry rather than on completion, so a rider who
+    // gets to level eight and dies there may go back and practise level eight.
+    if (this.staged && this.levels.progress) {
+      this.levels.progress.enter(this.road, this.levels.level);
+    }
     this.stage.begin(state);
   }
 
@@ -169,6 +213,16 @@ export class Session {
   publish(state) {
     state.scoring = this.scoring;
     state.invulnerable = this.phase === PHASE.RUNNING ? this.invulnerable : 0;
+    // WHICH LEVEL THE TRAFFIC SHOULD BE, and how far into it. Published here
+    // rather than reached for, because world/Traffic.js already takes the loop
+    // state and giving it a Session would hand the traffic the phase, the
+    // lives and the score as well - none of which it may have an opinion on.
+    //
+    // ZERO MEANS "NO LEVEL", which is endless mode and god mode, and it is
+    // what keeps SONSUZ exactly the game it was: the traffic falls back to the
+    // shared player model and its original distance-driven ramp.
+    state.level = this.staged ? this.levels.level : 0;
+    state.levelTravelled = this.staged ? this.stage.travelled : 0;
   }
 
   /**
@@ -227,13 +281,48 @@ export class Session {
     // failure, and a frame that is both is a failure.
     if (this.mode !== MODE.STAGE) return null;
     const crossed = this.stage.update(dt, state);
-    if (crossed === CROSSED.FINISH) this._finish();
+    if (crossed === CROSSED.FINISH) return this._crossLine(state);
     return crossed;
   }
 
   /**
-   * Reached the line. A different ending from `_end`, with a different card and
-   * a different delay - see `resultsDelay` in config/stage.js.
+   * A level's line, crossed. Either the run continues or the road is done.
+   *
+   * THE CONTINUING CASE TOUCHES ALMOST NOTHING, and that is the requirement
+   * rather than an optimisation. The phase stays RUNNING, the loop is never
+   * paused, `dt` keeps flowing, the bike and the camera are not spoken to at
+   * all. A new Stage clock starts from where the bike already is, a life comes
+   * back, and the banner is handed a number. Anything that stopped here -
+   * a card, a phase change, a call into the bike - would be a break in the
+   * flow, and the whole point of ten levels is that there is not one.
+   *
+   * @param {object} state loop state
+   * @returns {string} a CROSSED value
+   */
+  _crossLine(state) {
+    const result = this.levels.finishLevel(this.road, this.stage.time);
+
+    if (result.last) {
+      this._finish();
+      return CROSSED.FINISH;
+    }
+
+    // ONE LIFE BACK, capped. Not a refill - see config/levels.js.
+    const before = this.lives;
+    this.lives = Levels.livesAfterLevel(this.lives);
+    this.levelGainedLife = this.lives > before;
+    this.levelJustReached = this.levels.level;
+    // The next level starts HERE, at the line, not at some reset origin: the
+    // road is generated from distance travelled and nothing about the world
+    // moves when a level changes.
+    this.stage.begin(state);
+    return CROSSED.LEVEL;
+  }
+
+  /**
+   * Reached the LAST line - level ten. A different ending from `_end`, with a
+   * different card and a different delay; see `resultsDelay` in
+   * config/stage.js and the celebration that plays over it.
    */
   _finish() {
     this.phase = PHASE.FINISHED;

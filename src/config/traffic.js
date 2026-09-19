@@ -299,6 +299,44 @@ export const traffic = {
     },
   },
 
+  // ================= CAR FOLLOWING =================
+  //
+  // WHY THIS EXISTS, measured before it was written. `_admits` is a PLACEMENT
+  // filter: it runs once, when a vehicle respawns, and guarantees the escape
+  // lane and the spacing AT THAT MOMENT. Nothing maintained either afterwards,
+  // so two vehicles sharing a lane closed at their speed difference until they
+  // were inside each other. In endless mode, on a build with no levels in it:
+  // 2400 overlapping same-lane pairs over 721 frames, worst edge gap -10.7 m.
+  // Cars drove through each other, and had since the traffic was written.
+  //
+  // It mattered far more than it looked. Because spacing decayed, ANY widening
+  // of the speed spread multiplied how fast the road turned into a wall - so
+  // `speedSpread`, which reads like a knob about how predictable the traffic
+  // is, was really a knob about how quickly the guarantee stopped being true.
+  // A level at a LOWER density than endless measured six times more crowded,
+  // and levels five to nine left the rider with all four lanes blocked inside
+  // their own reaction distance on up to a quarter of frames.
+  //
+  // So a follower now keeps its distance instead of merely starting with it.
+  // It is the shared model, not a per level rule: an invariant that only holds
+  // in one mode is not an invariant. SONSUZ gets it too, which changes SONSUZ -
+  // visibly for the better, and it is the one change to that mode here.
+  follow: {
+    // The gap the follower settles at, edge to edge. Below this it drops under
+    // the leader's speed so a gap that has already closed REOPENS, rather than
+    // merely stopping getting worse - without that, traffic that had already
+    // bunched before this shipped would stay bunched forever.
+    minEdge: 8,
+    // How far under the leader it drops while recovering. Gentle: a vehicle
+    // that brakes hard in front of the rider is an event the rider cannot
+    // predict, which is the thing the spacing rule exists to prevent.
+    easeBack: 0.92,
+    // Above `minEdge` the follower eases back up to its own cruising speed,
+    // reaching it at the model's own promised gap. That is what ties this to
+    // the level: a level with a tighter gap lets traffic run closer, and the
+    // closing behaviour follows the same number rather than a second one.
+  },
+
   // TWO TRAFFIC MODELS, and they want opposite things.
   //
   // God mode is a camera. The road should look BUSY, and the guard standing

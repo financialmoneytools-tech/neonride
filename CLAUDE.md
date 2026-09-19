@@ -203,10 +203,14 @@ eighth.
 
 ## The staged run
 
-Every run can now have an end. `KOŞU` is five kilometres with a lit gate every
-kilometre, a finish line, a time and a medal; `SONSUZ` is the original
-ride-until-you-crash and still owns the high score. The mode is the FIRST
-choice: title -> mode -> bike -> road -> run.
+Every run can now have an end. `KOŞU` is a ROAD - ten levels of five
+kilometres, each with a lit gate every kilometre, a finish line, a time and a
+medal - and `SONSUZ` is the original ride-until-you-crash and still owns the
+high score. The mode is the FIRST choice: title -> mode -> bike -> road ->
+level -> run, and the level screen appears in staged mode only.
+
+Everything below describes ONE level, which is what `game/Stage.js` still
+measures. See "Levels - ten to a road" for the ten of them.
 
 - `config/stage.js` owns the length, the checkpoint spacing and the medals.
   **Medal thresholds are multiples of a MEASURED reference time, never absolute
@@ -242,6 +246,72 @@ choice: title -> mode -> bike -> road -> run.
   is what drives the finish, so a 400 metre stage runs the real gates, clock,
   counter and card. Calling `session._finish()` would prove the method works
   and nothing about whether anything reaches it.
+
+## Levels - ten to a road
+
+A road is ten levels of 5 km, ridden continuously. `KOŞU` means the whole
+road; `SONSUZ` has no levels and is otherwise unchanged.
+
+- **A level boundary is not an ending.** The phase stays `running`, the loop is
+  never paused, no card appears and the bike is not touched. A gate lights, a
+  banner says `SEVİYE 2`, a life comes back and the traffic re-tunes. That is
+  the requirement, not a simplification - `npm run stage` asserts the phase is
+  still `running` on the frame the level changes.
+- **Lives: one back per level, capped at three.** Not a refill. A refill would
+  mean the only level that can end a run is the one you are on.
+- `config/levels.js` owns the curve, as ten explicit rows rather than a
+  formula, so one level can be nudged without moving nine others.
+- **`referenceSeconds` is ten measured times, one per level**, and
+  `npm run levels` re-measures them and fails on more than 15 per cent drift.
+  One shared reference would make late gold unreachable and early gold free.
+- **The total and the medal tally are written only for an unbroken 1→10 run.**
+  Levels are replayable from the highest REACHED (recorded on entry, so dying
+  on level eight still unlocks practising it), because ten levels is five or
+  six minutes and re-riding forty proven kilometres is not a punishment
+  anybody learns from. Protecting the total directly is what makes replay safe.
+- **God mode still never sees any of it.** Its phase is `free`, so
+  `state.level` is zero and the traffic falls back to the god model.
+
+### The fairness floor, and what measuring it turned up
+
+`escape.maxAbreast`, `escape.trucksAbreast`, `escape.window` and `gap.base` are
+IDENTICAL at every level. `escape.window` in particular is not a difficulty
+knob: shrinking it lets two staggered pairs block all four lanes across 45 m,
+which at 200 m/s is 0.22 s apart.
+
+Measuring that floor found a defect that had been shipped since the traffic was
+written. **`_admits` was a PLACEMENT filter, not an invariant** - it ran once
+when a vehicle respawned and nothing maintained spacing afterwards, so
+same-lane vehicles closed at their speed difference until they were inside each
+other. Measured in endless mode with no levels in the build: **2400 overlapping
+pairs over 721 frames, worst edge gap −10.7 m.**
+
+It mattered far more than it looked, and this is the part to remember:
+**because spacing decayed, `speedSpread` was secretly a knob about how fast the
+road turned into a wall.** A level at a LOWER density than endless measured six
+times more crowded, and levels five to nine left the rider with all four lanes
+blocked inside their own reaction distance on up to a quarter of frames.
+
+`config/traffic.js` → `follow` is the fix: a follower clamps its speed to keep
+its distance, resolved **front to back** so each leader is final before the
+vehicle behind it is asked to follow. Walking the queue forwards instead still
+left 0.1 to 2.1 overlapping pairs a frame. It is the shared model and it
+changes SONSUZ too - an invariant that holds in one mode is not one.
+
+**`npm run spacing` is the permanent guard and it has ZERO tolerance.** One
+overlapping pair anywhere fails the run - not a rate, not a threshold. It
+sweeps both modes at every level on every road with the density ramp switched
+off, so each level runs at full difficulty from the first metre. A tolerance
+is how a defect like this survives: it gets set just above whatever the
+current number is, and then the number grows into it. This check is worth more
+than the difficulty curve, because the curve is a thing somebody chose and
+this is a thing nobody noticed for the entire life of the project.
+
+`npm run levels` is the deep version: a real ten level run per road, asserting
+nobody is ever trapped, no level crowds the road more than endless already
+does, and zero overlapping pairs. It measures its own endless control in the
+same session with the density pinned at its cap, so the comparison stays true
+as the shared model changes.
 
 ## Units - one metre, one second, and the dial converts
 

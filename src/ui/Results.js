@@ -1,6 +1,5 @@
 import { config } from '../config.js';
 import { PHASE } from '../game/Session.js';
-import { Stage } from '../game/Stage.js';
 import { format } from './Hud.js';
 
 /**
@@ -17,7 +16,16 @@ import { format } from './Hud.js';
  * right. It leads with the distance REACHED, not with the failure: how far you
  * got is the thing to beat next time, and a card that only says DÜŞTÜN gives a
  * player nothing to aim at. A staged failure also shows the line it fell short
- * of, because 3600 of 5000 is a different feeling from 3600 of nothing.
+ * of, because 3600 of 5000 is a different feeling from 3600 of nothing - and
+ * with ten levels it shows WHICH level, because level nine of ten is a
+ * different feeling again from level two.
+ *
+ * THE FINISH IS NOW A ROAD, NOT A STAGE. A staged run only reaches
+ * PHASE.FINISHED at the end of level ten, so the finished card is the
+ * end-of-road card: a total time, a medal tally across all ten, and an overall
+ * medal. It says ALISTIRMA TURU instead of a total when the run started above
+ * level one, because a total that skipped levels is not a road time and a card
+ * that implied otherwise would quietly make the leaderboard a lie.
  *
  * NOTHING HERE READS INPUT, like the panels it replaced. Which press restarts
  * is a rule about the run and lives in main.js, where one handler decides what
@@ -80,7 +88,9 @@ export class Results {
     const touch = matchMedia('(hover: none)').matches;
     const finished = session.phase === PHASE.FINISHED;
 
-    this.titleEl.textContent = finished ? text.finishedTitle : text.failedTitle;
+    this.titleEl.textContent = finished
+      ? (session.staged ? text.roadDone : text.finishedTitle)
+      : text.failedTitle;
     this.promptEl.textContent = touch ? text.againTouch : text.againKey;
 
     if (finished) this._finished(text);
@@ -96,24 +106,30 @@ export class Results {
 
   /** @param {object} text config.ui.results */
   _finished(text) {
-    const stage = this.session.stage;
-    const medal = stage.medal || 'bronze';
-    this.medalEl.textContent = text.medalPip + ' ' + text.medal[medal];
-    this.medalEl.dataset.medal = medal;
+    const levels = this.session.levels;
+
+    // THE OVERALL MEDAL is the tally's worst, not an average and not the
+    // total re-scored. A road ridden in nine golds and one bronze is a road
+    // with a bronze level in it, and a card that rounded that up to gold
+    // would be telling somebody they had done something they had not.
+    const tally = levels.tally;
+    const overall = tally.bronze > 0 ? 'bronze' : tally.silver > 0 ? 'silver' : 'gold';
+    this.medalEl.textContent = text.medalPip + ' ' + text.medal[overall];
+    this.medalEl.dataset.medal = overall;
     this.medalEl.hidden = false;
 
-    this.headlineEl.textContent = text.time + ' ' + formatTime(stage.time);
+    if (levels.unbroken && levels.total !== null) {
+      this.headlineEl.textContent = text.total + ' ' + formatTime(levels.total);
+    } else {
+      // A practice run gets no total. It still finished the road and still
+      // earned every level medal it collected; it simply did not ride the
+      // thing the total measures.
+      this.headlineEl.textContent = text.practice;
+    }
 
-    // The stored best is read back rather than remembered from the finish,
-    // because the finish has already written it - so on a record these would
-    // be the same number and the card would say "new record" next to a best
-    // that is this run's own time. Reading it back and comparing is what makes
-    // the two lines say different things.
-    const best = Stage.bestFor(this.roadName());
-    this.detailEl.textContent = stage.isRecord
-      ? text.record
-      : best !== null ? text.best + ' ' + formatTime(best) : '';
+    this.detailEl.textContent = levels.isRecord ? text.record : tallyText(tally, text);
   }
+
 
   /** @param {object} text config.ui.results */
   _failed(text) {
@@ -124,10 +140,13 @@ export class Results {
 
     if (session.staged) {
       // LEADS WITH HOW FAR, and against the line it fell short of. A bare
-      // distance is a number; a distance out of five kilometres is a position.
+      // distance is a number; a distance out of five kilometres is a
+      // position, and with ten levels the level is half of that position -
+      // 3600 of 5000 on level nine and on level two are not the same ride.
       this.headlineEl.textContent = Math.floor(session.stage.travelled)
         + text.of + config.stage.length + config.ui.stageHud.unit;
-      this.detailEl.textContent = text.reached;
+      this.detailEl.textContent = text.levelShort + ' ' + session.levels.level
+        + text.of + config.levels.count;
       return;
     }
 
@@ -144,6 +163,25 @@ export class Results {
     if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
     this.el = null;
   }
+}
+
+/**
+ * "7 ALTIN   2 GUMUS   1 BRONZ" as the card shows them, with the empty
+ * columns dropped.
+ *
+ * A road finished entirely in gold should say ten golds and nothing else -
+ * carrying two zeroes beside it turns an achievement into a scoreboard with
+ * gaps in it.
+ * @param {{gold:number, silver:number, bronze:number}} tally
+ * @param {object} text config.ui.results
+ * @returns {string}
+ */
+function tallyText(tally, text) {
+  const parts = [];
+  for (const medal of ['gold', 'silver', 'bronze']) {
+    if (tally[medal] > 0) parts.push(tally[medal] + ' ' + text.medal[medal]);
+  }
+  return parts.join(text.tallyJoin);
 }
 
 /**

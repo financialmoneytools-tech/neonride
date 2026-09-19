@@ -463,6 +463,12 @@ async function checkModeScreen(browser, url) {
         await clean.click(selector).catch(() => {});
         await clean.waitForTimeout(350);
       }
+      // THE LEVEL SCREEN, staged mode only. Clicked when it is there, so the
+      // same walk still works in SONSUZ, which has no levels.
+      if (await clean.isVisible('.level-screen').catch(() => false)) {
+        await clean.click('.level-screen .select-confirm').catch(() => {});
+        await clean.waitForTimeout(350);
+      }
       await clean.waitForTimeout(700);
       const picked = await clean.evaluate(() => ({
         mode: window.NEON.session.mode,
@@ -600,6 +606,12 @@ async function checkFinish(browser, url) {
       await page.click(selector).catch(() => {});
       await page.waitForTimeout(400);
     }
+    // THE LEVEL SCREEN, staged mode only. Clicked when it is there, so the
+    // same walk still works in SONSUZ, which has no levels.
+    if (await page.isVisible('.level-screen').catch(() => false)) {
+      await page.click('.level-screen .select-confirm').catch(() => {});
+      await page.waitForTimeout(350);
+    }
 
     const ending = await page.evaluate(async () => {
       const N = window.NEON;
@@ -684,14 +696,21 @@ async function checkShortViewport(browser, base) {
     await page.tap('body', { position: { x: 700, y: 60 }, force: true }).catch(() => {});
     await page.waitForTimeout(900);
     // THROUGH THE SELECTION SCREENS. This check is about the PAUSE card's
-    // geometry on a short viewport, and the mode, bike and road screens now
-    // stand between the title tap and a running game. Walked with the confirm button
-    // rather than skipped with stored values, because the walk is also how the
-    // two new screens get their own geometry checked at this size.
+    // geometry on a short viewport, and the mode, bike, road and level screens
+    // now stand between the title tap and a running game. Walked with the
+    // confirm button rather than skipped with stored values, because the walk
+    // is also how each new screen gets its own geometry checked at this size -
+    // and the level screen is ten cards in a row, which is the densest thing
+    // in the flow and the most likely to run off a 740x320 frame.
+    //
+    // `selectGeometry` returns nothing for a screen that is not there, and
+    // every step already swallows its own timeout, so this list is safe in
+    // SONSUZ too, where the level screen never opens.
     for (const selector of [
       '.mode-screen .select-confirm',
       '.bike-screen .select-confirm',
       '.road-screen .select-confirm',
+      '.level-screen .select-confirm',
     ]) {
       await page.waitForSelector(selector, { timeout: 5000 }).catch(() => {});
       for (const line of await selectGeometry(page, selector.split(' ')[0], SHORT)) {

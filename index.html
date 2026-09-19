@@ -405,6 +405,107 @@
         text-shadow: 0 0 10px rgba(125, 255, 196, 0.45);
       }
 
+      /* THE LEVEL BANNER. Centred, over a world that has not stopped, and it
+         owns no input - see ui/LevelBanner.js. Above the HUD in the stacking
+         order and clear of the cockpit, which fills the bottom third.
+         `pointer-events: none` is load bearing: a tap anywhere during it is
+         meant to reach the game, and a banner that swallowed one would make
+         the road stop steering for two seconds every five kilometres. */
+      .level-banner {
+        position: fixed;
+        left: 50%;
+        top: 26%;
+        transform: translate(-50%, -50%) scale(0.94);
+        pointer-events: none;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 320ms ease-out, transform 320ms ease-out;
+        z-index: 6;
+      }
+      .level-banner-in {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .level-banner-label {
+        font: 700 clamp(0.62rem, 2vw, 0.85rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.42em;
+        /* The indent cancels the trailing letter-spacing, which otherwise
+           pushes a letter-spaced word off its own centre. */
+        text-indent: 0.42em;
+        color: #7dffc4;
+        text-shadow: 0 0 14px rgba(125, 255, 196, 0.5);
+      }
+      .level-banner-number {
+        font: 700 clamp(2.6rem, 11vw, 5rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        line-height: 1;
+        color: #eaf6ff;
+        text-shadow: 0 0 26px rgba(125, 255, 196, 0.55);
+      }
+      .level-banner-life {
+        margin-top: 2px;
+        font: 700 clamp(0.6rem, 1.9vw, 0.8rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.22em;
+        text-indent: 0.22em;
+        color: #ff6e8a;
+        text-shadow: 0 0 12px rgba(255, 80, 120, 0.5);
+      }
+
+      /* THE LEVEL SELECT. Ten small cards in one scrolling row, built to the
+         same rules as the road grid: it has to fit 740x320 with the confirm
+         button still on screen, so a card carries a number, a medal pip and a
+         time and nothing else. */
+      .level-grid {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        touch-action: none;
+        padding: 2px 2px 4px;
+        scrollbar-width: none;
+      }
+      .level-grid::-webkit-scrollbar { display: none; }
+      .level-card {
+        pointer-events: auto;
+        position: relative;
+        flex: 0 0 auto;
+        width: clamp(52px, 9vw, 74px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 4px;
+        border: 1px solid rgba(125, 200, 235, 0.28);
+        border-radius: 8px;
+        background: rgba(6, 12, 24, 0.66);
+        cursor: pointer;
+        transition: border-color 160ms ease-out, transform 160ms ease-out;
+      }
+      .level-card-on {
+        border-color: #7dffc4;
+        transform: translateY(-2px);
+        box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
+      }
+      .level-card-locked { opacity: 0.4; cursor: default; }
+      .level-card-number {
+        font: 700 clamp(0.95rem, 3vw, 1.3rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #eaf6ff;
+        line-height: 1;
+      }
+      .level-card-medal {
+        font-size: 9px;
+        line-height: 1;
+        min-height: 9px;
+        color: transparent;
+      }
+      .level-card-medal[data-medal="gold"] { color: #ffd166; }
+      .level-card-medal[data-medal="silver"] { color: #cfe0f0; }
+      .level-card-medal[data-medal="bronze"] { color: #d08b5a; }
+      .level-card-best {
+        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.08em;
+        color: #8fb6d6;
+        min-height: 9px;
+      }
+
       .hud-lives {
         margin-top: 2px;
         font-size: clamp(0.8rem, 2.6vw, 1.05rem);
@@ -430,7 +531,108 @@
           bottom: 8px;
         }
         .hud-score { font-size: 1.35rem; }
-        .hud-lives { font-size: 0.72rem; letter-spacing: 0.18em; margin-top: 1px; }
+        /* THE LEVEL BANNER. Centred, over a world that has not stopped, and it
+         owns no input - see ui/LevelBanner.js. Above the HUD in the stacking
+         order and clear of the cockpit, which fills the bottom third.
+         `pointer-events: none` is load bearing: a tap anywhere during it is
+         meant to reach the game, and a banner that swallowed one would make
+         the road stop steering for two seconds every five kilometres. */
+      .level-banner {
+        position: fixed;
+        left: 50%;
+        top: 26%;
+        transform: translate(-50%, -50%) scale(0.94);
+        pointer-events: none;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 320ms ease-out, transform 320ms ease-out;
+        z-index: 6;
+      }
+      .level-banner-in {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .level-banner-label {
+        font: 700 clamp(0.62rem, 2vw, 0.85rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.42em;
+        /* The indent cancels the trailing letter-spacing, which otherwise
+           pushes a letter-spaced word off its own centre. */
+        text-indent: 0.42em;
+        color: #7dffc4;
+        text-shadow: 0 0 14px rgba(125, 255, 196, 0.5);
+      }
+      .level-banner-number {
+        font: 700 clamp(2.6rem, 11vw, 5rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        line-height: 1;
+        color: #eaf6ff;
+        text-shadow: 0 0 26px rgba(125, 255, 196, 0.55);
+      }
+      .level-banner-life {
+        margin-top: 2px;
+        font: 700 clamp(0.6rem, 1.9vw, 0.8rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.22em;
+        text-indent: 0.22em;
+        color: #ff6e8a;
+        text-shadow: 0 0 12px rgba(255, 80, 120, 0.5);
+      }
+
+      /* THE LEVEL SELECT. Ten small cards in one scrolling row, built to the
+         same rules as the road grid: it has to fit 740x320 with the confirm
+         button still on screen, so a card carries a number, a medal pip and a
+         time and nothing else. */
+      .level-grid {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        touch-action: none;
+        padding: 2px 2px 4px;
+        scrollbar-width: none;
+      }
+      .level-grid::-webkit-scrollbar { display: none; }
+      .level-card {
+        pointer-events: auto;
+        position: relative;
+        flex: 0 0 auto;
+        width: clamp(52px, 9vw, 74px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 4px;
+        border: 1px solid rgba(125, 200, 235, 0.28);
+        border-radius: 8px;
+        background: rgba(6, 12, 24, 0.66);
+        cursor: pointer;
+        transition: border-color 160ms ease-out, transform 160ms ease-out;
+      }
+      .level-card-on {
+        border-color: #7dffc4;
+        transform: translateY(-2px);
+        box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
+      }
+      .level-card-locked { opacity: 0.4; cursor: default; }
+      .level-card-number {
+        font: 700 clamp(0.95rem, 3vw, 1.3rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: #eaf6ff;
+        line-height: 1;
+      }
+      .level-card-medal {
+        font-size: 9px;
+        line-height: 1;
+        min-height: 9px;
+        color: transparent;
+      }
+      .level-card-medal[data-medal="gold"] { color: #ffd166; }
+      .level-card-medal[data-medal="silver"] { color: #cfe0f0; }
+      .level-card-medal[data-medal="bronze"] { color: #d08b5a; }
+      .level-card-best {
+        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.08em;
+        color: #8fb6d6;
+        min-height: 9px;
+      }
+
+      .hud-lives { font-size: 0.72rem; letter-spacing: 0.18em; margin-top: 1px; }
         .hud-meta { font-size: 0.56rem; letter-spacing: 0.16em; margin-top: 2px; }
       }
 
@@ -882,6 +1084,23 @@
            palettes meeting, which is what the option actually does. */
         background: linear-gradient(115deg, #2a0f4a 0%, #7a1f6d 42%, #0e5a52 72%, #1b8f6a 100%);
       }
+      /* SEVİYE 7 / 10 on the card. Sits over the thumbnail's bottom edge
+         rather than under the label, because the row is already as tall as a
+         320px viewport allows and another line of text would push the confirm
+         button off the screen. */
+      .road-progress {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: rgba(4, 8, 18, 0.82);
+        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.12em;
+        color: #7dffc4;
+      }
+      .road-progress-done { color: #ffd166; }
+
       .road-card-locked { opacity: 0.4; cursor: default; }
       .road-lock {
         position: absolute;
@@ -903,6 +1122,12 @@
       @media (prefers-reduced-motion: reduce) {
         .bike-bar-fill,
         .road-card { transition: none; }
+        .level-card { transition: none; }
+        /* The banner still appears and still leaves; it simply stops sliding.
+           Reduced motion is about movement, not about hiding information. */
+        .level-banner { transition: opacity 320ms ease-out; }
+        .level-banner,
+        .level-banner-in { transform: translate(-50%, -50%); }
       }
 
       /* THE 740x320 CASE. Everything shrinks; nothing is removed, because a

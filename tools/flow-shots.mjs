@@ -80,10 +80,19 @@ const cards = await page.evaluate(() => Array.from(document.querySelectorAll('.r
   .map((c) => ({ label: c.textContent, locked: c.classList.contains('road-card-locked') })));
 console.log('cards:', JSON.stringify(cards));
 
-// --- and ride it to the line --------------------------------------------
+// --- the level screen, staged mode only ---------------------------------
 await page.click('.select-confirm');
+await page.waitForTimeout(1200);
+if (await page.isVisible('.level-screen').catch(() => false)) {
+  console.log('level screen up: true');
+  await page.screenshot({ path: `${OUT}/flow-5-level.png` });
+  await page.click('.level-screen .select-confirm');
+  await page.waitForTimeout(1200);
+}
+
+// --- and ride it to the line --------------------------------------------
 await page.waitForTimeout(2500);
-await page.screenshot({ path: `${OUT}/flow-5-run.png` });
+await page.screenshot({ path: `${OUT}/flow-6-run.png` });
 
 // WAITED FOR, not slept through: `resultsDelay` is game time and a throttled
 // page advances it far slower than the wall clock - core/Loop.js clamps dt to

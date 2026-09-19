@@ -98,7 +98,11 @@ export class Hud {
     if (this.stageEl.hidden === session.staged) this.stageEl.hidden = !session.staged;
     if (session.staged) {
       const stageText = config.ui.stageHud;
-      const line = Math.floor(session.stage.travelled) + stageText.progress
+      // WHICH LEVEL COMES FIRST, because it is the number that changes least
+      // and orients the other two: 2134 / 5000 means nothing on its own once
+      // there are ten of them to be 2134 metres into.
+      const line = config.ui.levelBanner.label + ' ' + session.levels.level
+        + '   ' + Math.floor(session.stage.travelled) + stageText.progress
         + config.stage.length + stageText.unit
         + '   ' + session.stage.time.toFixed(1);
       if (line !== this._stage) {

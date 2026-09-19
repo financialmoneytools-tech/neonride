@@ -74,6 +74,13 @@ for (const size of SIZES) {
     await page.click(selector);
     await page.waitForTimeout(500);
   }
+  // THE LEVEL SCREEN, which only exists in staged mode. Clicked only if it
+  // actually appeared, so this same walk still works in SONSUZ, where there
+  // are no levels and the road screen goes straight to the run.
+  if (await page.isVisible('.level-screen').catch(() => false)) {
+    await page.click('.level-screen .select-confirm');
+    await page.waitForTimeout(500);
+  }
   await page.waitForFunction(() => window.NEON.session.phase === 'running', null, { timeout: 8000 });
   await page.waitForTimeout(2500);
 
