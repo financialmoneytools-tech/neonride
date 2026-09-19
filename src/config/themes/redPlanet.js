@@ -102,9 +102,22 @@ export const redPlanet = {
       // as a wall of geometry instead of as a horizon. Far enough out that
       // the fog turns them into silhouettes, tall enough that they still cut
       // the sky down to a strip.
+      // MEASURED, NOT GUESSED, and this took two goes. A ridge's angular
+      // height is atan(height / distance) against a frame whose top edge is
+      // at 31.8 degrees. At 340/230 the near wall reached 34 - taller than
+      // the picture - and at 620/300 it still reached 26, which is a black
+      // slab across the right third of the frame with a hard straight edge
+      // on it rather than a canyon. Photographed both times.
+      //
+      // 800/190 reaches 13.4 degrees and 1200/320 reaches 15, so the rim
+      // sits in the lower half of the sky where fog can soften it into a
+      // silhouette - which is the only thing that makes these read as
+      // distance rather than as geometry. The canyon feeling comes from the
+      // fog density and the rock density, not from putting a wall on the
+      // lens.
       layers: [
-        { distance: 620, height: 300, floor: 0.5, color: 0x2a120e },
-        { distance: 960, height: 470, floor: 0.55, color: 0x1c0c0a },
+        { distance: 800, height: 190, floor: 0.35, color: 0x2a120e },
+        { distance: 1200, height: 320, floor: 0.4, color: 0x1c0c0a },
       ],
     },
 
