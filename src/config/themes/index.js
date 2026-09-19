@@ -1,5 +1,9 @@
 import { galaxyRoad } from './galaxyRoad.js';
 import { auroraPass } from './auroraPass.js';
+import { sunsetHighway } from './sunsetHighway.js';
+import { neonMetropolis } from './neonMetropolis.js';
+import { nebulaCoast } from './nebulaCoast.js';
+import { redPlanet } from './redPlanet.js';
 
 /**
  * NEON RIDE - road themes.
@@ -31,6 +35,10 @@ import { auroraPass } from './auroraPass.js';
 export const themes = {
   galaxyRoad,
   auroraPass,
+  sunsetHighway,
+  neonMetropolis,
+  nebulaCoast,
+  redPlanet,
 };
 
 /** Which theme is fitted. `?theme=` overrides it; the T key cycles. */
@@ -47,10 +55,10 @@ export const theme = 'galaxyRoad';
  * refuses to lock a name that is present in `themes` above.
  */
 export const plannedThemes = [
-  { key: 'sunsetHighway', name: 'GÜN BATIMI YOLU' },
-  { key: 'neonMetropolis', name: 'NEON ŞEHİR' },
-  { key: 'nebulaCoast', name: 'NEBULA KIYISI' },
-  { key: 'redPlanet', name: 'KIZIL GEZEGEN' },
+  // ALL SIX ARE BUILT. The list is empty rather than deleted, because the
+  // road screen still reads it and the next road to be planned belongs here -
+  // and because the screen refuses to lock a name that exists in `themes`
+  // above, so a stale entry would be a visible lie rather than a quiet one.
 ];
 
 /**

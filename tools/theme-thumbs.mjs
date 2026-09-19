@@ -94,14 +94,37 @@ server.child.kill();
 // rendered straight to card size aliases every one of them into a dashed mess.
 // Pillow is already a dependency of the two cockpit tools, so this is the same
 // toolchain rather than a new one.
+// AND THE MIXED CARD'S MONTAGE. TUM YOLLAR was the one card with no picture
+// on it - a bare gradient beside six photographed roads, which reads as an
+// empty slot rather than as an option. It cannot have a photograph, because
+// it is not one place; what it gets instead is a vertical slice of every
+// road that exists, in order, which is literally what the option does.
+//
+// BUILT FROM WHATEVER ROADS EXIST rather than from a list, so adding a
+// seventh road updates this card by existing - the same rule the rest of
+// this tool follows.
 const script = [
   'import glob, os',
   'from PIL import Image',
-  "for f in sorted(glob.glob('" + DIR + "/*.jpg')):",
+  "shots = sorted(f for f in glob.glob('" + DIR + "/*.jpg') if 'mixed' not in f)",
+  'for f in shots:',
   '    im = Image.open(f).convert("RGB")',
   '    im = im.resize((' + OUT_W + ', ' + OUT_H + '), Image.LANCZOS)',
   '    im.save(f, quality=86, optimize=True)',
-  '    print("  %-14s %5.1f KB" % (os.path.basename(f), os.path.getsize(f) / 1024))',
+  '    print("  %-16s %5.1f KB" % (os.path.basename(f), os.path.getsize(f) / 1024))',
+  'if shots:',
+  '    montage = Image.new("RGB", (' + OUT_W + ', ' + OUT_H + '))',
+  '    n = len(shots)',
+  '    for i, f in enumerate(shots):',
+  '        im = Image.open(f).convert("RGB")',
+  '        x0 = round(i * ' + OUT_W + ' / n)',
+  '        x1 = round((i + 1) * ' + OUT_W + ' / n)',
+  '        w = x1 - x0',
+  '        cx = (im.width - w) // 2',
+  '        montage.paste(im.crop((cx, 0, cx + w, im.height)), (x0, 0))',
+  "    out = os.path.join('" + DIR + "', 'mixed.jpg')",
+  '    montage.save(out, quality=86, optimize=True)',
+  '    print("  %-16s %5.1f KB  (%d roads)" % ("mixed.jpg", os.path.getsize(out) / 1024, n))',
 ].join('\n');
 
 const resize = spawn('python', ['-c', script], { stdio: 'inherit' });

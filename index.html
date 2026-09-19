@@ -807,6 +807,12 @@
          possible, and when the swipe silently failed there was no second way
          in. These are 15 per cent of the width each and the full height of the
          body, so they are impossible to miss with a thumb. */
+      /* NOT A CARD. These were a bordered, filled, card-sized panel running
+         from 22% to 78% of the screen height - at 720p that is a 108x410
+         rounded rectangle at each edge, which reads as two empty road cards
+         flanking the grid. It was reported as exactly that. The TOUCH TARGET
+         stays the same size, because it has to on a phone; what goes is the
+         border and the fill, so what is left is the glyph. */
       .select-arrow {
         position: absolute;
         top: 22%;
@@ -815,19 +821,21 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid rgba(125, 200, 235, 0.25);
+        border: 0;
         border-radius: 12px;
-        background: rgba(6, 12, 24, 0.5);
+        background: transparent;
         color: #9fe9ff;
+        text-shadow: 0 0 12px rgba(10, 20, 35, 0.9), 0 0 3px rgba(10, 20, 35, 1);
         font: 400 26px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
       .select-arrow-prev { left: 8px; }
       .select-arrow-next { right: 8px; }
+      /* Pressed still has to be visible, and now it is the only time the
+         button has a shape at all. */
       .select-arrow:active {
         background: rgba(125, 255, 196, 0.22);
-        border-color: #7dffc4;
         color: #eafff6;
       }
 
@@ -1079,10 +1087,16 @@
         color: #cfe9ff;
         text-align: center;
       }
+      /* THE GRADIENT IS THE FALLBACK NOW, not the card. It gets a real
+         montage thumbnail like every other road - see tools/theme-thumbs.mjs
+         - and this is what shows if that file is missing, which is better
+         than an empty frame either way. */
       .road-card-mixed .road-shot {
-        /* No photograph, because it is not one place. The card shows the two
-           palettes meeting, which is what the option actually does. */
-        background: linear-gradient(115deg, #2a0f4a 0%, #7a1f6d 42%, #0e5a52 72%, #1b8f6a 100%);
+        background-color: #2a0f4a;
+        background-image: linear-gradient(115deg, #2a0f4a 0%, #7a1f6d 42%, #0e5a52 72%, #1b8f6a 100%);
+      }
+      .road-card-mixed .road-shot[style*="url"] {
+        background-image: var(--road-shot);
       }
       /* SEVİYE 7 / 10 on the card. Sits over the thumbnail's bottom edge
          rather than under the label, because the row is already as tall as a

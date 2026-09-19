@@ -105,6 +105,51 @@ export const sky = {
     },
   },
 
+  // ================= CELESTIAL BODIES =================
+  //
+  // The retro sun on Sunset Highway, the planet that fills a third of the sky
+  // on Red Planet, the two moons over Nebula Coast. One billboard each, a
+  // handful of triangles, and the single largest thing any of those three
+  // roads has to say about where it is.
+  //
+  // STRUCTURAL COUNT, CONTINUOUS EVERYTHING ELSE. `slots` billboards are
+  // allocated at load whatever theme is fitted, and a theme that wants none -
+  // Galaxy Road, Aurora Pass, Neon Metropolis - simply leaves them at opacity
+  // zero. That is the rule from docs/THEMES.md: a theme selects and tints, it
+  // never allocates, so a mixed run can fade a sun in without a reload.
+  bodies: {
+    // Three is the most any theme asks for and there is no reason to carry a
+    // fourth. Two moons is the largest set; one huge planet is the largest
+    // single body.
+    slots: 3,
+
+    // Where they sit, as a direction rather than a position: azimuth around
+    // the horizon and elevation above it, at a fixed distance inside the sky
+    // dome. A body is part of the sky, so it never moves with the rider.
+    distance: 1360,
+
+    // Per-theme entries override these. `bands` is what makes a retro sun a
+    // retro sun: horizontal cuts through the disc, widening toward the
+    // bottom, which is the one detail that says eighties rather than daytime.
+    defaults: {
+      azimuth: 0,
+      elevation: 0.12,
+      radius: 150,
+      color: 0xff7a3d,
+      edgeColor: 0xff3d8b,
+      opacity: 0,
+      bands: 0,
+      bandGap: 0.42,
+      // A soft rim so a disc is not a sticker. Fraction of the radius.
+      halo: 0.22,
+      haloOpacity: 0.5,
+      // 0 is a flat disc; above 0 shades one side, which is what makes a
+      // planet a sphere rather than a circle.
+      shade: 0,
+      shadeAzimuth: -0.6,
+    },
+  },
+
   nebula: {
     textureSize: 256,
     textureVariants: 3,

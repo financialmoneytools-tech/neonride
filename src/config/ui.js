@@ -227,10 +227,18 @@ export const ui = {
     name: {
       galaxyRoad: 'GALAKSİ YOLU',
       auroraPass: 'KUZEY GEÇİDİ',
+      sunsetHighway: 'GÜN BATIMI YOLU',
+      neonMetropolis: 'NEON ŞEHİR',
+      nebulaCoast: 'NEBULA KIYISI',
+      redPlanet: 'KIZIL GEZEGEN',
     },
     blurb: {
       galaxyRoad: 'YILDIZLARIN ALTINDA BOŞ BİR OTOYOL.',
       auroraPass: 'KAR, DAĞLAR VE KUZEY IŞIKLARI.',
+      sunsetHighway: 'ÇÖLDE BATMAYAN BİR GÜNEŞ.',
+      neonMetropolis: 'YAĞMUR, MOR BULUTLAR VE ISLAK ASFALT.',
+      nebulaCoast: 'İKİ AYIN ALTINDA SAKİN BİR KIYI.',
+      redPlanet: 'KIZIL KANYON VE DEV BİR GEZEGEN.',
     },
     // The card that cycles every built road through light gates. Named TÜM
     // YOLLAR rather than anything with SONSUZ in it, because SONSUZ is a game
@@ -243,6 +251,9 @@ export const ui = {
     // promise the mode does not keep.
     progress: 'SEVİYE %1 / %2',
     done: 'TAMAMLANDI',
+    // TÜM YOLLAR counts ROADS, not levels: it is the card that means all of
+    // them, so a level number would be asking which road's level.
+    mixedProgress: 'YOL %1 / %2',
   },
 
   // The level select, which opens after a road in staged mode. Every level up

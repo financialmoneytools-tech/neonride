@@ -6,7 +6,7 @@ import { SelectScreen } from './select/SelectScreen.js';
  * RoadScreen - pick the road, or ask for all of them.
  *
  * One card per built theme, with a thumbnail taken from the game itself by
- * tools/theme-thumbs.mjs. Then TÜM YOLLAR, which cycles every built road
+ * tools/theme-thumbs.mjs. Then TUM YOLLAR, which cycles every built road
  * through light gates. Then the planned roads, shown LOCKED rather than left
  * out - "there are more roads coming" is worth a card, and an empty grid says
  * the opposite.
@@ -49,13 +49,27 @@ export class RoadScreen {
 
     // Only worth offering once there is more than one road to move between.
     if (Object.keys(config.themes).length > 1) {
+      // A REAL THUMBNAIL AND A REAL PROGRESS BADGE. It was the one card with
+      // neither - a bare gradient with nothing on it, which beside six
+      // photographed roads reads as an empty slot rather than as an option.
+      // The montage is built by tools/theme-thumbs.mjs out of the same
+      // thumbnails the other cards use, so it cannot go stale when a road is
+      // added: it is made from whatever roads exist.
+      const roads = Object.keys(config.themes);
+      const done = staged
+        ? roads.filter((key) => handlers.recordFor(key).totalBest !== null).length
+        : 0;
       items.push({
         key: config.MIXED,
         label: text.mixed,
         blurb: text.mixedBlurb,
-        thumb: '',
+        thumb: 'thumbs/mixed.jpg',
         mixed: true,
         locked: false,
+        // COUNTED IN ROADS, not levels. This card means all of them, so a
+        // level number would be answering a question nobody asked - which
+        // road's level? See config/ui.js.
+        combined: staged ? { done, total: roads.length } : null,
       });
     }
 
@@ -110,15 +124,25 @@ export class RoadScreen {
       // "which road shall I ride" and "how far did I get on it" are the same
       // question, and answering only the first would send a rider into a road
       // with no idea whether they had a level to finish or a road to start.
-      if (item.progress) {
+      if (item.progress || item.combined) {
         const badge = document.createElement('span');
         badge.className = 'road-progress';
-        const done = item.progress.totalBest !== null;
-        badge.textContent = done
-          ? text.done
-          : text.progress
-            .replace('%1', String(item.progress.reached))
-            .replace('%2', String(config.levels.count));
+        let done = false;
+        if (item.combined) {
+          done = item.combined.done >= item.combined.total;
+          badge.textContent = done
+            ? text.done
+            : text.mixedProgress
+              .replace('%1', String(item.combined.done))
+              .replace('%2', String(item.combined.total));
+        } else {
+          done = item.progress.totalBest !== null;
+          badge.textContent = done
+            ? text.done
+            : text.progress
+              .replace('%1', String(item.progress.reached))
+              .replace('%2', String(config.levels.count));
+        }
         if (done) badge.classList.add('road-progress-done');
         card.append(badge);
       }

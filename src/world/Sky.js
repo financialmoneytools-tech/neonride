@@ -6,6 +6,7 @@ import { SkyDome } from './sky/SkyDome.js';
 import { Starfield } from './sky/Starfield.js';
 import { Nebula } from './sky/Nebula.js';
 import { Aurora } from './sky/Aurora.js';
+import { Bodies } from './sky/Bodies.js';
 
 /**
  * Sky - owns the whole sky: gradient dome, star layers, nebulae and the
@@ -42,6 +43,12 @@ export class Sky {
 
     this.aurora = new Aurora();
     this.group.add(this.aurora.mesh);
+
+    // The sun, the planet, the moons. Allocated whatever theme is fitted and
+    // left at zero opacity by the ones that want none - see world/sky/Bodies.js
+    // and the parked-instance rule in docs/THEMES.md.
+    this.bodies = new Bodies();
+    this.group.add(this.bodies.mesh);
   }
 
   /**
@@ -54,6 +61,7 @@ export class Sky {
     this.starfield.applyTheme();
     this.nebula.applyTheme();
     this.aurora.applyTheme();
+    this.bodies.applyTheme();
   }
 
   /**
@@ -70,6 +78,7 @@ export class Sky {
   }
 
   dispose() {
+    this.bodies.dispose();
     this.aurora.dispose();
     this.nebula.dispose();
     this.starfield.dispose();
