@@ -9,6 +9,8 @@
  * matrix writes per frame, and nothing else.
  */
 
+import { vehicles } from './vehicles.js';
+
 // --- Traffic ---
 export const traffic = {
   enabled: true,
@@ -95,20 +97,20 @@ export const traffic = {
   types: [
     {
       name: 'sedan',
+      ...vehicles.sedan,
       count: 22,
       // Low and wide. The lowest thing on the road by a clear margin.
       size: { length: 4.7, width: 2.1, height: 0.82 },
-      cabin: { length: 2.2, width: 1.7, height: 0.52, offset: 0.1, taper: 0.76 },
       speed: { min: 0.4, max: 0.78 },
       stripColor: 0x2de3ff,
     },
     {
       name: 'van',
+      ...vehicles.van,
       count: 10,
       // Tall slab with a flat rear: the cabin is barely a lip, so the profile
       // is one unbroken box.
       size: { length: 5.2, width: 2.15, height: 2.55 },
-      cabin: { length: 1.5, width: 2.0, height: 0.12, offset: -1.6, taper: 0.96 },
       speed: { min: 0.3, max: 0.52 },
       stripColor: 0xff8a1f,
     },
@@ -138,11 +140,11 @@ export const traffic = {
     },
     {
       name: 'jeep',
+      ...vehicles.jeep,
       count: 14,
       // Raised, NARROW and boxy - the tall-and-thin one. Its ride height lifts
       // the whole body clear of the road, which is visible as a gap underneath.
       size: { length: 4.3, width: 1.78, height: 1.72 },
-      cabin: { length: 2.5, width: 1.7, height: 0.78, offset: 0.0, taper: 0.97 },
       rideHeight: 0.38,
       speed: { min: 0.36, max: 0.7 },
       stripColor: 0x39ff88,

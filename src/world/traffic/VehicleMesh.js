@@ -3,7 +3,8 @@ import { config } from '../../config.js';
 import { GeometryBuilder, paintVertices } from '../../utils/geometry.js';
 import { createStarTexture } from '../../utils/textures.js';
 import { applyDistanceFade } from '../../utils/distanceFade.js';
-import { addMarkers, addTruckParts, rearFace } from './truckParts.js';
+import { addMarkers } from './truckParts.js';
+import { buildBody } from './parts/bodies.js';
 
 /**
  * VehicleMesh - the instanced meshes for ONE vehicle type: body, tinted strips
@@ -77,7 +78,10 @@ export class VehicleMesh {
       this.materials.push(material);
     }
 
-    this.body = this._instance(this._buildBody(type), this.bodyMaterial, 'Body');
+    // THE SHELL LIVES IN ./parts/bodies.js. This class owns the four instanced
+    // meshes a type needs; the shape of the thing is a different job and it is
+    // what pushed this file past the line limit STATUS.md had already named.
+    this.body = this._instance(buildBody(type), this.bodyMaterial, 'Body');
     this.strip = this._instance(this._buildStrips(type, shared), this.stripMaterial, 'Strip');
     this.tail = this._instance(this._buildTails(type, shared), this.tailMaterial, 'Tail');
     this._buildGlow(type, shared, road);
@@ -95,45 +99,6 @@ export class VehicleMesh {
     this.geometries.push(geometry);
     this.meshes.push(mesh);
     return mesh;
-  }
-
-  /** Shell plus cabin. The cabin is what gives each type its profile. */
-  _buildBody(type) {
-    const builder = new GeometryBuilder();
-    const matrix = new THREE.Matrix4();
-    const size = type.size;
-
-    builder.add(new THREE.BoxGeometry(size.width, size.height, size.length), matrix.identity());
-
-    const cabin = type.cabin;
-    const roof = new THREE.BoxGeometry(cabin.width, cabin.height, cabin.length);
-    // Taper the roof inward so a cabin reads as a cabin and not a second box.
-    const position = roof.attributes.position;
-    for (let i = 0; i < position.count; i++) {
-      if (position.getY(i) > 0) {
-        position.setX(i, position.getX(i) * cabin.taper);
-        position.setZ(i, position.getZ(i) * cabin.taper);
-      }
-    }
-    roof.computeVertexNormals();
-    builder.add(
-      roof,
-      matrix.makeTranslation(0, size.height * 0.5 + cabin.height * 0.5, cabin.offset),
-    );
-
-    // A second, taller box over the rear. The step in the roofline is what makes
-    // an ambulance an ambulance at a hundred units, long before a light is.
-    const rearBox = type.rearBox;
-    if (rearBox) {
-      builder.add(
-        new THREE.BoxGeometry(rearBox.width, rearBox.height, rearBox.length),
-        matrix.makeTranslation(0, size.height * 0.5 + rearBox.height * 0.5, rearBox.offset),
-      );
-    }
-
-    if (type.truck) addTruckParts(type, builder, matrix);
-
-    return builder.build('traffic-body-' + type.name);
   }
 
   /** Flank strips and the rear outline, both tinted per vehicle. */
@@ -229,9 +194,12 @@ export class VehicleMesh {
     // The lit number plate: pale, not red, and the one part of a truck's rear
     // that is genuinely white at night. A rectangle of light low on the doors
     // is most of what says "the back of a lorry" from behind.
-    const truck = type.truck;
-    if (truck) {
-      const plate = truck.plate;
+    // ANY TYPE THAT ASKS. It was trucks only, because trucks were the only
+    // thing detailed enough to want one; a car's plate is the same rectangle
+    // of light and it is most of what the rider is actually looking at when
+    // they are a car length behind.
+    const plate = (type.truck && type.truck.plate) || (type.rear && type.rear.plate);
+    if (plate) {
       // ON THE CHASSIS REAR, not the cargo box's. A box truck's body ends at
       // 4.1 and its chassis runs to 4.3, so a plate placed on the box face sat
       // 200mm INSIDE the chassis and was never drawn. The doors are fine on the
