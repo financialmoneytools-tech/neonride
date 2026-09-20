@@ -358,6 +358,17 @@ that chose a source by frame shape, and the second (tall) framing profile.
   deterministic in its inputs but not in its timing, and a single lane choice
   early on changes how the rest of the run threads. Worth a longer sample before
   anyone tunes `nearMiss.range` again.
+- **Red Planet and Nebula Coast may not be lit by their own sky body.** Both
+  have a body - the planet, the two moons - and both still paint their dome
+  glow at a fixed azimuth, which is the fault Sunset Highway was fixed for:
+  the sky lit from somewhere the body is not. Not looked at, and cosmetic
+  either way - both roads are signed off. The mechanism to fix it exists and
+  costs one line per theme: `sky.dome.glow.follow` is an index into
+  `sky.bodies.list` and anchors the pool on that body, so the warmth gathers
+  around it and falls off with angular distance. Mind the spread when doing
+  it - a glow aimed down the road needs a much tighter `falloff` than the same
+  glow aimed off to the side, for the reason measured in
+  `config/themes/sunsetHighway.js`.
 - **Sway lifts the cut bottom edge** at full lock. The plane sits 7.6 per cent
   of the frame below the bottom edge, down from 10.2 before the framing change,
   so there is less headroom than there was. Still headroom, but it is geometry
