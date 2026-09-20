@@ -346,6 +346,47 @@ that chose a source by frame shape, and the second (tall) framing profile.
   bottom edge looks exactly like one that fits, and the confirm button going
   off the screen is the difference between a playable game and a dead end.
 
+### Half the stylesheet was dead for three commits
+
+`index.html` keeps its CSS in one inline `<style>`. The "one card per screen"
+edit replaced the `.road-grid` rule and DROPPED ITS CLOSING BRACE, so from
+that commit everything below line 1196 was swallowed into an unterminated
+rule and never parsed: 121 rules survived, and the `@media (max-height:
+400px)` and `(max-height: 520px)` blocks - the entire short-frame layout -
+were absent from the stylesheet the browser actually had.
+
+It was invisible because the page still looked broadly right, and because
+the font pass was MEASURED AGAINST THE BROKEN SHEET: `npm run fit` reported
+no text under 10.5 px while `.select-hint { font-size: 9px }` sat in a block
+that was not applying. With the brace restored the same check immediately
+found four real failures.
+
+Found by reading `document.styleSheets[0].cssRules` out of the running page
+rather than by looking at the file - a missing brace does not show up in a
+diff and the file reads perfectly well. Worth doing again the next time a
+rule "does not apply for no reason": that symptom is what sent this one
+looking, after `aspect-ratio` applied to one card and not another.
+
+### The mode cards
+
+`KOŞU` and `SONSUZ` were a name and one line in a large empty box. Each now
+carries a thumbnail at the same 1512x420 the road cards use, the name as the
+biggest thing on the card, and the RULES of the mode as a stat list - length,
+medals and lives for the staged run, no-finish and lives for endless, plus
+the player's bests once there are any. Every number is read from config or
+from the stored records, so a card cannot go stale when the level count or
+the life total changes.
+
+`tools/mode-thumbs.mjs` shoots them from real runs rather than god mode,
+because a MODE is a set of rules and the HUD is where the rules are visible.
+The staged one waits for a real level boundary AND for the gate flash to
+decay: the flash peaks on the same frame the banner appears, and the first
+attempt caught exactly that - a muddy olive wash with a road behind it.
+
+The endless best now keeps the DISTANCE that earned it alongside the score.
+A bare number in storage is the old shape and migrates with a null distance
+rather than an invented one.
+
 ### A measurement must not be run while the source is being edited
 
 `npm run levels` died on its second road with "Execution context was

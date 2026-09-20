@@ -81,6 +81,11 @@ export class SelectFlow {
         this.selection.applyBike();
         this.quickStart();
       },
+      // WHAT THE CARDS SAY ABOUT WHAT HAS BEEN DONE. The flow already carries
+      // `recordFor` for the road screen; the mode cards want the same records
+      // read a different way - the best across all roads rather than one - and
+      // the endless best, which lives on the session.
+      stats: this.handlers.modeStats,
     }, this.selection.mode);
   }
 

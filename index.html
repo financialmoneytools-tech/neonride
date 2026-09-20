@@ -71,6 +71,14 @@
 
          Small, tight and semi transparent, and the smoke test holds it to a
          fifth of the screen with nothing overlapping it. */
+      /* ================= THE CARD THUMBNAIL BOX =================
+         One number, used by the road cards AND the mode cards, because the
+         same picture size is rendered for both and tools/thumb-check.mjs
+         measures whichever is on screen. 3.6 is what a 320px landscape phone
+         can give the picture once the name, the blurb and the stats have had
+         their share - see .road-shot. */
+      :root { --card-shot-aspect: 3.6; }
+
       .stats-overlay {
         position: fixed;
         top: 6px;
@@ -1059,13 +1067,20 @@
       .mode-card {
         pointer-events: auto;
         flex: 0 0 auto;
-        width: min(60vw, 100%);
-        height: min(70vh, 100%);
+        /* 55vw, not 60. The thumbnail is a fixed 3.6:1 so its HEIGHT follows
+           the card's width, and on a 320px landscape phone the card has about
+           210px to spend on a picture, a name and up to five rules. A wider
+           card is a taller picture and less room for the thing the picture is
+           advertising. */
+        width: min(55vw, 100%);
+        /* MAX, not a fixed height, for the same reason the road card changed:
+           a fixed height gives the leftover space to whatever is flexible and
+           the card's shape then follows the viewport instead of its content. */
+        max-height: min(70vh, 100%);
         margin: 0 auto;
         flex-direction: column;
-        justify-content: center;
-        gap: 12px;
-        padding: 16px 20px;
+        gap: 6px;
+        padding: 9px;
         border: 1px solid rgba(125, 200, 235, 0.28);
         border-radius: 11px;
         background: rgba(6, 12, 24, 0.66);
@@ -1078,18 +1093,51 @@
         border-color: #7dffc4;
         box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
       }
+      /* The mode thumbnail is the ROAD thumbnail box - same class, same fixed
+         3.6:1 - so both screens render the same shape and one check covers
+         both files. */
+      .mode-shot {
+        flex: 0 0 auto;
+        width: 100%;
+        aspect-ratio: var(--card-shot-aspect);
+      }
+      /* THE BIGGEST THING ON THE CARD, which is what a mode name should be:
+         it is the entire question this screen asks. Two steps above the road
+         card's name. */
       .mode-label {
-        font: 700 clamp(1.4rem, 4.4vw, 2.1rem)/1.1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        flex: 0 0 auto;
+        font: 700 clamp(1.5rem, 5vw, 2.4rem)/1.05 system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.1em;
         color: #eaf6ff;
         text-align: center;
       }
       .mode-blurb {
-        font: 600 clamp(11px, 2.1vw, 15px)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        flex: 0 0 auto;
+        font: 600 clamp(11px, 1.9vw, 15px)/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.08em;
         color: rgba(200, 228, 250, 0.78);
         text-align: center;
       }
+      /* THE RULES OF THE MODE, laid out like the bike screen's stat bars: one
+         short line each, left aligned as a block but centred on the card, so
+         the eye reads down a column instead of across a paragraph. */
+      .mode-rows {
+        flex: 0 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin: 1px auto 0;
+        text-align: left;
+      }
+      .mode-row {
+        font: 600 clamp(11px, 1.8vw, 14px)/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.08em;
+        color: rgba(190, 225, 250, 0.82);
+      }
+      /* The best rows, which only exist once there is a record, read as an
+         achievement rather than as another rule. */
+      .mode-row:nth-child(n + 4) { color: #7dffc4; }
 
       /* The active mode, on the road screen. Small: it is a reminder, not a
          heading - the screen is about the road. */
@@ -1152,6 +1200,7 @@
         width: 100%;
         height: 100%;
         min-height: 0;
+      }
       .road-grid::-webkit-scrollbar { display: none; }
       /* Every card is built; only the chosen one is on screen. Building them
          all keeps the tap, swipe and arming logic in ui/RoadScreen.js exactly
@@ -1204,7 +1253,7 @@
         display: block;
         flex: 0 0 auto;
         width: 100%;
-        aspect-ratio: 3.6;
+        aspect-ratio: var(--card-shot-aspect);
         border-radius: 6px;
         background: #05030d center/cover no-repeat;
       }
@@ -1293,8 +1342,28 @@
            undo it. What a short frame needs instead is tighter furniture
            around the card, which is the rest of this block. */
         .road-card { width: min(62vw, 100%); }
-        .select-hint { font-size: 9px; }
-        .controls-btn { min-height: 34px; }
+        /* A SHORT FRAME SPENDS ITS HEIGHT ON THE RULES, not on the furniture.
+           Everything here is what it takes for the mode card to contain its
+           own content at 740x320 - measured, not guessed. */
+        /* NARROWER STILL on a short frame, and it is arithmetic rather than
+           taste: the thumbnail is a fixed 3.6:1, so every pixel of card width
+           costs 0.28 px of card height, and at 55vw the rules overflowed the
+           bottom border by 15 px - measured by npm run fit, which now checks
+           a card against its own edges and not only against the viewport. */
+        .mode-card { width: min(50vw, 100%); gap: 4px; padding: 7px; }
+        .mode-label { font-size: clamp(1.2rem, 3.6vw, 1.6rem); }
+        .mode-rows { gap: 2px; }
+        .mode-row { font-size: 11px; line-height: 1.2; }
+        /* THESE TWO USED TO SHRINK and they no longer may. The whole
+           stylesheet below `.road-grid` was dead for a while - one missing
+           brace - so this block never applied and the "up two steps" pass was
+           measured against a sheet that ignored it. With it live again, 9px
+           and 10px are back under the floor npm run fit enforces, and the
+           floor is the point: a button that is easy to hit and impossible to
+           read is the wrong half solved. Height is what a short frame saves
+           here, not legibility. */
+        .select-hint { font-size: 11px; }
+        .controls-btn { min-height: 34px; padding: 6px 12px; font-size: 13px; }
       }
 
       /* A LANDSCAPE PHONE IS ABOUT 360 CSS PIXELS TALL. Stacked, this card's
@@ -1326,7 +1395,7 @@
         .panel-prompt { font-size: clamp(0.58rem, 1.9vw, 0.76rem); }
 
         .controls-panel { margin-top: 4px; }
-        .controls-btn { min-height: 34px; padding: 6px 10px; font-size: 10px; }
+        .controls-btn { min-height: 34px; padding: 6px 12px; font-size: 13px; }
         .comfort-toggle { min-height: 34px; padding: 6px 10px; }
         .pause-exit { margin-top: 6px; gap: 6px; }
         .pause-exit-button { min-height: 34px; padding: 6px 10px; letter-spacing: 0.1em; }

@@ -26,7 +26,6 @@ import { mkdirSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
 
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
-const SIZE = { width: 740, height: 320 };
 const SHOT = process.argv.includes('--shot');
 // Under this, letterspaced text on a phone at arm's length stops being
 // readable. It is the floor the whole "up two steps" pass was for.
@@ -53,17 +52,23 @@ function check(name, ok, detail) {
 
 const server = await startServer();
 const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-gpu'] });
-const context = await browser.newContext({
-  ...devices['Pixel 7'], viewport: SIZE, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
-});
-const page = await context.newPage();
-page.on('pageerror', (e) => failures.push('page error ' + e.message));
-await page.goto(server.url + '?stats=0', { waitUntil: 'load' });
-await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
-await page.waitForTimeout(1400);
-await page.touchscreen.tap(SIZE.width / 2, SIZE.height / 2);
-await page.waitForTimeout(900);
 if (SHOT) mkdirSync('tools/out/ui', { recursive: true });
+
+/**
+ * THE TWO FRAMES THE GAME IS ACTUALLY PLAYED IN.
+ *
+ * A landscape phone is the hard one - 320 CSS pixels of height for a title, a
+ * card and two buttons - and 16:9 is where it is recorded. A layout tuned for
+ * one and never measured in the other is how a short-frame override sat in
+ * the stylesheet doing nothing.
+ */
+const FRAMES = [
+  { label: 'phone', size: { width: 740, height: 320 }, dpr: 3, mobile: true },
+  { label: '16:9', size: { width: 1280, height: 720 }, dpr: 2, mobile: false },
+];
+
+let page = null;
+let SIZE = FRAMES[0].size;
 
 /**
  * Measures everything visible under one screen against the viewport.
@@ -111,23 +116,59 @@ async function measure(label, root) {
     }
     const card = screen.querySelector('.road-card-on, .mode-card-on, .level-card-on, .bike-name');
     const box = card ? card.getBoundingClientRect() : null;
+
+    // ================= AND INSIDE ITS OWN CARD =================
+    //
+    // Fitting the VIEWPORT is not enough. The mode card overflowed its own
+    // border by about sixty pixels - the name, the blurb and the rules
+    // hanging off the bottom edge, over the road - and every viewport check
+    // passed, because all of it was still on screen. A card is a box with a
+    // line drawn round it, and content outside that line reads as broken
+    // whatever the viewport says.
+    const spill = [];
+    if (card && box) {
+      const kids = card.querySelectorAll('*');
+      for (let i = 0; i < kids.length; i++) {
+        const el = kids[i];
+        const st = getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        if (r.left < box.left - 0.5 || r.right > box.right + 0.5
+          || r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5) {
+          spill.push({
+            what: String(el.className || el.tagName),
+            by: Math.round(Math.max(
+              box.left - r.left, r.right - box.right,
+              box.top - r.top, r.bottom - box.bottom,
+            )),
+          });
+        }
+      }
+    }
+
     return {
       over,
       small,
+      spill,
       viewport: [w, h],
       card: box ? { w: Math.round(box.width), h: Math.round(box.height) } : null,
     };
   }, { sel: root, minFont: MIN_FONT });
 
-  if (SHOT) await page.screenshot({ path: 'tools/out/ui/' + label + '.png' });
+  if (SHOT) {
+    await page.screenshot({ path: 'tools/out/ui/' + label.replace(/[^a-z0-9]+/gi, '-') + '.png' });
+  }
 
-  console.log('  ' + label.padEnd(6) + '  viewport ' + report.viewport[0] + 'x' + report.viewport[1]
+  console.log('  ' + label.padEnd(12) + '  viewport ' + report.viewport[0] + 'x' + report.viewport[1]
     + '  card ' + (report.card ? report.card.w + 'x' + report.card.h : '-'));
 
   check(label + ': nothing falls outside the frame', report.over.length === 0,
     report.over.slice(0, 4).map((o) => o.what + ' at [' + o.box.join(', ') + ']').join('; '));
   check(label + ': no text under ' + MIN_FONT + 'px', report.small.length === 0,
     report.small.slice(0, 4).map((o) => o.what + ' at ' + o.size.toFixed(1) + 'px').join('; '));
+  check(label + ': the card contains its own content', report.spill.length === 0,
+    report.spill.slice(0, 4).map((o) => o.what + ' by ' + o.by + 'px').join('; '));
   return report;
 }
 
@@ -140,20 +181,42 @@ function checkBig(label, report) {
     + ' in a ' + SIZE.width + 'x' + SIZE.height + ' frame');
 }
 
-checkBig('mode', await measure('mode', '.mode-screen'));
+for (const frame of FRAMES) {
+  SIZE = frame.size;
+  const context = await browser.newContext(frame.mobile
+    ? { ...devices['Pixel 7'], viewport: frame.size, deviceScaleFactor: frame.dpr,
+      isMobile: true, hasTouch: true }
+    : { viewport: frame.size, deviceScaleFactor: frame.dpr });
+  page = await context.newPage();
+  page.on('pageerror', (e) => failures.push(frame.label + ': page error ' + e.message));
+  await page.goto(server.url + '?stats=0', { waitUntil: 'load' });
+  await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+  await page.waitForTimeout(1400);
+  if (frame.mobile) await page.touchscreen.tap(frame.size.width / 2, frame.size.height / 2);
+  else await page.mouse.click(frame.size.width / 2, frame.size.height / 2);
+  await page.waitForTimeout(900);
 
-await page.click('.mode-screen .select-confirm');
-await page.waitForTimeout(650);
-await measure('bike', '.bike-screen');
+  console.log('');
+  console.log('=== ' + frame.label + '  ' + frame.size.width + 'x' + frame.size.height
+    + ' at dpr ' + frame.dpr + ' ===');
 
-await page.click('.bike-screen .select-confirm');
-await page.waitForTimeout(750);
-checkBig('road', await measure('road', '.road-screen'));
+  const tag = (name) => frame.label + '/' + name;
+  checkBig(tag('mode'), await measure(tag('mode'), '.mode-screen'));
 
-await page.click('.road-screen .select-confirm');
-await page.waitForTimeout(750);
-if (await page.isVisible('.level-screen').catch(() => false)) {
-  await measure('level', '.level-screen');
+  await page.click('.mode-screen .select-confirm');
+  await page.waitForTimeout(650);
+  await measure(tag('bike'), '.bike-screen');
+
+  await page.click('.bike-screen .select-confirm');
+  await page.waitForTimeout(750);
+  checkBig(tag('road'), await measure(tag('road'), '.road-screen'));
+
+  await page.click('.road-screen .select-confirm');
+  await page.waitForTimeout(750);
+  if (await page.isVisible('.level-screen').catch(() => false)) {
+    await measure(tag('level'), '.level-screen');
+  }
+  await context.close();
 }
 
 await browser.close();
@@ -167,5 +230,5 @@ if (failures.length) {
   for (const f of failures) console.log('  - ' + f);
   process.exit(1);
 }
-console.log('ui-fit: every screen fits 740x320 and nothing is too small to read');
+console.log('ui-fit: every screen fits both frames, contains its cards, and reads');
 process.exit(0);

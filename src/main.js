@@ -772,7 +772,34 @@ function menuOpen() {
  */
 let lastLevel = 1;
 
+/**
+ * What the two mode cards say about what has already been done.
+ *
+ * Read fresh every time the screen is built rather than captured once: a run
+ * finishes and the flow is opened again, and a card showing the record from
+ * before that run is a card that is quietly wrong.
+ */
+function modeStats() {
+  const roads = Object.keys(config.themes);
+  let bestTotal = null;
+  let done = 0;
+  for (const road of roads) {
+    const record = progress.for(road);
+    if (record.totalBest === null) continue;
+    done++;
+    if (bestTotal === null || record.totalBest < bestTotal) bestTotal = record.totalBest;
+  }
+  return {
+    bestTotal,
+    roadsDone: done,
+    roadsTotal: roads.length,
+    bestScore: session.best || null,
+    bestDistance: session.bestDistance,
+  };
+}
+
 const selectFlow = new SelectFlow(document.body, selection, {
+  modeStats,
   onBikePreview: (key) => {
     // Colour only, and instant: four uniform writes on the cockpit sprite.
     if (rider.setBike) rider.setBike(key);

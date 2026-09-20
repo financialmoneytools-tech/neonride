@@ -35,6 +35,7 @@
     "phonefps": "node tools/phone-fps.mjs",
     "fit": "node tools/ui-fit.mjs",
     "thumbs": "node tools/theme-thumbs.mjs",
+    "modethumbs": "node tools/mode-thumbs.mjs",
     "thumbcheck": "node tools/thumb-check.mjs"
   },
   "devDependencies": {

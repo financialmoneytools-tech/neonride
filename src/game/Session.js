@@ -96,7 +96,15 @@ export class Session {
     this.score = 0;
     this.distance = 0;
     this.nearMisses = 0;
-    this.best = readBest();
+    const stored = readBest();
+    this.best = stored.score;
+    /**
+     * The distance that earned the best score, for the SONSUZ card.
+     *
+     * Null on a record written before this was kept, which is honest: the
+     * card shows the score alone rather than inventing a distance for it.
+     */
+    this.bestDistance = stored.distance;
     /** Crashes left before the run ends. Shown on the HUD. */
     this.lives = config.game.crashesAllowed;
     /** Seconds of grace left after a crash; traffic cannot take a life. */
@@ -367,8 +375,9 @@ export class Session {
     // kilometres has earned the same entry as one who scored it in one go.
     if (this.score > this.best) {
       this.best = this.score;
+      this.bestDistance = Math.round(this.distance);
       this.isRecord = true;
-      writeBest(this.best);
+      writeBest(this.best, this.bestDistance);
     }
   }
 
@@ -379,8 +388,9 @@ export class Session {
 
     if (this.score > this.best) {
       this.best = this.score;
+      this.bestDistance = Math.round(this.distance);
       this.isRecord = true;
-      writeBest(this.best);
+      writeBest(this.best, this.bestDistance);
     }
   }
 }
@@ -394,17 +404,34 @@ export class Session {
 function readBest() {
   try {
     const raw = window.localStorage.getItem(config.game.storageKey);
-    const value = Number.parseInt(raw, 10);
-    return Number.isFinite(value) && value > 0 ? value : 0;
+    // A BARE NUMBER IS THE OLD SHAPE and it is still on people's phones. It
+    // was the score alone; the distance that earned it was never kept, so an
+    // old record migrates with a null distance rather than a made up one.
+    // Same migration rule game/Progress.js already follows for its own
+    // storage.
+    if (raw && raw[0] !== '{') {
+      const legacy = Number.parseInt(raw, 10);
+      return { score: Number.isFinite(legacy) && legacy > 0 ? legacy : 0, distance: null };
+    }
+    const parsed = JSON.parse(raw);
+    const score = Number(parsed && parsed.score);
+    const distance = Number(parsed && parsed.distance);
+    return {
+      score: Number.isFinite(score) && score > 0 ? score : 0,
+      distance: Number.isFinite(distance) && distance > 0 ? distance : null,
+    };
   } catch (error) {
-    return 0;
+    return { score: 0, distance: null };
   }
 }
 
-/** @param {number} value */
-function writeBest(value) {
+/** @param {number} score @param {number} distance */
+function writeBest(score, distance) {
   try {
-    window.localStorage.setItem(config.game.storageKey, String(value));
+    window.localStorage.setItem(config.game.storageKey, JSON.stringify({
+      score,
+      distance: Math.round(distance),
+    }));
   } catch (error) {
     // A best score that cannot be kept is not a reason to stop the game.
   }

@@ -125,6 +125,30 @@ export const ui = {
     // than this one - a run whose rules changed underneath it is not a run.
     change: 'MOD DEĞİŞTİR',
     nextRun: 'SONRAKİ KOŞUDA',
+
+    // ================= WHAT EACH MODE ACTUALLY IS =================
+    //
+    // The mode cards were a name and one line in a large empty box. A mode is
+    // a set of RULES and those rules are the only thing anybody is choosing
+    // between here, so they go on the card: how long it is, what it gives
+    // you, what it takes away, and - once there is one - what you have
+    // already done in it.
+    //
+    // `%1` and `%2` are filled from config, never typed twice: the level
+    // count, the stage length and the lives all live elsewhere and a card
+    // that repeated them would go stale the first time one changed.
+    stats: {
+      levels: '%1 SEVİYE x %2 KM',
+      medals: 'MADALYA: ALTIN / GÜMÜŞ / BRONZ',
+      lives: '%1 CAN',
+      noFinish: 'BİTİŞ YOK',
+      // Shown only when there is one. An empty "best" row on a card is worse
+      // than no row: it says the game measured something and lost it.
+      bestRun: 'EN İYİ: %1',
+      bestScore: 'EN İYİ SKOR: %1',
+      bestDistance: 'EN UZAK: %1 KM',
+      roadsDone: '%1 / %2 YOL BİTTİ',
+    },
   },
 
   // THE RESULTS CARD, which replaced the old game over panel outright. It has
