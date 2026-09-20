@@ -799,6 +799,21 @@ function beginRun(level = lastLevel) {
   // back to the level select. `lastLevel` is the default so that the restart
   // path repeats the run that was just had without knowing anything about it.
   lastLevel = level;
+  // ================= A RUN CLOSES THE MENU =================
+  //
+  // Not a tidy-up. A live SelectScreen listens for keydown on window in the
+  // CAPTURE phase and calls stopPropagation on every arrow key, so that a key
+  // meant for a menu never reaches the window listener that restarts runs -
+  // which is right while a card is up and fatal the moment one is not.
+  // core/Input.js listens in the BUBBLE phase, so a screen left open does not
+  // merely sit there: it eats the whole steering input and the bike cannot be
+  // turned at all.
+  //
+  // The flow itself clears its screen on every path it owns. This covers the
+  // paths it does not: the dev hooks, and anything that calls beginRun
+  // directly. Measured on that path - arrows held, `input._keys` empty,
+  // `raw.steer` 0, `lateral` 0, with `update()` running 267 times a second.
+  if (selectFlow && selectFlow.open) selectFlow.dispose();
   // THE ROAD IS THE ROAD FROM THE FIRST FRAME.
   //
   // previewRoad() below starts a real blend for every card the rider swipes

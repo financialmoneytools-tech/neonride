@@ -12,11 +12,26 @@
  * what this does. It holds full lock one way, then the other, and measures
  * how far the bike actually got.
  *
- * IT DRIVES THE REAL PATH. `input.update` is stubbed to a no-op and
- * `input.values` is written directly, so the steer figure flows through
- * BikePhysics exactly as a thumb or a tilt would. Nothing here calls into
- * the physics, and nothing simulates it: a test that computed where the bike
- * ought to go would agree with itself and prove nothing.
+ * TWO SWEEPS, AND THE SECOND ONE IS WHY THIS FILE WAS WRONG.
+ *
+ * The REACH sweep stubs `input.update` and writes `input.values` directly,
+ * so the steer figure flows through BikePhysics exactly as a thumb would.
+ * Nothing simulates the physics: a test that computed where the bike ought
+ * to go would agree with itself and prove nothing.
+ *
+ * But writing `values` starts BELOW `Input`, so that sweep cannot see any
+ * fault between a key and that value - and it passed on all six roads while
+ * the game could not be steered at all. What it missed: a SelectScreen left
+ * open listens for keydown on window in the CAPTURE phase and calls
+ * stopPropagation on every arrow, and `Input` listens in the BUBBLE phase,
+ * so the key is eaten before `Input` ever sees it. Measured on that build:
+ * arrows held, `input._keys` empty, `raw.steer` 0, `lateral` 0, while
+ * `update()` ran 267 times.
+ *
+ * So the KEYS sweep presses real arrow keys through the browser and measures
+ * the same reach. It covers the whole stack - the event, the listener, the
+ * smoothing, the physics - and it is the one that fails when something
+ * swallows the input.
  *
  * THE CRITERION IS LANES, NOT UNITS. `world/road/layout.js` owns the lane
  * centres and the bike has to be able to sit in the outermost one on each
@@ -36,6 +51,14 @@ const SIZE = { width: 1280, height: 720 };
 const HOLD = 3.2;
 /** `--flow` walks the road screen instead of using `?theme=`. */
 const FLOW = process.argv.includes('--flow');
+/**
+ * `--prove` opens a selection screen over the running world, which is the
+ * fault this check was blind to, and expects to go RED. It exits 0 only when
+ * the check fails - see "Every check must be shown to fail" in CLAUDE.md.
+ */
+const PROVE = process.argv.includes('--prove');
+/** One road, for working on the check itself. STEER_ROAD=galaxyRoad npm run steer */
+const ONLY = process.env.STEER_ROAD || '';
 
 function startServer() {
   const child = spawn('npm', ['run', 'dev'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -74,6 +97,9 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
 async function sweep(road, index) {
   const page = await browser.newPage({ viewport: SIZE });
   page.on('pageerror', (e) => failures.push(`${road}: page error ${e.message}`));
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) console.log('  (' + road + ' navigated to ' + f.url() + ')');
+  });
   const url = FLOW ? `${server.url}?stats=0` : `${server.url}?theme=${road}&stats=0`;
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
@@ -81,7 +107,9 @@ async function sweep(road, index) {
   await page.mouse.click(SIZE.width - 40, 40);
   await page.waitForTimeout(700);
 
+  let flowReady = false;
   if (FLOW) {
+    flowReady = true;
     // title -> mode -> bike -> road -> level -> run, arrowing across the
     // road grid exactly as a thumb would.
     await page.click('.mode-screen .select-confirm');
@@ -101,6 +129,52 @@ async function sweep(road, index) {
     await page.waitForFunction(() => window.NEON.session.phase === 'running',
       null, { timeout: 8000 }).catch(() => {});
   }
+
+  // ============ THE KEYS SWEEP: A REAL KEY, THE WHOLE WAY DOWN ============
+  //
+  // Nothing is stubbed. The browser sends the keydown, whatever listeners are
+  // attached see it in whatever order they are in, and the bike either moves
+  // or it does not - which is the question a rider is actually asking.
+  const byKey = await (async () => {
+    if (!flowReady) {
+      await page.evaluate(() => {
+        window.NEON.selection.setMode('endless');
+        window.NEON.beginRun(1);
+      });
+      await page.waitForTimeout(1200);
+    }
+    if (PROVE) {
+      // THE BROKEN BUILD. A selection screen open over a running world is the
+      // exact fault: it eats every arrow in the capture phase. If the check
+      // cannot go red here it is a comment.
+      await page.evaluate(() => window.NEON.selectFlow.start());
+      await page.waitForTimeout(400);
+    }
+    const hold = async (code) => {
+      await page.keyboard.down(code);
+      const extreme = await page.evaluate(async ({ seconds, left }) => {
+        const N = window.NEON;
+        let best = N.loop.state.lateral || 0;
+        await new Promise((done) => {
+          const until = performance.now() + seconds * 1000;
+          const tick = () => {
+            const lat = N.loop.state.lateral || 0;
+            if (left ? lat < best : lat > best) best = lat;
+            if (performance.now() >= until) done();
+            else requestAnimationFrame(tick);
+          };
+          tick();
+        });
+        return best;
+      }, { seconds: HOLD, left: code === 'ArrowLeft' });
+      await page.keyboard.up(code);
+      await page.waitForTimeout(250);
+      return extreme;
+    };
+    const right = await hold('ArrowRight');
+    const left = await hold('ArrowLeft');
+    return { left, right };
+  })();
 
   const result = await page.evaluate(async ({ hold, flow }) => {
     const N = window.NEON;
@@ -165,6 +239,8 @@ async function sweep(road, index) {
     };
   }, { hold: HOLD, flow: FLOW });
   await page.close();
+  result.keyLeft = byKey.left;
+  result.keyRight = byKey.right;
   return result;
 }
 
@@ -174,12 +250,12 @@ const roads = await (async () => {
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
   const names = await page.evaluate(() => Object.keys(window.NEON.config.themes));
   await page.close();
-  return names;
+  return ONLY ? names.filter((n) => n === ONLY) : names;
 })();
 
 console.log('');
 console.log('  path: %s', FLOW ? 'THROUGH THE ROAD SCREEN' : '?theme= (patch before build)');
-console.log('  road              reached left   reached right   outer lanes      limit');
+console.log('  road              reached left   reached right   by key L / R     outer lanes');
 const rows = {};
 for (let i = 0; i < roads.length; i++) {
   const road = roads[i];
@@ -187,13 +263,14 @@ for (let i = 0; i < roads.length; i++) {
   rows[road] = r;
   const outerLeft = r.lanes[0];
   const outerRight = r.lanes[r.lanes.length - 1];
-  console.log('  %s  %s        %s        %s / %s     %s',
+  console.log('  %s  %s        %s        %s / %s   %s / %s',
     road.padEnd(16),
     r.left.toFixed(2).padStart(6),
     r.right.toFixed(2).padStart(6),
+    r.keyLeft.toFixed(2).padStart(6),
+    r.keyRight.toFixed(2),
     outerLeft.toFixed(1).padStart(5),
-    outerRight.toFixed(1),
-    r.limit.toFixed(1));
+    outerRight.toFixed(1));
 }
 
 console.log('');
@@ -211,6 +288,17 @@ for (const road of roads) {
   check(`${road}: reaches the right outer lane`, r.right >= outerRight - slack,
     `got ${r.right.toFixed(2)}, needs ${outerRight.toFixed(2)} `
     + `(input steer was ${r.steerRightSeen.toFixed(2)})`);
+
+  // AND THE SAME REACH FROM A REAL KEY. The two together say where a fault
+  // is: both red is the bike or the road, only these red is everything
+  // between the keyboard and `input.values` - a listener that swallows the
+  // event, smoothing that never arrives, an autopilot holding the controls.
+  check(`${road}: an arrow key reaches the left outer lane`,
+    r.keyLeft <= outerLeft + slack,
+    `got ${r.keyLeft.toFixed(2)}, needs ${outerLeft.toFixed(2)}`);
+  check(`${road}: an arrow key reaches the right outer lane`,
+    r.keyRight >= outerRight - slack,
+    `got ${r.keyRight.toFixed(2)}, needs ${outerRight.toFixed(2)}`);
 }
 
 // THE ROAD GEOMETRY ITSELF, reported per road. If two roads disagree about
@@ -277,10 +365,23 @@ await browser.close();
 server.child.kill();
 
 console.log('');
+if (PROVE) {
+  // INVERTED. The run was deliberately broken, so a green check here means
+  // the check cannot go red and is therefore worth nothing.
+  const keyFailures = failures.filter((f) => f.includes('an arrow key'));
+  if (keyFailures.length) {
+    console.log(`prove: the key sweep went red on ${keyFailures.length} check(s), as it must`);
+    for (const failure of keyFailures.slice(0, 4)) console.log('  - ' + failure);
+    process.exit(0);
+  }
+  console.log('prove: THE CHECK DID NOT FAIL on a build with a menu eating every arrow.');
+  console.log('       A check that cannot go red is a comment.');
+  process.exit(1);
+}
 if (failures.length) {
   console.log(`${failures.length} failure(s)`);
   for (const failure of failures) console.log('  - ' + failure);
   process.exit(1);
 }
-console.log('steer-check: every road reaches both outer lanes');
+console.log('steer-check: every road steers, by value and by key');
 process.exit(0);
