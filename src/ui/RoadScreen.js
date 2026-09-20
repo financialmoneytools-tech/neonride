@@ -118,7 +118,17 @@ export class RoadScreen {
       const label = document.createElement('span');
       label.className = 'road-label';
       label.textContent = item.label;
-      card.append(shot, label);
+
+      // THE DESCRIPTION IS ON THE CARD. It used to be one shared line under
+      // the row, which is the right place when seven cards are on screen and
+      // the wrong one when there is exactly one: with a single card filling
+      // the frame, a caption floating below it reads as a caption for the
+      // screen rather than for the road.
+      const blurb = document.createElement('span');
+      blurb.className = 'road-card-blurb';
+      blurb.textContent = item.locked ? '' : (item.blurb || '');
+
+      card.append(shot, label, blurb);
 
       // HOW FAR INTO THIS ROAD, on the card itself. Ten levels per road means
       // "which road shall I ride" and "how far did I get on it" are the same
@@ -187,9 +197,6 @@ export class RoadScreen {
       return card;
     });
 
-    this.blurb = document.createElement('p');
-    this.blurb.className = 'road-blurb';
-
     // THE ACTIVE MODE, on the last screen before a run. It was invisible
     // everywhere until now: a player who had been through the mode screen had
     // no way at all of checking what they had picked.
@@ -200,7 +207,7 @@ export class RoadScreen {
       const name = this.mode === MODE.ENDLESS ? modes.endless : modes.stage;
       this.modeEl.textContent = modes.label + ': ' + name;
     }
-    body.append(this.modeEl, this.grid, this.blurb);
+    body.append(this.modeEl, this.grid);
 
     const render = this.screen.render.bind(this.screen);
     this.screen.render = () => {
@@ -214,13 +221,8 @@ export class RoadScreen {
     this.cards.forEach((card, i) => {
       card.classList.toggle('road-card-on', i === this.screen.index);
     });
-    const item = this.screen.current;
-    this.blurb.textContent = item.locked ? '' : item.blurb;
-    // Keep the chosen card in view when there are more cards than fit.
-    const card = this.cards[this.screen.index];
-    if (card && card.scrollIntoView) {
-      card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }
+    // NOTHING TO SCROLL INTO VIEW ANY MORE. Only the selected card is
+    // displayed, so the row cannot overflow and the card cannot be off-screen.
   }
 
   dispose() {

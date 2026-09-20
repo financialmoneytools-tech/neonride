@@ -32,7 +32,8 @@
     "exit": "node tools/exit-check.mjs",
     "roads": "node tools/road-run.mjs",
     "vehicles": "node tools/vehicle-shots.mjs",
-    "phonefps": "node tools/phone-fps.mjs"
+    "phonefps": "node tools/phone-fps.mjs",
+    "fit": "node tools/ui-fit.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

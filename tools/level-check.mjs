@@ -51,6 +51,16 @@ import { SCAN_SOURCE, rates } from './traffic-scan.mjs';
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
 const SIZE = { width: 1280, height: 720 };
 const QUICK = process.argv.includes('--quick');
+/**
+ * One road, for smoking the tool before paying for six.
+ *
+ *     LEVEL_ROAD=galaxyRoad node tools/level-check.mjs --quick
+ *
+ * A full pass is about four and a half minutes of riding PER ROAD. CLAUDE.md
+ * is explicit that a slow tool is never run to find out whether it works, and
+ * this one had no way to be run small.
+ */
+const ONLY = process.env.LEVEL_ROAD || '';
 // A full pass is ten levels of five kilometres per road, about four and a half
 // minutes of riding each. --quick SHORTENS the levels rather than skipping
 // any: all ten still run with their own traffic, so the floor is still checked
@@ -207,7 +217,7 @@ const roadNames = await (async () => {
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
   const names = await page.evaluate(() => Object.keys(window.NEON.config.themes));
   await page.close();
-  return names;
+  return ONLY ? names.filter((n) => n === ONLY) : names;
 })();
 
 // ===================== THE CONTROL, FIRST =====================

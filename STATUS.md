@@ -319,6 +319,47 @@ that chose a source by frame shape, and the second (tall) framing profile.
   And `tools/light-check.mjs` has to keep passing: every light mesh carries the
   body's instance matrix, and the hardware ones stay inside its box.
 
+## The run to release
+
+- **One card per screen.** The road and mode screens drew every option at
+  once: on a 740x320 phone that is seven thumbnails about 104 px wide, a
+  picture of a road the size of a postage stamp. Both now show ONE card the
+  way the bike screen always has - 444x210 on the mode screen and 459x191 on
+  the road screen, against a 740x320 frame - with the arrows and the swipe
+  unchanged, since those are what make one-at-a-time navigable. Every card is
+  still BUILT; only the selected one is displayed, so the tap, swipe and
+  arming logic in the screens is untouched.
+- **The road card carries its own description.** A shared caption under a row
+  of seven is right; under a single card filling the frame it reads as a
+  caption for the screen. Thumbnail, name, `SEVİYE n / 10` and the one-line
+  blurb are all on the card now.
+- **Base type up two steps** everywhere, with a floor rather than a nominal
+  size: the smallest computed text on any screen is now over 10.5 px. Two
+  things were under it after the first pass and were found by measuring, not
+  by looking - `bike-bar-label` at 9 px and `level-card-best` at 8 px, the
+  latter in TWO stylesheets because the level card is styled once for the
+  level screen and once for the results panel.
+- `npm run fit` is the guard. It reads every element's rectangle against a
+  740x320 frame at a device pixel ratio of 3 and fails on anything outside
+  it, on any text under the floor, and on a single card that is not actually
+  large. A screenshot cannot answer this: an element one pixel past the
+  bottom edge looks exactly like one that fits, and the confirm button going
+  off the screen is the difference between a playable game and a dead end.
+
+### A measurement must not be run while the source is being edited
+
+`npm run levels` died on its second road with "Execution context was
+destroyed, most likely because of a navigation". Nothing navigates: the cause
+was `index.html` being edited while it rode, and Vite's HMR answers a change
+to the entry document with a FULL RELOAD of every open page. The same error
+had already appeared twice, in `spacing` and in `steer`, and was written off
+as a flake both times.
+
+So: nothing that measures may overlap an edit. `LEVEL_ROAD=<theme>` exists
+now for smoking the tool on one road first, which is the other half of the
+rule CLAUDE.md already states about never running a slow tool to find out
+whether it works.
+
 ## Outstanding, in order
 
 1. **Mobile landscape** - the portrait prompt, the orientation lock and

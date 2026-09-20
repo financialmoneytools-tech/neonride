@@ -179,10 +179,13 @@
         border-radius: 8px;
         background: rgba(10, 30, 45, 0.7);
         color: #9fe9ff;
-        font: 600 11px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-        letter-spacing: 0.14em;
+        /* UP TWO STEPS with the rest of the UI. The old 11px was a label on
+           a 40px target: the button was easy to hit and hard to read, which
+           is the wrong half to get right. */
+        font: 600 clamp(13px, 2vw, 16px)/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.12em;
         /* Big enough to hit with a thumb on a phone held in two hands. */
-        min-height: 40px;
+        min-height: 42px;
         cursor: pointer;
       }
 
@@ -546,10 +549,10 @@
       .level-card-medal[data-medal="silver"] { color: #cfe0f0; }
       .level-card-medal[data-medal="bronze"] { color: #d08b5a; }
       .level-card-best {
-        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: 700 clamp(11px, 1.8vw, 14px) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0.08em;
         color: #8fb6d6;
-        min-height: 9px;
+        min-height: 12px;
       }
 
       .hud-lives {
@@ -672,10 +675,10 @@
       .level-card-medal[data-medal="silver"] { color: #cfe0f0; }
       .level-card-medal[data-medal="bronze"] { color: #d08b5a; }
       .level-card-best {
-        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: 700 clamp(11px, 1.8vw, 14px) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0.08em;
         color: #8fb6d6;
-        min-height: 9px;
+        min-height: 12px;
       }
 
       .hud-lives { font-size: 0.72rem; letter-spacing: 0.18em; margin-top: 1px; }
@@ -928,8 +931,12 @@
       .select-head { flex: 0 0 auto; }
       .select-title {
         margin: 0;
-        font: 700 clamp(0.85rem, 2.6vw, 1.3rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        letter-spacing: 0.34em;
+        /* UP TWO STEPS, with everything else on these screens. The floor is
+           what matters: 0.85rem on a 320px landscape phone is 13.6px of
+           letterspaced monospace, which is legible on a desk and not at arm's
+           length. */
+        font: 700 clamp(1.1rem, 3.1vw, 1.55rem) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.3em;
         color: #9fe9ff;
         text-shadow: 0 0 18px rgba(80, 220, 255, 0.55);
       }
@@ -956,7 +963,7 @@
       }
       .select-hint {
         margin: 0;
-        font: 600 10px system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 600 clamp(11px, 1.8vw, 14px) system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.16em;
         color: rgba(200, 230, 255, 0.5);
         text-align: center;
@@ -990,7 +997,7 @@
       }
       .bike-blurb {
         margin: 0;
-        font: 600 10px system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 600 clamp(11px, 1.9vw, 15px) system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.1em;
         color: rgba(210, 235, 255, 0.72);
         text-align: center;
@@ -1006,8 +1013,8 @@
         flex: 0 0 auto;
         width: 112px;
         text-align: right;
-        font: 600 9px system-ui, -apple-system, "Segoe UI", sans-serif;
-        letter-spacing: 0.13em;
+        font: 600 clamp(11px, 1.7vw, 14px) system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.11em;
         color: rgba(190, 220, 245, 0.66);
       }
       .bike-bar-track {
@@ -1029,11 +1036,18 @@
          Two cards, and it is the first screen anybody meets. Wider and taller
          than a road card because there are only two of them and nothing to
          scroll: a mode is a decision, not a browse. */
+      /* ONE CARD, like the road screen and for the same reason. Two modes
+         side by side was less bad than seven roads, but the two patterns
+         disagreeing is its own problem: the flow is title -> mode -> bike ->
+         road and a rider should not have to relearn the control at each
+         step. */
       .mode-grid {
         display: flex;
-        gap: 14px;
         align-items: stretch;
-        justify-content: safe center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
         max-width: 100%;
         /* `none`, like every other card row here. pan-x lets the browser claim
            a horizontal drag and cancel the pointer stream half way through,
@@ -1041,14 +1055,17 @@
         touch-action: none;
         padding: 2px;
       }
+      .mode-card { display: none; }
       .mode-card {
         pointer-events: auto;
         flex: 0 0 auto;
-        width: clamp(140px, 30vw, 240px);
-        display: flex;
+        width: min(60vw, 100%);
+        height: min(70vh, 100%);
+        margin: 0 auto;
         flex-direction: column;
-        gap: 6px;
-        padding: 12px 14px;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px 20px;
         border: 1px solid rgba(125, 200, 235, 0.28);
         border-radius: 11px;
         background: rgba(6, 12, 24, 0.66);
@@ -1057,19 +1074,21 @@
         transition: border-color 160ms ease-out, transform 160ms ease-out;
       }
       .mode-card-on {
+        display: flex;
         border-color: #7dffc4;
-        transform: translateY(-2px);
         box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
       }
       .mode-label {
-        font: 700 clamp(1rem, 3.4vw, 1.5rem)/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 700 clamp(1.4rem, 4.4vw, 2.1rem)/1.1 system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.1em;
         color: #eaf6ff;
+        text-align: center;
       }
       .mode-blurb {
-        font: 600 clamp(8px, 1.7vw, 10px)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        letter-spacing: 0.1em;
-        color: rgba(190, 220, 245, 0.72);
+        font: 600 clamp(11px, 2.1vw, 15px)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.08em;
+        color: rgba(200, 228, 250, 0.78);
+        text-align: center;
       }
 
       /* The active mode, on the road screen. Small: it is a reminder, not a
@@ -1118,37 +1137,40 @@
       }
 
       /* --- the road screen ------------------------------------------------ */
+      /* ================= ONE CARD, NOT SEVEN =================
+         Both card rows used to show every option at once. On a 740x320 phone
+         that is seven thumbnails about 104px wide, which is a picture of a
+         road roughly the size of a postage stamp - reported, correctly, as
+         unreadably small. Only the SELECTED card is displayed now and it
+         fills most of the frame, which is the pattern the bike screen has
+         always used. The arrows and the swipe are unchanged, and they are
+         what makes one-at-a-time navigable. */
       .road-grid {
         display: flex;
-        gap: 10px;
         align-items: stretch;
-        /* `safe` matters here. With seven cards on a 740px phone the row is
-           wider than the viewport, and plain `center` centres the overflow -
-           which pushes the FIRST card off the left edge where it cannot be
-           scrolled back to. `safe center` falls back to flex-start the moment
-           it would overflow, so the row stays reachable from both ends. */
-        justify-content: safe center;
-        max-width: 100%;
-        overflow-x: auto;
-        /* `none`, like the card. pan-x was tried and it BROKE THE SWIPE: the
-           browser claimed a horizontal drag as a pan of this row and cancelled
-           the pointer stream half way through, so a swipe over the cards did
-           nothing. Dragging the row is not needed - changing the selection
-           scrolls the chosen card into view on its own. */
-        touch-action: none;
-        padding: 2px 2px 4px;
-        scrollbar-width: none;
-      }
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
       .road-grid::-webkit-scrollbar { display: none; }
+      /* Every card is built; only the chosen one is on screen. Building them
+         all keeps the tap, swipe and arming logic in ui/RoadScreen.js exactly
+         as it was - the selection still moves through a real list. */
+      .road-card { display: none; }
       .road-card {
         pointer-events: auto;
         position: relative;
         flex: 0 0 auto;
-        width: clamp(104px, 21vw, 168px);
-        display: flex;
+        /* ROUGHLY 60% OF THE FRAME WIDE AND 70% TALL, and never taller than
+           the space between the title and the buttons - `min` with 100% is
+           what stops a 320px landscape phone pushing the confirm button off
+           the bottom. */
+        width: min(60vw, 100%);
+        height: min(70vh, 100%);
+        margin: 0 auto;
         flex-direction: column;
-        gap: 5px;
-        padding: 5px;
+        gap: 7px;
+        padding: 9px;
         border: 1px solid rgba(125, 200, 235, 0.28);
         border-radius: 9px;
         background: rgba(6, 12, 24, 0.66);
@@ -1156,21 +1178,33 @@
         transition: border-color 160ms ease-out, transform 160ms ease-out;
       }
       .road-card-on {
+        display: flex;
         border-color: #7dffc4;
-        transform: translateY(-2px);
         box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
       }
+      /* THE THUMBNAIL TAKES WHATEVER IS LEFT. A fixed 16/9 box was right in a
+         row of small cards and wrong here: it is the thing being chosen, so
+         it gets the space, and the text underneath takes only what it needs. */
       .road-shot {
         display: block;
+        flex: 1 1 auto;
+        min-height: 0;
         width: 100%;
-        aspect-ratio: 16 / 9;
-        border-radius: 5px;
+        border-radius: 6px;
         background: #05030d center/cover no-repeat;
       }
       .road-label {
-        font: 700 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        flex: 0 0 auto;
+        font: 700 clamp(13px, 2.6vw, 19px) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0.14em;
         color: #cfe9ff;
+        text-align: center;
+      }
+      .road-card-blurb {
+        flex: 0 0 auto;
+        font: 600 clamp(11px, 1.9vw, 15px)/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+        letter-spacing: 0.08em;
+        color: rgba(210, 235, 255, 0.78);
         text-align: center;
       }
       /* THE GRADIENT IS THE FALLBACK NOW, not the card. It gets a real
@@ -1190,12 +1224,12 @@
          button off the screen. */
       .road-progress {
         position: absolute;
-        top: 7px;
-        right: 7px;
-        padding: 2px 5px;
-        border-radius: 4px;
-        background: rgba(4, 8, 18, 0.82);
-        font: 700 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        top: 14px;
+        right: 14px;
+        padding: 4px 9px;
+        border-radius: 5px;
+        background: rgba(4, 8, 18, 0.86);
+        font: 700 clamp(11px, 1.9vw, 15px) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0.12em;
         color: #7dffc4;
       }
@@ -1205,7 +1239,7 @@
       .road-lock {
         position: absolute;
         inset: auto 0 34% 0;
-        font: 700 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font: 700 clamp(12px, 2.2vw, 17px) ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         letter-spacing: 0.2em;
         color: #ffd166;
         text-align: center;
@@ -1213,7 +1247,7 @@
       .road-blurb {
         margin: 0;
         min-height: 1em;
-        font: 600 10px system-ui, -apple-system, "Segoe UI", sans-serif;
+        font: 600 clamp(11px, 1.8vw, 14px) system-ui, -apple-system, "Segoe UI", sans-serif;
         letter-spacing: 0.1em;
         color: rgba(210, 235, 255, 0.72);
         text-align: center;
@@ -1239,7 +1273,11 @@
         .bike-name { font-size: clamp(1.1rem, 4.4vw, 1.7rem); }
         .bike-bars { gap: 3px; width: min(300px, 58vw); }
         .bike-bar-track { height: 5px; }
-        .road-card { width: clamp(92px, 18vw, 128px); }
+        /* The card is one big card now and is already sized with `min`
+           against the viewport, so the old shrink-the-row rule would only
+           undo it. What a short frame needs instead is tighter furniture
+           around the card, which is the rest of this block. */
+        .road-card { width: min(62vw, 100%); }
         .select-hint { font-size: 9px; }
         .controls-btn { min-height: 34px; }
       }
