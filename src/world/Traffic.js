@@ -269,7 +269,14 @@ export class Traffic {
         // `_respawn` runs `_admits`, so a returning vehicle lands somewhere
         // legal by the same rule a new one does. It costs a teleport of
         // something that was invisible a frame ago, which is nothing.
-        if (live && !vehicle.active && Math.abs(playerDistance - vehicle.distance) < 30) {
+        //
+        // NO PROXIMITY TEST. This line has been wrong twice and the second
+        // time it was wrong it read `Math.abs(playerDistance - vehicle.distance)
+        // < 30` - the retired `spawnClear` inlined as a literal, so the
+        // config comment that retired it could not warn anybody. That is the
+        // half-fix: it asks whether the vehicle would appear inside the BIKE
+        // and lets it appear inside another VEHICLE two hundred metres ahead.
+        if (live && !vehicle.active) {
           this._respawn(fleet, vehicle, playerDistance + cfg.spawnAhead, i);
         }
         vehicle.active = live;
