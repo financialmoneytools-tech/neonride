@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { lateralLine, steer as traceSteer, tilt as traceTilt } from '../core/Trace.js';
 
 /**
  * StatsOverlay - FPS / draw call / triangle counter in the top left corner.
@@ -61,6 +62,45 @@ export class StatsOverlay {
     this._acc = 0;
 
     const inp = state.input;
+    const trace = [];
+    // ============ WHO MOVED THE BIKE, AND WHAT MOVED THEM ============
+    //
+    // FIRST, not last, and that is not a style choice. `.stats-overlay` is
+    // capped at 56vh and clips what does not fit - on a 740x320 phone frame
+    // the four trace lines were the ones cut off, which is the one place they
+    // must never be. What is being diagnosed goes at the top; the frame rate
+    // has never been the thing anybody was reading.
+    //
+    // Four things assign `state.lateral` and one wins each frame; a value
+    // that will not come down is whichever wrote LAST. `lat` names every
+    // writer that ran this frame with what it wrote, so a guard shoving the
+    // bike and a physics integration running to its clamp are told apart
+    // rather than argued about.
+    //
+    // `str` is the chain above it: which branch of core/Input.js produced the
+    // raw steer, what each branch was offering, the damped value that came
+    // out, and what the physics actually used - which in capture mode is not
+    // the same number. `tlt` is the sum inside core/Controls.js, so a neutral
+    // in the wrong place, a range small enough that any lean saturates, and a
+    // raw reading that is not moving are three pictures, not one symptom.
+    trace.push(lateralLine(state.frame));
+    trace.push('str  ' + traceSteer.from
+      + '  k ' + traceSteer.key.toFixed(2)
+      + (traceSteer.keys ? '[' + traceSteer.keys + ']' : '')
+      + '  t ' + traceSteer.tilt.toFixed(2)
+      + '  tch ' + traceSteer.touch.toFixed(2)
+      + '  pad ' + traceSteer.pad.toFixed(2));
+    trace.push('str  raw ' + traceSteer.raw.toFixed(2)
+      + '  val ' + traceSteer.value.toFixed(2)
+      + '  used ' + traceSteer.used.toFixed(2)
+      + '  tgt ' + traceSteer.target.toFixed(2));
+    trace.push('tlt  raw ' + traceTilt.raw.toFixed(1)
+      + '  neu ' + traceTilt.neutral.toFixed(1)
+      + '  d ' + traceTilt.delta.toFixed(1)
+      + '  rng ' + traceTilt.range.toFixed(1)
+      + '  out ' + traceTilt.out.toFixed(2));
+    trace.push('');
+
     const lines = [
       'FPS       ' + state.fps.toFixed(1) + '  (' + state.frameMs.toFixed(2) + ' ms)',
       'draw call ' + state.drawCalls,
@@ -162,7 +202,7 @@ export class StatsOverlay {
         + (audio.muted ? '  MUTED' : ''));
     }
 
-    this.el.textContent = lines.join('\n');
+    this.el.textContent = trace.concat(lines).join('\n');
   }
 
   dispose() {

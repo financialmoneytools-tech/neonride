@@ -1,4 +1,5 @@
 import { config } from '../../config.js';
+import { markLateral, LATERAL } from '../../core/Trace.js';
 
 /**
  * Guard - makes a collision impossible while the autopilot is driving.
@@ -131,6 +132,7 @@ export class Guard {
       if (moved > step) {
         this.bike.placeLateral(from + Math.sign(free - from) * step);
         state.lateral = this.bike.lateral;
+        markLateral(LATERAL.GUARD_EASE, this.bike.lateral, state.frame);
         this.eases++;
         state.guardEases = this.eases;
         return;
@@ -153,6 +155,7 @@ export class Guard {
       // published is moving nothing: the collision test went on reading the
       // line the bike was on before the guard took it off.
       state.lateral = this.bike.lateral;
+      markLateral(LATERAL.GUARD_SAVE, this.bike.lateral, state.frame);
     }
 
     state.guardSaves = this.saves;

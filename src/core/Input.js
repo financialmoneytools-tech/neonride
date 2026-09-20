@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { steer as traceSteer } from './Trace.js';
 
 /**
  * Input - reduces keyboard, touch and gamepad input to a single
@@ -267,19 +268,38 @@ export class Input {
     let throttle = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
     let brake = keys.has('KeyS') || keys.has('ArrowDown') || keys.has('Space') ? 1 : 0;
 
+    // WHICH BRANCH PRODUCED THE STEER, for core/Trace.js. A phone in tilt
+    // mode whose steer turns out to come from `key` or `pad` is a completely
+    // different fault from one where the tilt maths is saturating, and from
+    // outside the two look identical.
+    traceSteer.key = steer;
+    traceSteer.keys = this._keys.size ? Array.from(this._keys).join('+') : '';
+    let from = steer === 0 ? 'none' : 'key';
+
     // Touch and tilt take over while the keyboard is neutral, so a desktop
     // with a phone plugged in loses nothing and the keyboard always wins.
     if (steer === 0) {
-      const tilt = this.controls ? this.controls.update(dt) : 0;
-      steer = this.controls && this.controls.mode === 'tilt' ? tilt : this._touchSteer;
+      const tiltValue = this.controls ? this.controls.update(dt) : 0;
+      const usingTilt = this.controls && this.controls.mode === 'tilt';
+      steer = usingTilt ? tiltValue : this._touchSteer;
+      traceSteer.tilt = tiltValue;
+      traceSteer.touch = this._touchSteer;
+      if (steer !== 0) from = usingTilt ? 'tilt' : 'touch';
+    } else {
+      traceSteer.tilt = this.controls ? this.controls.steer : 0;
+      traceSteer.touch = this._touchSteer;
     }
     throttle = Math.max(throttle, this._touchThrottle);
     brake = Math.max(brake, this._touchBrake);
 
     // Gamepad (wins when it carries a stronger signal than keyboard/touch)
     const pad = this._readGamepad();
+    traceSteer.pad = pad ? pad.steer : 0;
     if (pad) {
-      if (Math.abs(pad.steer) > Math.abs(steer)) steer = pad.steer;
+      if (Math.abs(pad.steer) > Math.abs(steer)) {
+        steer = pad.steer;
+        from = 'pad';
+      }
       throttle = Math.max(throttle, pad.throttle);
       brake = Math.max(brake, pad.brake);
     }
@@ -297,6 +317,10 @@ export class Input {
       dt,
     );
     this.values.brake = Input.damp(this.values.brake, this.raw.brake, s.brakeSmoothing, dt);
+
+    traceSteer.from = from;
+    traceSteer.raw = this.raw.steer;
+    traceSteer.value = this.values.steer;
 
     return this.values;
   }

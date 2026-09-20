@@ -3,6 +3,7 @@ import { config } from '../../config.js';
 import { updateFov, updateLean } from './response.js';
 import { resolveGear } from './gearbox.js';
 import { motionScale } from '../../core/Comfort.js';
+import { markLateral, LATERAL } from '../../core/Trace.js';
 
 /**
  * view - turns where the bike is into where the camera is.
@@ -113,6 +114,7 @@ export function placeView(rig, dt, state) {
   state.steer = input.steer;
   state.lean = rig.lean;
   state.lateral = rig.lateral;
+  markLateral(LATERAL.VIEW, rig.lateral, state.frame);
   state.bob = bobVertical;
   // One call for both, so the needle dropping and the number going up cannot
   // disagree - they used to be two functions splitting the speed range the

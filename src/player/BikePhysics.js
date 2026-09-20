@@ -5,6 +5,7 @@ import { placeView } from './bike/view.js';
 import { Input } from '../core/Input.js';
 import { createRng } from '../utils/rng.js';
 import { createNoise2D } from '../utils/noise.js';
+import { markLateral, LATERAL, steer as traceSteer } from '../core/Trace.js';
 
 /**
  * BikePhysics - everything that decides where the camera is and which way it
@@ -91,6 +92,11 @@ export class BikePhysics {
     state.speed = this.speed;
     state.speedRatio = speedRatio;
     state.lateral = this.lateral;
+    // WHO WROTE IT, for core/Trace.js. `input` here is the EFFECTIVE input,
+    // which in capture mode is not the one Input produced.
+    markLateral(LATERAL.PHYSICS, this.lateral, state.frame);
+    traceSteer.used = input.steer;
+    traceSteer.target = this._lateralTarget;
     // The throttle applied, not the one requested - see _updateSpeed.
     state.drive = this.drive;
   }

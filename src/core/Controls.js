@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { tilt as traceTilt } from './Trace.js';
 
 /**
  * Controls - which control mode is live, and the tilt sensor behind one of them.
@@ -433,6 +434,17 @@ export class Controls {
     const dead = Math.sign(delta) * Math.max(0, Math.abs(delta) - cfg.deadZone);
     const range = Math.max(1, cfg.range * cfg.sensitivity);
     const target = Math.max(-1, Math.min(1, dead / range));
+
+    // THE WHOLE SUM, for core/Trace.js. A steer stuck at full lock is either a
+    // neutral in the wrong place, a range so small that any lean saturates, or
+    // a raw reading that is not moving - and these five numbers tell the three
+    // apart at a glance instead of by argument.
+    traceTilt.raw = this._raw;
+    traceTilt.neutral = this._neutral === null ? 0 : this._neutral;
+    traceTilt.delta = delta;
+    traceTilt.dead = dead;
+    traceTilt.range = range;
+    traceTilt.out = target;
 
     // Smoothed here rather than leaning on Input's steerSmoothing: that one is
     // tuned for a key that goes down and stays down, and an accelerometer held
