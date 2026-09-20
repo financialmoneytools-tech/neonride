@@ -52,7 +52,26 @@ export const controls = {
     // in both landscape orientations by construction rather than by luck: 90
     // and 270 go through the same rotation and come out agreeing.
     // tools/smoke-mobile.mjs checks exactly that.
-    invert: true
+    // ================= BACK TO FALSE, AND WHY IT WAS TRUE =================
+    //
+    // Both sources document their output the same way: POSITIVE means the
+    // screen's right edge has dipped, which is the direction a rider means
+    // "go right". A sign of +1 honours that contract and `invert` is the
+    // escape hatch for a device that disagrees with it.
+    //
+    // It was set true against a measurement - "with it false, tilting left
+    // steered right" - and that measurement was taken while the delta was
+    // not being wrapped. With the seam bug live, the steer saturated to one
+    // limit or the other with nothing in between, so which limit a given lean
+    // snapped to was an artefact of where the neutral happened to sit. The
+    // flag was fitted to a broken signal and got the wrong answer; with
+    // utils/angle.js in place the contract holds and this goes back.
+    //
+    // It is a single sign applied AFTER the screen rotation, so it is correct
+    // in both landscape orientations by construction rather than by luck.
+    // tools/steer-check.mjs drives 90 and 270 and asserts a lean to the right
+    // increases `lateral` on both.
+    invert: false
   },
 
   touch: {

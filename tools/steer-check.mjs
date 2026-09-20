@@ -448,6 +448,122 @@ for (const road of roads) {
     signs.map((r) => `${r.lean} deg gave ${r.steer}`).join('; '));
 }
 
+// ============ WHICH WAY IS RIGHT, IN BOTH LANDSCAPE ORIENTATIONS ============
+//
+// Both tilt sources document the same contract: POSITIVE means the screen's
+// right edge has dipped, which is the direction a rider means "go right". So
+// a lean to the right must make `lateral` go UP, and it must do that at
+// screen.orientation.angle 90 AND 270 - the two ways a phone can be held in
+// landscape, which take opposite signs of `beta` for the same physical roll.
+//
+// DRIVEN THROUGH THE SENSOR, not through `_raw`: the whole chain that can get
+// a sign wrong is screenTilt -> invert -> wrap -> delta -> steer -> lateral,
+// and writing `_raw` directly would skip the first two.
+//
+// AND THE NEUTRAL SITS ON THE SEAM, so this stays a test of the wrap as well.
+// A lean one way crosses +/-180 and a lean the other does not; both must
+// behave the same.
+for (const angle of [90, 270]) {
+  const page = await browser.newPage({ viewport: SIZE });
+  page.on('pageerror', (e) => failures.push(`tilt ${angle}: page error ${e.message}`));
+  await page.addInitScript((a) => {
+    try {
+      Object.defineProperty(window.screen, 'orientation', {
+        configurable: true,
+        get: () => ({ angle: a, type: 'landscape', addEventListener() {}, removeEventListener() {} }),
+      });
+    } catch (e) { /* some contexts refuse */ }
+    // A real sensor never reports outside [-180, 180], so neither does this.
+    window.__beta = 0;
+    window.__wrapBeta = (b) => ((((b + 180) % 360) + 360) % 360) - 180;
+    setInterval(() => {
+      const init = { alpha: 0, beta: window.__wrapBeta(window.__beta), gamma: 0 };
+      let evt;
+      if (typeof DeviceOrientationEvent === 'function') {
+        evt = new DeviceOrientationEvent('deviceorientation', init);
+      } else {
+        evt = new Event('deviceorientation');
+        Object.assign(evt, init);
+      }
+      window.dispatchEvent(evt);
+    }, 40);
+  }, angle);
+  await page.goto(`${server.url}?stats=0`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+  await page.waitForTimeout(1200);
+  await page.mouse.click(SIZE.width - 40, 40);
+  await page.waitForTimeout(600);
+
+  const result = await page.evaluate(async (a) => {
+    const N = window.NEON;
+    N.controls.enabled = true;
+    N.controls.mode = 'tilt';
+    // ATTACH THE SENSOR LISTENERS. They go on in `request()`, which on a real
+    // phone is called from the first touch; a desktop page never calls it, so
+    // without this the events are dispatched into nothing and the whole block
+    // reads `source null` and a steer of zero - which looks exactly like a
+    // fault and is only the harness not plugging itself in.
+    await N.controls.request();
+    N.selection.setMode('endless');
+    N.beginRun(1);
+    await new Promise((r) => setTimeout(r, 900));
+
+    // `screenTilt` is -beta at 90 and +beta at 270, so the SAME physical roll
+    // is opposite betas. This is what "hold the phone the other way up" means.
+    const betaFor = (tilt) => (a === 90 ? -tilt : tilt);
+    // A neutral hard on the seam, which is the pose that broke the game.
+    const NEUTRAL_TILT = -173.2;
+
+    const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__beta = betaFor(NEUTRAL_TILT);
+    await settle(700);
+    N.controls.recalibrate();
+    await settle(500);
+    const start = N.loop.state.lateral || 0;
+
+    // LEAN RIGHT: the documented positive direction.
+    window.__beta = betaFor(NEUTRAL_TILT + 16);
+    await settle(1600);
+    const right = N.loop.state.lateral || 0;
+    const steerRight = N.controls.steer;
+
+    // Back to neutral, then LEAN LEFT, which from this neutral crosses the seam.
+    window.__beta = betaFor(NEUTRAL_TILT);
+    await settle(900);
+    const mid = N.loop.state.lateral || 0;
+    window.__beta = betaFor(NEUTRAL_TILT - 16);
+    await settle(1600);
+    const left = N.loop.state.lateral || 0;
+    const steerLeft = N.controls.steer;
+
+    return {
+      start: +start.toFixed(2),
+      right: +right.toFixed(2),
+      mid: +mid.toFixed(2),
+      left: +left.toFixed(2),
+      steerRight: +steerRight.toFixed(3),
+      steerLeft: +steerLeft.toFixed(3),
+      neutral: +N.controls._neutral.toFixed(1),
+      raw: +N.controls._raw.toFixed(1),
+      source: N.controls.source,
+    };
+  }, angle);
+  await page.close();
+
+  console.log('');
+  console.log('  landscape angle %s  (neutral %s, source %s)',
+    angle, result.neutral, result.source);
+  console.log('    start %s -> lean right %s (steer %s) -> lean left %s (steer %s)',
+    result.start, result.right, result.steerRight, result.left, result.steerLeft);
+
+  check(`tilt at angle ${angle}: leaning right increases lateral`,
+    result.right > result.start + 0.5 && result.steerRight > 0.1,
+    `lateral went ${result.start} -> ${result.right} with steer ${result.steerRight}`);
+  check(`tilt at angle ${angle}: leaning left decreases lateral`,
+    result.left < result.mid - 0.5 && result.steerLeft < -0.1,
+    `lateral went ${result.mid} -> ${result.left} with steer ${result.steerLeft}`);
+}
+
 await browser.close();
 server.child.kill();
 
