@@ -160,17 +160,53 @@ export const sunsetHighway = {
       colorTop: 0x090418,
       glow: {
         color: 0xff9a3d,
-        azimuth: 0, // dead ahead, behind the sun
-        elevation: 0.0,
-        // BRIGHT AND WIDE, which is the opposite of what every other theme
-        // wants and is the point. A sunset that does not light its own
-        // horizon is a night sky with a coloured strip at the bottom.
+        // ================= THE SUN LIGHTS ITS OWN SKY =================
         //
-        // The stars survive it because the falloff is what controls HEIGHT,
-        // not the intensity: at 3.4 the pool is gone by about 25 degrees of
-        // elevation, and the starfield lives above that.
+        // `follow` anchors the pool on body 0 - the retro sun - so the warmth
+        // radiates outward from wherever the sun actually is and falls off
+        // with angular distance from it. Move the sun and the sunset moves
+        // with it; that is the whole point of following rather than painting.
+        //
+        // It used to be painted at a fixed place, and the place was wrong.
+        // `azimuth: 0` was written to mean "dead ahead, behind the sun",
+        // which is what zero means to a BODY - but the dome takes a maths
+        // azimuth, where zero is ninety degrees off to the right. Shot at the
+        // start line: the sun in the centre of the frame and the entire
+        // orange sunset pooled against the right edge of it. See
+        // world/sky/direction.js.
+        //
+        // The two below are the fallback if the sun is ever taken out, and
+        // they now say dead ahead in the convention the dome actually reads.
+        azimuth: -Math.PI / 2,
+        elevation: 0.192, // the sun's own elevation
+        // BRIGHT, which is the opposite of what every other theme wants and
+        // is the point. A sunset that does not light its own horizon is a
+        // night sky with a coloured strip at the bottom.
+        //
+        // MUCH TIGHTER THAN IT WAS - 3.4 to 14 - and that is the gathering.
+        // Half strength falls 18 degrees from the sun and a tenth at 32, so
+        // the orange collects around the disc and the deep magenta of
+        // colorMid has the sky back well before the frame edge.
+        //
+        // It HAS to be tighter now, and this is the part worth remembering:
+        // the same 3.4 that was a band on the right edge is a wash over the
+        // whole upper frame once it is pointed down the road, because the
+        // pool has moved from where nobody looks to the vanishing point
+        // itself. Measured on one frozen frame, mean luminance over the top
+        // third: 38.9 before the fix, 92.5 with the direction corrected and
+        // the falloff left at 3.4, 42.3 at 14. Pixels above 160 went 0.7 per
+        // cent, 5.7, 1.1. Aiming the light at the middle of the frame and
+        // keeping its old spread is CLAUDE.md's fifth comfort cause - a frame
+        // that is uniformly bright for ten minutes at 220 km/h.
+        //
+        // The stars survive it because the falloff controls HEIGHT as well as
+        // width: the pool is centred 11 degrees up and down to a tenth by 43,
+        // and the starfield reads through it the whole way. The peak adds a
+        // linear luminance of 0.56 against a bloom threshold of 0.8, so the
+        // sunset contributes nothing to the bloom pass - only the sun does.
         intensity: 1.15,
-        falloff: 3.4,
+        falloff: 14.0,
+        follow: 0,
       },
     },
 

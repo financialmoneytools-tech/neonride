@@ -20,10 +20,19 @@ export const sky = {
     // A single localized pool of purple instead of a global purple wash
     glow: {
       color: 0x4a1a8a,
+      // A MATHS AZIMUTH: zero is off to the right, dead ahead is -PI/2. The
+      // bodies below use the other convention - see world/sky/direction.js,
+      // which is the file that exists because these two were confused.
       azimuth: 2.15, // radians, shares the sky region with the magenta nebulae
       elevation: 0.5,
       intensity: 0.7,
       falloff: 6.0, // higher = tighter pool; 6 gives a roughly 50 degree pool
+      // ANCHOR THE POOL ON A CELESTIAL BODY instead of on the azimuth and
+      // elevation above: an index into `bodies.list`, or null for a fixed
+      // place. A theme with a sun in it should follow the sun, so that the
+      // warmth gathers around it and falls off with angular distance from it
+      // rather than being painted somewhere the sun is not.
+      follow: null,
     },
   },
 

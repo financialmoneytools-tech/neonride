@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
+import { skyDirection, bodyDirection } from './direction.js';
 
 /**
  * SkyDome - inverted giant sphere carrying the sky gradient.
@@ -9,6 +10,27 @@ import { config } from '../../config.js';
  * from the ramp but from a single localized glow pointed at one region of the
  * sky, which is what keeps the rest of the sky dark enough for the neon
  * elements to read against it.
+ *
+ * ================= THE GLOW CAN FOLLOW A BODY =================
+ *
+ * `glow.follow` is an index into `sky.bodies.list`, and when a theme sets it
+ * the pool is anchored on that body's own direction instead of on the glow's
+ * azimuth and elevation. That is what makes the sun light its own sky: the
+ * warmth gathers around wherever the sun actually is and falls off with
+ * angular distance from it, so it stays correct if the sun is moved and it
+ * works on any road that has a body to point at.
+ *
+ * It was not an option before and Sunset Highway paid for it - see
+ * ./direction.js for the ninety degrees that went missing between the two
+ * azimuths.
+ *
+ * WHAT A BLEND DOES WITH IT. Two roads that both follow a body keep
+ * `follow` at the same index, and the direction then moves continuously,
+ * because it is the BODY's azimuth and elevation that are being interpolated.
+ * Blending between a road that follows and one that does not switches the
+ * anchor at the halfway point, which is where the gate flash is brightest -
+ * the same answer world/theme/blendValues.js gives for every other value that
+ * cannot ramp.
  */
 
 const VERTEX_SHADER = `
@@ -63,6 +85,33 @@ const FRAGMENT_SHADER = `
   }
 `;
 
+/**
+ * Where the glow points, this frame.
+ *
+ * The followed body if the theme named one and it is really there, otherwise
+ * the glow's own azimuth and elevation. A `follow` caught mid-blend can land
+ * between two indices, so it is rounded rather than truncated: half of a
+ * transition belongs to each end of it.
+ * @param {THREE.Vector3} [target]
+ * @returns {THREE.Vector3} unit vector
+ */
+function resolveGlowDirection(target = new THREE.Vector3()) {
+  const glow = config.sky.dome.glow;
+  const follow = glow.follow;
+  if (follow !== null && follow !== undefined) {
+    const body = (config.sky.bodies.list || [])[Math.round(follow)];
+    if (body) {
+      const defaults = config.sky.bodies.defaults;
+      return bodyDirection(
+        body.azimuth === undefined ? defaults.azimuth : body.azimuth,
+        body.elevation === undefined ? defaults.elevation : body.elevation,
+        target,
+      );
+    }
+  }
+  return skyDirection(glow.azimuth, glow.elevation, target);
+}
+
 export class SkyDome {
   constructor() {
     const c = config.sky.dome;
@@ -70,11 +119,7 @@ export class SkyDome {
 
     this.geometry = new THREE.SphereGeometry(c.radius, c.widthSegments, c.heightSegments);
 
-    const glowDirection = new THREE.Vector3(
-      Math.cos(glow.elevation) * Math.cos(glow.azimuth),
-      Math.sin(glow.elevation),
-      Math.cos(glow.elevation) * Math.sin(glow.azimuth),
-    ).normalize();
+    const glowDirection = resolveGlowDirection();
 
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -121,11 +166,7 @@ export class SkyDome {
     u.uGlowColor.value.set(glow.color);
     u.uGlowIntensity.value = glow.intensity;
     u.uGlowFalloff.value = glow.falloff;
-    u.uGlowDirection.value.set(
-      Math.cos(glow.elevation) * Math.cos(glow.azimuth),
-      Math.sin(glow.elevation),
-      Math.cos(glow.elevation) * Math.sin(glow.azimuth),
-    ).normalize();
+    resolveGlowDirection(u.uGlowDirection.value);
   }
 
   dispose() {

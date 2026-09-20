@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { config } from '../../config.js';
+import { bodyDirection } from './direction.js';
 
 /**
  * Bodies - the sun, the planet and the moons.
@@ -277,12 +278,11 @@ export class Bodies {
       const body = { ...cfg.defaults, ...(list[i] || {}) };
       const wanted = list[i] ? body.opacity : 0;
 
-      const cosEl = Math.cos(body.elevation);
-      u.uCentre.value[i].set(
-        Math.sin(body.azimuth) * cosEl * cfg.distance,
-        Math.sin(body.elevation) * cfg.distance,
-        -Math.cos(body.azimuth) * cosEl * cfg.distance,
-      );
+      // A RIDER AZIMUTH - zero is dead ahead. The one place it is spelled out
+      // is ./direction.js, because the dome glow reads a body's direction to
+      // anchor its own pool and the two must not drift apart again.
+      bodyDirection(body.azimuth, body.elevation, u.uCentre.value[i])
+        .multiplyScalar(cfg.distance);
       u.uRadius.value[i] = body.radius;
       u.uColor.value[i].set(body.color);
       u.uEdge.value[i].set(body.edgeColor);
