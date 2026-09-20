@@ -290,11 +290,22 @@ export const traffic = {
     },
     {
       name: 'motorcycle',
+      ...vehicles.motorcycle,
       count: 14,
       size: { length: 2.0, width: 0.5, height: 1.15 },
-      cabin: { length: 0.7, width: 0.42, height: 0.42, offset: -0.25, taper: 0.7 },
       speed: { min: 0.55, max: 0.86 },
       stripColor: 0xff36c8,
+      // NO REAR FRAME. The outline frames the chassis, and on a 0.5 m wide
+      // body that is a lit rectangle 0.4 by 1.05 - which is the whole
+      // motorcycle. It read as a magenta slab with a dark smudge on it,
+      // photographed on Neon Metropolis, and it is the same fault the two
+      // lorries and the bus turned off for the same reason: a frame drawn
+      // around a silhouette erases the silhouette.
+      //
+      // A bike does not need it now. It has a rider, two wheels in line, a
+      // single tail light and its ground glow, and those are a better
+      // outline than a rectangle ever was.
+      outlineGain: 0,
       singleTail: true,
       weave: { amount: 0.85, period: 4.5 },
     },

@@ -202,4 +202,49 @@ export const vehicles = {
       recess: { width: 0.56, height: 0.23, y: -0.74, depth: 0.05, color: 0x101016 },
     },
   },
+
+  // ================= THE MOTORCYCLE =================
+  //
+  // The type the spec says is "not recognisable as a motorcycle at all", and
+  // it was 24 triangles: one 2.0 x 0.5 x 1.15 box with a smaller box on it.
+  //
+  // THE RIDER IS THE READ. A bike seen from behind is mostly a person - the
+  // machine is a sliver half a metre wide and the person is the widest,
+  // tallest, most human-shaped thing on it. So the rider is not detail added
+  // to a motorcycle; it is the motorcycle's silhouette, and the two wheels
+  // IN LINE under it are the other half.
+  //
+  // Everything here stays narrow on purpose. The one thing a motorcycle has
+  // that nothing else on this road has is that it is thin, it is what lets
+  // one filter between lanes, and any width spent on detail spends that.
+  motorcycle: {
+    profile: [
+      [-0.95, -0.16, 0.6], [-0.80, 0.30, 0.7], [-0.36, 0.26, 0.95],
+      [-0.04, 0.36, 1.0], [0.36, 0.24, 0.8], [0.72, 0.32, 0.66],
+      [0.95, 0.26, 0.56], [0.95, -0.04, 0.5], [0.10, -0.28, 0.8],
+      [-0.44, -0.30, 0.7],
+    ],
+    wheels: {
+      radius: 0.32, width: 0.12, inset: 0, axles: [-0.72, 0.72],
+      color: 0x0a0a0d,
+      // IN LINE, not in pairs. Half of what makes a motorcycle read as one.
+      centre: true,
+    },
+    blocks: [
+      // Torso, leaning over the tank. The tilt is what stops the rider being
+      // a fence post.
+      { x: 0, y: 0.60, z: 0.10, size: [0.36, 0.52, 0.26], tilt: 0.38, color: 0x14141c },
+      // Head, with a helmet's worth of width.
+      { x: 0, y: 0.88, z: -0.10, size: [0.26, 0.24, 0.28], tilt: 0.2, color: 0x1a1a24 },
+      // Arms, reaching down and forward to the bars.
+      { x: 0.17, y: 0.50, z: -0.26, size: [0.09, 0.42, 0.09], tilt: 0.95,
+        color: 0x14141c, mirror: true },
+      // Knees, out either side of the engine. These are what give a rider a
+      // width at all below the shoulders.
+      { x: 0.20, y: 0.16, z: 0.02, size: [0.13, 0.22, 0.30], tilt: -0.25,
+        color: 0x14141c, mirror: true },
+      // The bars, one box across the front.
+      { x: 0, y: 0.40, z: -0.52, size: [0.56, 0.05, 0.05], tilt: 0, color: 0x101016 },
+    ],
+  },
 };

@@ -33,6 +33,9 @@ import { solid } from './shading.js';
  * @property {number} color
  * @property {number} [sides]
  * @property {object} [arch] `{ height, spread, out, thickness, color }`
+ * @property {boolean} [centre] one wheel per axle, on the centreline. A
+ *   motorcycle's wheels are in LINE, not in pairs, and that is half of what
+ *   makes one read as a motorcycle from behind rather than as a small car.
  */
 
 /**
@@ -43,11 +46,12 @@ import { solid } from './shading.js';
  */
 export function addWheels(builder, matrix, spec) {
   const sides = spec.sides || 8;
-  const x = spec.halfWidth - spec.inset;
+  const x = spec.centre ? 0 : spec.halfWidth - spec.inset;
   const y = spec.ground + spec.radius;
+  const signs = spec.centre ? [1] : [-1, 1];
 
   for (const z of spec.axles) {
-    for (const sign of [-1, 1]) {
+    for (const sign of signs) {
       // A cylinder is built along +Y, so it turns a quarter turn about Z to
       // lie across the vehicle.
       const wheel = new THREE.CylinderGeometry(spec.radius, spec.radius, spec.width, sides);

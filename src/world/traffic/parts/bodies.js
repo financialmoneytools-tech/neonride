@@ -5,6 +5,7 @@ import { extrudeProfile, profileTop, profileRear } from './profile.js';
 import { solid } from './shading.js';
 import { addWheels } from './wheels.js';
 import { addRoofRails, addRearDoors, addRearBumper, addFlankPanel, addRoofPods } from './panels.js';
+import { addBlocks } from './blocks.js';
 
 /**
  * bodies - the shell of one vehicle type, merged into a single geometry.
@@ -134,8 +135,12 @@ function addProfileShell(type, builder, matrix) {
       axles: wheels.axles,
       color: wheels.color,
       arch: wheels.arch,
+      centre: wheels.centre,
     });
   }
+
+  // The rider, and anything else that is a placed box rather than a volume.
+  if (type.blocks) addBlocks(builder, matrix, type.blocks);
 
   const rearZ = rearOf(type);
   if (type.rails) addRoofRails(builder, matrix, type.rails, profileTop(type.profile));
