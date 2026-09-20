@@ -33,7 +33,9 @@
     "roads": "node tools/road-run.mjs",
     "vehicles": "node tools/vehicle-shots.mjs",
     "phonefps": "node tools/phone-fps.mjs",
-    "fit": "node tools/ui-fit.mjs"
+    "fit": "node tools/ui-fit.mjs",
+    "thumbs": "node tools/theme-thumbs.mjs",
+    "thumbcheck": "node tools/thumb-check.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

@@ -1166,7 +1166,13 @@
            what stops a 320px landscape phone pushing the confirm button off
            the bottom. */
         width: min(60vw, 100%);
-        height: min(70vh, 100%);
+        /* MAX, NOT A FIXED HEIGHT. With a fixed height the leftover space
+           went to the thumbnail, so the picture's shape changed with the
+           viewport: measured, the same card gave a 3.78:1 box on a 740x320
+           phone and 1.75:1 at 16:9. A thumbnail cannot match two aspects at
+           once and a check on it would have nothing to assert. The card is
+           its content now, capped so it can never push the buttons off. */
+        max-height: min(70vh, 100%);
         margin: 0 auto;
         flex-direction: column;
         gap: 7px;
@@ -1182,14 +1188,23 @@
         border-color: #7dffc4;
         box-shadow: 0 0 18px rgba(125, 255, 196, 0.28);
       }
-      /* THE THUMBNAIL TAKES WHATEVER IS LEFT. A fixed 16/9 box was right in a
-         row of small cards and wrong here: it is the thing being chosen, so
-         it gets the space, and the text underneath takes only what it needs. */
+      /* ================= ONE SHAPE, EVERYWHERE =================
+         The thumbnail owns its aspect and the card grows around it, rather
+         than the thumbnail taking whatever height is left over. That is what
+         makes the shipped picture and the box it goes in the same shape on
+         every screen, which is the only way "this thumbnail matches its
+         card" can be checked at all.
+         3.6:1 is not a taste choice, it is what a 320px landscape phone can
+         give: the card is 191px tall there and the name, the blurb and the
+         stats need their share of it. Anything closer to 16:9 simply does
+         not fit, and the alternative - letting it fit by squashing - is the
+         bug this replaces. `cover` crops, it never distorts, so a circle in
+         the frame stays a circle whatever the box does. */
       .road-shot {
         display: block;
-        flex: 1 1 auto;
-        min-height: 0;
+        flex: 0 0 auto;
         width: 100%;
+        aspect-ratio: 3.6;
         border-radius: 6px;
         background: #05030d center/cover no-repeat;
       }

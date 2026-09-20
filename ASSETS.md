@@ -290,7 +290,7 @@ rider does not change when the bike does.
 
 | | |
 |---|---|
-| Files | `public/thumbs/galaxyRoad.jpg`, `auroraPass.jpg` |
+| Files | `public/thumbs/<theme>.jpg`, one per built road, plus `mixed.jpg` |
 | Source | the game's own renderer |
 | Built by | `tools/theme-thumbs.mjs` |
 | Used by | `src/ui/RoadScreen.js` |
@@ -302,11 +302,34 @@ from the game itself, so the step from source to shipped file stays repeatable.
 Which roads get one is read from `config.themes` at run time, so a new theme
 gets a thumbnail by existing rather than by being remembered.
 
-Shot at 1280 wide in god mode - no title card, no HUD, no pause button - clipped
-to the top 62 per cent of the frame, because the bottom 38 is cockpit and every
-road would otherwise get a thumbnail of the same motorcycle. Then downscaled to
-480x270: the scene is mostly thin bright lines, and rendering straight to card
-size aliases every one of them into a dashed mess. About 31 KB each.
+Rendered at 1920x1080 in god mode - no title card, no HUD, no pause button -
+then CLIPPED to a 1908x530 band and downscaled uniformly to **1512x420**, about
+90-110 KB each. The scene is mostly thin bright lines, so rendering straight to
+card size aliases every one of them into a dashed mess; rendering big and
+dividing both axes by the same number does not.
+
+The band is cut around each road's own subject rather than from the middle -
+`FOCUS` in the tool - because the sun, the aurora, the moons and the city
+skyline are at different heights in the frame, and a band of empty road sells
+nothing. Sunset Highway also rides a little further before its frame is taken,
+since at the default distance a sign gantry stands squarely across the retro
+sun, which is the entire reason that road looks like that.
+
+### They shipped squashed and blurry once
+
+The old pair of numbers was a 2.87:1 clip resized to 1.78:1 - a NON-UNIFORM
+scale, so every circle in the frame came out a vertical oval and the retro sun
+was reported as exactly that - at 480x270, which is a quarter of what the card
+asks for. `.road-shot` is a fixed 3.6:1 box measuring 1316x366 device pixels on
+a 740x320 phone at a device pixel ratio of 3, and 1496x416 at 16:9 on a dpr 2
+screen; 1512x420 clears both, so the card never upscales.
+
+`npm run thumbcheck` holds every shipped file to that: it MEASURES the box out
+of the running game rather than hard-coding 3.6, reads the real pixel size out
+of each JPEG's frame header, and fails on an aspect more than one per cent from
+the card or a size under what the card needs. A check that assumed the aspect
+would keep passing after somebody changed the CSS, which is how the squash
+shipped in the first place.
 
 The tool prints `SOFTWARE RENDERED - do not ship` if headless Chromium fell back
 to SwiftShader, for the same reason `god-run.mjs` prints its renderer.
