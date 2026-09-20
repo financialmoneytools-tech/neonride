@@ -11,6 +11,7 @@ import { Loop } from './core/Loop.js';
 import { Input } from './core/Input.js';
 import { Fullscreen, Viewport } from './core/Viewport.js';
 import { ControlHints } from './ui/ControlHints.js';
+import { SteerIndicator } from './ui/SteerIndicator.js';
 import { PauseButton } from './ui/PauseButton.js';
 import { StatsOverlay } from './ui/StatsOverlay.js';
 import { applyPatch } from './utils/patch.js';
@@ -234,8 +235,15 @@ const orientation = new Orientation(document.body, () => viewport);
 const controls = new Controls(device.coarsePointer);
 input.controls = controls;
 const hints = new ControlHints(document.body);
+// The drag's own picture. ControlHints says where the bands are; this says
+// what the left one does, which is the part a held thumb cannot discover.
+const steerIndicator = new SteerIndicator(document.body);
 hints.setMode(controls.mode);
-controls.onChange = (mode) => hints.setMode(mode);
+steerIndicator.setMode(controls.mode);
+controls.onChange = (mode) => {
+  hints.setMode(mode);
+  steerIndicator.setMode(mode);
+};
 controls.onNotice = (text) => hints.notice(text);
 
 // Built here rather than with the other UI because it reports on Controls, and
@@ -331,6 +339,13 @@ loop.add((dt) => {
   const clean = controls.enabled && !config.autopilot.enabled
     && !config.capture.enabled && !menuOpen();
   hints.setVisible(clean);
+  // SAME GATE, then once more per frame while a thumb is down. The hints fade
+  // after ten seconds because by then the rider knows where the bands are;
+  // this one never fades, because it is not a reminder of a layout - it is a
+  // live readout of a control, and it is only on screen while that control is
+  // being used.
+  steerIndicator.setVisible(clean);
+  steerIndicator.update(input);
   // Same rule: nothing of ours in a recording. Also hidden while the card is
   // already up, where it would sit on top of the panel it opened.
   pauseButton.setVisible(clean && session.phase === PHASE.RUNNING);
@@ -340,6 +355,7 @@ loop.add((dt) => {
 function applyCapture() {
   if (stats) stats.setVisible(!(config.capture.enabled && config.capture.hideOverlay));
   hints.setVisible(!config.autopilot.enabled && !config.capture.enabled);
+  steerIndicator.setVisible(!config.autopilot.enabled && !config.capture.enabled);
   // Picks up the capture pixel ratio and resizes the chain.
   engine.resize(viewport.width, viewport.height);
 }
@@ -984,7 +1000,7 @@ loop.start();
 // the live objects here is what makes those tests actually runnable. The guard
 // keeps it out of a production build entirely.
 if (import.meta.env && import.meta.env.DEV) {
-  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, sky, road, roadside, median, oncoming, scenery, weather, mountains, ground, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, progress, hud, levelBanner, panels, comfort, themes,
+  window.NEON = { config, device, engine, framing, hotkeys, loop, input, viewport, orientation, controls, steerIndicator, sky, road, roadside, median, oncoming, scenery, weather, mountains, ground, traffic, bike, rider, autopilot, guard, post, flash, gate, checkpointGate, finishGate, themeBlend, results, selection, selectFlow, audio, session, progress, hud, levelBanner, panels, comfort, themes,
     // The one entry point into a run, exposed so tools/level-check.mjs can
     // start a REAL staged run at a chosen level and let the autopilot ride
     // it. Measuring a level any other way would measure something else.
@@ -1040,6 +1056,7 @@ function disposeAll() {
   if (stats) stats.dispose();
   errors.dispose();
   hints.dispose();
+  steerIndicator.dispose();
   pauseButton.dispose();
   controls.dispose();
   engine.scene.fog = null;

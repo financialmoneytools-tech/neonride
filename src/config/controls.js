@@ -66,6 +66,21 @@ export const controls = {
     brake: { x: 0.74, y: 0.30, width: 0.22, height: 0.26 },
   },
 
+  // ================= THE DRAG HAS TO EXPLAIN ITSELF =================
+  //
+  // A held thumb does nothing - that is what a relative drag means - and
+  // nothing on screen said so. Measured on a phone frame: bottom-left held,
+  // `steer` 0.000, `lateral` 0.00 and no throttle either, which is a dead
+  // motorcycle and reads as a broken game.
+  //
+  // ui/SteerIndicator.js draws the zero the thumb just set, the distance to
+  // full lock and where the thumb is between them. It is drawn ONLY while a
+  // steering thumb is down, only in `touch` mode, and never in god mode or
+  // capture mode - both of those are for recording.
+  indicator: {
+    enabled: true,
+  },
+
   // Holding a half of the screen, for TILT mode. Right drives, left brakes,
   // neither coasts.
   halves: { throttle: 'right', brake: 'left' },

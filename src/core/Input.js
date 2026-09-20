@@ -169,7 +169,7 @@ export class Input {
         if (!steerTouch && x < steerEdge) {
           // A new thumb on the left takes over steering, and where it lands is
           // straight ahead.
-          this._steerTouch = { id: touch.identifier, startX: x };
+          this._steerTouch = { id: touch.identifier, startX: x, x, y };
           steerTouch = touch;
           continue;
         }
@@ -181,6 +181,11 @@ export class Input {
         const span = Math.max(1, width * t.dragRange);
         const drag = (steerTouch.clientX - this._steerTouch.startX) / span;
         this._touchSteer = Math.max(-1, Math.min(1, drag));
+        // Where the thumb is NOW, for ui/SteerIndicator.js. Kept here rather
+        // than recomputed there because this is the only place that knows
+        // which of several touches is the steering one.
+        this._steerTouch.x = steerTouch.clientX;
+        this._steerTouch.y = steerTouch.clientY;
       } else {
         // Lifted: straight ahead, and the next thumb down starts a new drag.
         this._steerTouch = null;
@@ -190,6 +195,18 @@ export class Input {
 
     this._touchThrottle = throttle;
     this._touchBrake = brake;
+  }
+
+  /**
+   * The steering thumb, or null when none is down.
+   *
+   * READ ONLY, and the live object rather than a copy: it is read once a
+   * frame by one drawer and copying it would allocate sixty times a second
+   * for nothing. Anything that writes to it is writing to the control state.
+   * @returns {{startX: number, x: number, y: number}|null}
+   */
+  get steerPointer() {
+    return this._steerTouch;
   }
 
   // --- Gamepad ---
