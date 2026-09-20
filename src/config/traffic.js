@@ -116,12 +116,11 @@ export const traffic = {
     },
     {
       name: 'ambulance',
+      ...vehicles.ambulance,
       count: 5,
       // Box body over a lower cab. That step in the roofline is the shape that
       // says ambulance, and it is legible long before any light is.
       size: { length: 5.9, width: 2.25, height: 1.55 },
-      cabin: { length: 1.7, width: 2.05, height: 0.5, offset: -2.0, taper: 0.86 },
-      rearBox: { length: 3.6, width: 2.2, height: 1.35, offset: 1.0 },
       bodyColor: 0xc8ccd4, // white, the one type that does not take the palette
       speed: { min: 0.5, max: 0.66 },
       stripColor: 0xff2a3c,
@@ -132,9 +131,14 @@ export const traffic = {
         // a single colour write, no extra geometry and no extra draw call.
         colorA: 0xff2a3c,
         colorB: 0x3a6bff,
-        size: [0.5, 0.2, 0.5],
-        spacing: 0.66,
-        z: -1.9,
+        // A BAR, not two lamps. The spec wants it readable from far away and
+        // that is a question of how many pixels it covers: two 0.5 m lamps
+        // 0.66 apart are two dots at a hundred metres, and one 2 m bar is a
+        // line. The two halves still alternate, which is what reads as a
+        // flash rather than as a light that is simply on.
+        size: [0.98, 0.22, 0.4],
+        spacing: 0.5,
+        z: -1.55,
         rate: 2.6, // alternations a second
       },
     },
@@ -151,13 +155,12 @@ export const traffic = {
     },
     {
       name: 'boxTruck',
+      ...vehicles.boxTruck,
       count: 8,
       // A tall cargo box on a low chassis. The step from cab roof to box is the
       // shape, the same trick the ambulance uses, and it is legible at a
       // hundred units where no amount of detail would be.
       size: { length: 8.6, width: 2.5, height: 2.45 },
-      cabin: { length: 2.3, width: 2.35, height: 0.42, offset: -3.0, taper: 0.92 },
-      rearBox: { length: 6.0, width: 2.5, height: 1.5, offset: 1.1 },
       // Slow, and that is the point of a truck: it is the thing worth
       // overtaking. It also belongs on the right, which the lane pick in
       // world/Traffic.js works out from this on its own.
@@ -216,13 +219,13 @@ export const traffic = {
     },
     {
       name: 'semi',
+      ...vehicles.semi,
       count: 6,
       // SIXTEEN METRES. Long enough that the autopilot had to learn to measure
       // gaps from a vehicle's near end rather than its centre - see
       // player/Autopilot.js - because eight metres of trailer was still in the
       // lane the planner had already called clear.
       size: { length: 16.0, width: 2.55, height: 3.3 },
-      cabin: { length: 2.6, width: 2.45, height: 0.62, offset: -6.4, taper: 0.9 },
       speed: { min: 0.3, max: 0.5 },
       minLane: 2, // a semi keeps to the two inside lanes
       rideHeight: 0.58,

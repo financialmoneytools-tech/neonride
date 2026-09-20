@@ -107,4 +107,52 @@ export const vehicles = {
       recess: { width: 0.52, height: 0.22, y: -0.38, depth: 0.05, color: 0x101016 },
     },
   },
+
+  // A box body over a LOWER cab, and that step in the roofline is the whole
+  // read - it is legible at a hundred metres, long before any light is.
+  // The cab is a separate bite out of the profile rather than a taper, so the
+  // windscreen rakes and the box front stands square behind it.
+  ambulance: {
+    profile: [
+      [-2.95, -0.55], [-2.88, 0.04], [-2.50, 0.30], [-1.98, 0.74],
+      [-1.32, 0.76], [-1.18, 2.13], [2.95, 2.13], [2.95, -0.55],
+    ],
+    wheels: {
+      radius: 0.42, width: 0.28, inset: 0.1, axles: [-1.9, 1.75],
+      color: 0x0a0a0d,
+      arch: { height: 0.24, spread: 0.2, out: 0.004, thickness: 0.03, color: 0x2a2d34 },
+    },
+    doors: { seam: 0.06, depth: 0.04, top: 1.9, bottom: -0.2, hinges: 3, inset: 0.2,
+      hingeWidth: 0.3, color: 0x3a3f48 },
+    rear: {
+      bumper: { height: 0.18, depth: 0.15, y: -0.42, widthScale: 0.92, color: 0x2a2d34 },
+      plate: { width: 0.44, height: 0.15, x: 0, y: -0.2, color: 0xdfe6ee },
+    },
+  },
+
+  // A cab and a cargo body, with a real notch between them. A box truck is
+  // two objects on one chassis and the notch is what says so; the old shape
+  // was one box with a lip on it and read as a crate.
+  boxTruck: {
+    profile: [
+      [-4.30, -1.00], [-4.24, -0.30], [-3.88, 0.02], [-3.30, 0.96],
+      [-2.62, 0.98], [-2.48, 0.34], [-2.30, 0.34], [-2.30, 2.60],
+      [4.30, 2.60], [4.30, -1.00],
+    ],
+    skirts: { from: -1.6, to: 3.6, top: -0.5, bottom: -1.0, out: 0.06,
+      thickness: 0.05, color: 0x101016 },
+  },
+
+  // A TRACTOR AND A TRAILER, with the gap between them visible. Sixteen
+  // metres of one unbroken box is the single least truck-like thing in the
+  // fleet; the dip behind the cab is what the eye reads as articulation.
+  semi: {
+    profile: [
+      [-8.00, -1.45], [-7.92, -0.72], [-7.52, -0.30], [-6.92, 1.20],
+      [-5.94, 1.25], [-5.72, -0.20], [-5.00, -0.20], [-5.00, 1.65],
+      [8.00, 1.65], [8.00, -1.45],
+    ],
+    skirts: { from: -3.4, to: 6.2, top: -0.85, bottom: -1.45, out: 0.06,
+      thickness: 0.05, color: 0x101016 },
+  },
 };

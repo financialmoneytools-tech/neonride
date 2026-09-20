@@ -142,3 +142,42 @@ export function extrudeProfile(points, halfWidth) {
   geometry.computeVertexNormals();
   return geometry;
 }
+
+/**
+ * The highest point of a profile.
+ *
+ * Read off the SHAPE, never off `size.height`: a profile is allowed to stand
+ * taller than the box its collision size describes, and on every type with a
+ * cabin it does. Roof rails and a lorry's top marker lights both hang off
+ * this, and both were floating above the roof while it was derived from the
+ * old `rearBox` instead.
+ * @param {number[][]} points
+ * @returns {number}
+ */
+export function profileTop(points) {
+  let top = -Infinity;
+  for (const point of points) if (point[1] > top) top = point[1];
+  return top;
+}
+
+/** The lowest point of a profile. */
+export function profileBottom(points) {
+  let bottom = Infinity;
+  for (const point of points) if (point[1] < bottom) bottom = point[1];
+  return bottom;
+}
+
+/**
+ * The rearmost point of a profile - the z of the face the doors, the plate
+ * and the bumper hang on. ONE source of truth for where the back is, which is
+ * the whole reason this is a function: a box truck's doors were placed from
+ * `rearBox` while its shell was built from the profile, and 200 mm of
+ * disagreement puts the doors inside the body where they are never drawn.
+ * @param {number[][]} points
+ * @returns {number}
+ */
+export function profileRear(points) {
+  let rear = -Infinity;
+  for (const point of points) if (point[0] > rear) rear = point[0];
+  return rear;
+}

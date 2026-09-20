@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GeometryBuilder } from '../../../utils/geometry.js';
 import { addTruckParts } from '../truckParts.js';
-import { extrudeProfile } from './profile.js';
+import { extrudeProfile, profileTop, profileRear } from './profile.js';
 import { solid } from './shading.js';
 import { addWheels } from './wheels.js';
-import { addRoofRails, addRearDoors, addRearBumper } from './panels.js';
+import { addRoofRails, addRearDoors, addRearBumper, addSideSkirts } from './panels.js';
 
 /**
  * bodies - the shell of one vehicle type, merged into a single geometry.
@@ -47,8 +47,15 @@ export function groundOf(type) {
   return -type.size.height * 0.5 - (type.rideHeight || 0);
 }
 
-/** Local z of the face the doors, plate and bumper hang on. */
+/**
+ * Local z of the face the doors, plate and bumper hang on.
+ *
+ * The PROFILE wins when there is one. It has to: the shell is built from the
+ * profile, so anything placed from another number is placed on a face that
+ * does not exist there.
+ */
 function rearOf(type) {
+  if (type.profile) return profileRear(type.profile);
   const box = type.rearBox;
   return box ? box.offset + box.length * 0.5 : type.size.length * 0.5;
 }
@@ -131,7 +138,7 @@ function addProfileShell(type, builder, matrix) {
   }
 
   const rearZ = rearOf(type);
-  if (type.rails) addRoofRails(builder, matrix, type.rails, roofOf(type));
+  if (type.rails) addRoofRails(builder, matrix, type.rails, profileTop(type.profile));
   if (type.doors) addRearDoors(builder, matrix, type.doors, halfWidth, rearZ);
   if (type.rear && type.rear.bumper) {
     addRearBumper(builder, matrix, type.rear.bumper, halfWidth, rearZ);
@@ -139,6 +146,7 @@ function addProfileShell(type, builder, matrix) {
   // The dark surround the plate sits in. The plate itself is in the tail mesh,
   // where the vertex colours are absolute; here it would be multiplied by the
   // car's paint and a white plate would come out red on a red car.
+  if (type.skirts) addSideSkirts(builder, matrix, type.skirts, halfWidth);
   if (type.rear && type.rear.recess) {
     const recess = type.rear.recess;
     addRearBumper(builder, matrix, {
@@ -149,19 +157,6 @@ function addProfileShell(type, builder, matrix) {
       color: recess.color,
     }, halfWidth, rearZ);
   }
-}
-
-/**
- * The highest point of a profile, which is where roof rails sit. Read off the
- * shape rather than off `size.height`, because a profile is allowed to stand
- * taller than the box its collision size describes - and it does, on every
- * type that has a cabin.
- * @param {object} type
- */
-function roofOf(type) {
-  let top = -Infinity;
-  for (const point of type.profile) if (point[1] > top) top = point[1];
-  return top;
 }
 
 /**

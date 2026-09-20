@@ -94,3 +94,30 @@ export function addRearBumper(builder, matrix, bumper, halfWidth, rearZ) {
     matrix.makeTranslation(0, bumper.y, rearZ + bumper.depth * 0.5),
   );
 }
+
+/**
+ * Side skirts: a panel down each flank between the axles.
+ *
+ * What a semi trailer has and a box truck does not, and from the lane beside
+ * one it is most of the difference - a trailer with its underside open reads
+ * as a box on stilts, and with skirts it reads as a trailer.
+ * @param {import('../../../utils/geometry.js').GeometryBuilder} builder
+ * @param {THREE.Matrix4} matrix
+ * @param {object} skirts `{ from, to, top, bottom, out, thickness, color }`
+ * @param {number} halfWidth
+ */
+export function addSideSkirts(builder, matrix, skirts, halfWidth) {
+  const length = skirts.to - skirts.from;
+  const height = skirts.top - skirts.bottom;
+  for (const sign of [-1, 1]) {
+    builder.add(
+      solid(painted(
+        new THREE.BoxGeometry(skirts.thickness, height, length), skirts.color), 0.3),
+      matrix.makeTranslation(
+        sign * (halfWidth - skirts.out),
+        skirts.bottom + height * 0.5,
+        skirts.from + length * 0.5,
+      ),
+    );
+  }
+}

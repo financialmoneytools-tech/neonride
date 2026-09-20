@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { paintVertices } from '../../utils/geometry.js';
+import { profileTop, profileBottom, profileRear } from './parts/profile.js';
 
 /**
  * truckParts - the hardware that makes a lorry a lorry rather than a box.
@@ -34,18 +35,24 @@ function painted(geometry, color) {
  * @param {object} type
  */
 export function rearFace(type) {
+  // THE PROFILE WINS. A lorry's shell is extruded from its side view now, so
+  // a face derived from anything else is a face that is not there - which is
+  // how a set of doors ends up 200 mm inside the body and never drawn.
+  if (type.profile) return profileRear(type.profile);
   const box = type.rearBox;
   return box ? box.offset + box.length * 0.5 : type.size.length * 0.5;
 }
 
 /** The height of the face the doors are on. */
 export function rearHeight(type) {
+  if (type.profile) return profileTop(type.profile) - profileBottom(type.profile);
   const box = type.rearBox;
   return box ? type.size.height + box.height : type.size.height;
 }
 
 /** The top of that face, in the body geometry's own space. */
 export function rearTop(type) {
+  if (type.profile) return profileTop(type.profile);
   const box = type.rearBox;
   return type.size.height * 0.5 + (box ? box.height : 0);
 }

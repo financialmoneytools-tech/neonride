@@ -5,6 +5,7 @@ import { createStarTexture } from '../../utils/textures.js';
 import { applyDistanceFade } from '../../utils/distanceFade.js';
 import { addMarkers } from './truckParts.js';
 import { buildBody } from './parts/bodies.js';
+import { profileTop } from './parts/profile.js';
 
 /**
  * VehicleMesh - the instanced meshes for ONE vehicle type: body, tinted strips
@@ -291,7 +292,14 @@ export class VehicleMesh {
     const beacon = type.beacon;
     const builder = new GeometryBuilder();
     const matrix = new THREE.Matrix4();
-    const y = type.size.height * 0.5 + type.cabin.height + beacon.size[1] * 0.5;
+    // ON THE PROFILE'S OWN ROOF. It was `size.height / 2 + cabin.height`,
+    // which is a number the ambulance no longer has - its cab and its box are
+    // one extruded side view now, and the roof the bar sits on is the top of
+    // that shape.
+    const roof = type.profile
+      ? profileTop(type.profile)
+      : type.size.height * 0.5 + type.cabin.height;
+    const y = roof + beacon.size[1] * 0.5;
 
     for (let s = 0; s < 2; s++) {
       const sign = s === 0 ? 1 : -1;
