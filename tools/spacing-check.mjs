@@ -64,6 +64,10 @@ const SIZE = { width: 1280, height: 720 };
 // breadth across every level and both modes, and an overlap shows up within a
 // second or two of one being possible at all.
 const SAMPLE = Number(process.env.SPACING_SAMPLE || 3);
+// ONE ROAD, for working on the check itself. A full sweep is six roads and
+// twelve rides each; finding out whether a change to this file even runs
+// should not cost that. SPACING_ROAD=galaxyRoad npm run spacing
+const ONLY = process.env.SPACING_ROAD || '';
 
 function startServer() {
   const child = spawn('npm', ['run', 'dev'], { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -94,6 +98,12 @@ const browser = await chromium.launch({ args: ['--use-angle=default', '--enable-
 async function sweep(road) {
   const page = await browser.newPage({ viewport: SIZE });
   page.on('pageerror', (e) => failures.push(`${road}: page error ${e.message}`));
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) console.log('  (navigated to ' + f.url() + ')');
+  });
+  page.on('console', (m) => {
+    if (m.type() === 'error') console.log('  (console error) ' + m.text().slice(0, 200));
+  });
   await page.goto(`${server.url}?theme=${road}&stats=0`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
   await page.waitForTimeout(1200);
@@ -117,17 +127,39 @@ async function sweep(road) {
      * Rides one configuration and returns what the traffic did.
      * @param {number} level 0 for endless
      */
-    const ride = async (level) => {
-      if (level === 0) {
-        N.selection.setMode('endless');
-        // Endless ramps to its cap over sixteen kilometres. Pinned, so this
-        // samples the busiest the mode ever gets rather than its opening.
-        const density = N.config.world.traffic.models.player.density;
-        density.start = density.max;
-      } else {
-        N.selection.setMode('stage');
-      }
+    const ride = async (level, which) => {
+      N.selection.setMode(level === 0 ? 'endless' : 'stage');
       N.beginRun(level === 0 ? 1 : level);
+
+      // ================= EVERYTHING IS SET AFTER beginRun =================
+      //
+      // beginRun calls themeBlend.settle(), and settle writes a resolved
+      // snapshot of the theme over the WHOLE of config.world - every key,
+      // not just the ones a theme names. So anything this check wrote before
+      // it was silently reverted before a single frame was sampled: the
+      // density pin AND the model pin both. That is the same hazard
+      // CLAUDE.md records for ThemeBlend, pointed the other way - there it
+      // was one blend's leftovers reaching the next road, here it is a road
+      // arriving on top of a measurement's setup.
+      //
+      // WHICH MODEL. This check turns the autopilot on to get a rider, and
+      // that is the same switch that picks the god traffic model, so an
+      // endless sample without this pin was the GOD road wearing the label
+      // SONSUZ - and the density it churned belonged to a model nothing in
+      // that run was reading. Zero activations, on every road, for as long as
+      // this check has existed.
+      //
+      // A level always uses the level model, whoever is steering, so the pin
+      // is left off there rather than lying about what was measured.
+      N.config.world.traffic.forceModel = level === 0 ? which : null;
+      if (level === 0) {
+        // Endless ramps to its cap over sixteen kilometres. Pinned to the cap,
+        // so this samples the busiest the mode ever gets rather than its
+        // opening.
+        const density = N.config.world.traffic.models[which].density;
+        density.start = density.max;
+      }
+
       // Let the pools fill and the density settle before anything is counted.
       await new Promise((r) => setTimeout(r, 2500));
 
@@ -135,9 +167,26 @@ async function sweep(road) {
       // own row; endless reads the shared model's start, which was pinned to
       // the cap above.
       const row = level === 0
-        ? N.config.world.traffic.models.player.density
+        ? N.config.world.traffic.models[which].density
         : N.config.levels.rows[level - 1];
-      const key = level === 0 ? 'start' : 'density';
+      // ================= CHURN THE CAP, NOT THE START =================
+      //
+      // `start` is where the density ramp BEGINS and it stops mattering the
+      // moment the ramp saturates:
+      //
+      //     fraction = min(max, start + (max - start) * progress^curve)
+      //
+      // `progress` is the lifetime odometer over `fullAt`, and the odometer
+      // runs for the whole page session across every run - so by the time
+      // these endless rides happen, after ten level rides on the same page,
+      // it is well past `fullAt` on both models. progress^curve is 1,
+      // fraction is `max`, and swinging `start` moves nothing at all.
+      // Measured on galaxyRoad: start swinging 0.35 to 1.00 with the fraction
+      // flat at 1 and all 79 vehicles live for the entire sample.
+      //
+      // The cap works in both regimes. Saturated, fraction IS max and follows
+      // it exactly; unsaturated, max is still one end of the interpolation.
+      const key = level === 0 ? 'max' : 'density';
       const base = row[key];
 
       const countActive = () => {
@@ -179,6 +228,7 @@ async function sweep(road) {
       const shot = scan.snapshot();
       return {
         level,
+        which: level === 0 ? which : null,
         frames: shot.frames,
         pairs: shot.pairs,
         overlaps: shot.overlaps,
@@ -192,7 +242,14 @@ async function sweep(road) {
     for (let level = 1; level <= N.config.levels.count; level++) out.push(await ride(level));
     // Endless LAST, because pinning its density mutates the shared model and
     // every staged level reads `gap.base` out of the same object.
-    out.push(await ride(0));
+    //
+    // BOTH ENDLESS ROADS. `player` is what a rider meets in SONSUZ; `god` is
+    // what a recording is made on, and it is the road the original 2400
+    // overlapping pairs were measured on. The rule this file exists for is
+    // that an invariant holding in one mode is not one, so both are swept.
+    out.push(await ride(0, 'player'));
+    out.push(await ride(0, 'god'));
+    N.config.world.traffic.forceModel = null;
     return out;
   }, { src: SCAN_SOURCE, roadName: road, sampleMs: SAMPLE * 1000 });
 }
@@ -203,7 +260,7 @@ const roads = await (async () => {
   await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
   const names = await page.evaluate(() => Object.keys(window.NEON.config.themes));
   await page.close();
-  return names;
+  return ONLY ? names.filter((n) => n === ONLY) : names;
 })();
 
 let totalPairs = 0;
@@ -217,7 +274,7 @@ for (const road of roads) {
   const rows = await sweep(road);
 
   for (const row of rows) {
-    const label = row.level === 0 ? 'SONSUZ' : 'level ' + row.level;
+    const label = row.level === 0 ? 'SONSUZ ' + row.which : 'level ' + row.level;
     totalPairs += row.pairs;
     totalOverlaps += row.overlaps;
     if (row.minEdgeGap !== null && row.minEdgeGap < closest) closest = row.minEdgeGap;
@@ -237,20 +294,20 @@ for (const road of roads) {
   // failure in its own right rather than a quiet pass.
   const idle = rows.filter((r) => r.activations < 20);
   check(`${road}: the sample actually churned the pool`, idle.length === 0,
-    idle.map((r) => `${r.level === 0 ? 'SONSUZ' : 'level ' + r.level} saw only `
+    idle.map((r) => `${r.level === 0 ? 'SONSUZ ' + r.which : 'level ' + r.level} saw only `
       + `${r.activations} activations`).join('; '));
 
   // ANY. Not a rate, not a threshold - see the header.
   const bad = rows.filter((r) => r.overlaps > 0);
   check(`${road}: no two vehicles are ever inside each other`, bad.length === 0,
-    bad.map((r) => `${r.level === 0 ? 'SONSUZ' : 'level ' + r.level} had `
+    bad.map((r) => `${r.level === 0 ? 'SONSUZ ' + r.which : 'level ' + r.level} had `
       + `${r.overlaps} overlapping pairs, worst ${r.minEdgeGap.toFixed(2)} m`).join('; '));
 
   // The other thing a rider cannot survive, and it comes free from the same
   // sweep: a stretch with no gap wide enough to fit a bike. Same zero rule.
   const walled = rows.filter((r) => r.noCorridor > 0);
   check(`${road}: the rider always has a way through`, walled.length === 0,
-    walled.map((r) => `${r.level === 0 ? 'SONSUZ' : 'level ' + r.level} was walled `
+    walled.map((r) => `${r.level === 0 ? 'SONSUZ ' + r.which : 'level ' + r.level} was walled `
       + `on ${r.noCorridor} of ${r.frames} frames`).join('; '));
 }
 

@@ -347,6 +347,12 @@ export class Traffic {
     // `free`, never staged, so `state.level` is zero there and always was.
     if (this._level > 0) return this._levelModel;
     const models = config.world.traffic.models;
+    // A MEASUREMENT MAY PIN IT. See `forceModel` in config/traffic.js: a check
+    // has to turn the autopilot on to have a rider at all, and that is the
+    // same switch that picks the god model, so without this there is no way to
+    // sample the road a PLAYER meets in endless mode.
+    const forced = config.world.traffic.forceModel;
+    if (forced && models[forced]) return models[forced];
     return config.autopilot.enabled ? models.god : models.player;
   }
 

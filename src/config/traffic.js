@@ -364,6 +364,25 @@ export const traffic = {
   // playable one. Spawn time rather than construction because god mode can be
   // armed mid-run, and the road should fill in behind that rather than need a
   // reload.
+  //
+  // ================= AND HOW A CHECK SAYS WHICH ONE =================
+  //
+  // `forceModel` pins the choice: 'god', 'player', or null to follow
+  // `config.autopilot.enabled` as it always has. Nothing in the game sets it
+  // and the default is null, so the shipped behaviour is untouched.
+  //
+  // It exists because tools/spacing-check.mjs could not measure SONSUZ. It
+  // turns the autopilot on to get a rider - there is no other way to make the
+  // bike steer - and turning the autopilot on is ALSO what selects the god
+  // model, so its endless control was silently the god road: a different
+  // density curve, a fixed 26 m gap with no reaction term, and `escape`
+  // switched off. The check could not opt out of that without giving up
+  // having a rider at all.
+  //
+  // A check that cannot select what it measures ends up measuring whatever it
+  // is given and reporting it under the other one's name.
+  forceModel: null,
+
   models: {
     god: {
       // Exactly what the road has always been. Footage is tuned against this
