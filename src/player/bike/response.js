@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Input } from '../../core/Input.js';
 import { motionScale } from '../../core/Comfort.js';
+import { wrapRadians } from '../../utils/angle.js';
 
 /**
  * response - how the bike answers a steering input, beyond where it goes.
@@ -21,7 +22,17 @@ import { motionScale } from '../../core/Comfort.js';
  */
 export function updateLean(rig, dt, input, bike, yaw) {
   if (rig._previousYaw === null) rig._previousYaw = yaw;
-  const rawRate = dt > 0 ? (yaw - rig._previousYaw) / dt : 0;
+  // WRAPPED, the same fault core/Controls.js shipped with. `yaw` comes from
+  // atan2 and so lives in (-PI, PI]: the frame the road's heading crosses that
+  // seam, a plain subtraction reads about 2*PI of turn in one frame instead of
+  // a fraction of a degree, which is a yaw RATE two orders of magnitude out
+  // and a lean spike straight into the camera roll.
+  //
+  // Found by audit rather than by report - the road's heading stays near zero
+  // in normal riding, so this one has probably never fired. It is the same
+  // line of code as the bug that made the game unplayable, and leaving it
+  // because it has not bitten yet is how the first one survived for months.
+  const rawRate = dt > 0 ? wrapRadians(yaw - rig._previousYaw) / dt : 0;
   rig._previousYaw = yaw;
   rig._yawRate = Input.damp(rig._yawRate, rawRate, bike.curveTau, dt);
 

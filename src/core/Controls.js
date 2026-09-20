@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { tilt as traceTilt } from './Trace.js';
+import { wrapDegrees } from '../utils/angle.js';
 
 /**
  * Controls - which control mode is live, and the tilt sensor behind one of them.
@@ -300,7 +301,8 @@ export class Controls {
     this.source = 'motion';
 
     const sign = config.controls.tilt.invert ? -1 : 1;
-    this._raw = gravityTilt(x, y, this.angle) * sign;
+    // Canonical [-180, 180) at the source, so nothing downstream has to ask.
+    this._raw = wrapDegrees(gravityTilt(x, y, this.angle) * sign);
     if (this._neutral === null) this._neutral = this._raw;
     this.live = true;
   }
@@ -321,13 +323,17 @@ export class Controls {
     this.angle = screenAngle();
     this.source = 'orientation';
     const sign = config.controls.tilt.invert ? -1 : 1;
-    this._raw = screenTilt(event.beta || 0, event.gamma || 0, this.angle) * sign;
+    this._raw = wrapDegrees(screenTilt(event.beta || 0, event.gamma || 0, this.angle) * sign);
     if (this._neutral === null) this._neutral = this._raw;
     this.live = true;
   }
 
   /** Takes the current holding position as the new zero. */
   recalibrate() {
+    // Already wrapped, because `_raw` is wrapped where it is assigned. Said
+    // here because this is the method the rider reaches for when the steering
+    // is wrong, and it spent the whole bug storing a perfectly good neutral
+    // that the unwrapped subtraction downstream then mangled.
     this._neutral = this._raw;
     this._smoothed = 0;
     this.steer = 0;
@@ -430,7 +436,16 @@ export class Controls {
     }
 
     const cfg = config.controls.tilt;
-    const delta = this._raw - (this._neutral === null ? this._raw : this._neutral);
+    // WRAPPED. `_raw` and `_neutral` are angles on a circle, and the plain
+    // subtraction of two of them is not the distance between them. Held the
+    // other way up the phone sits near the seam and crosses it every frame:
+    // photographed from the overlay trace, raw 163.9 against a neutral of
+    // -173.2 - twenty-three degrees apart - came out as a delta of 337.1.
+    // Full lock is `range` 22, so every reading saturated and the bike
+    // snapped between the two lateral limits with nothing in between. That
+    // was the "locked steering", and it is why recalibrating never helped:
+    // it stores a neutral this subtraction then mangles the same way.
+    const delta = wrapDegrees(this._raw - (this._neutral === null ? this._raw : this._neutral));
     const dead = Math.sign(delta) * Math.max(0, Math.abs(delta) - cfg.deadZone);
     const range = Math.max(1, cfg.range * cfg.sensitivity);
     const target = Math.max(-1, Math.min(1, dead / range));

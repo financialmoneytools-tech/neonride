@@ -361,6 +361,93 @@ for (const road of roads) {
         + 'through the menus is permanent steering bias');
 }
 
+// ============ THE SEAM AT +/-180, WHICH EVERY PROBE MISSED ============
+//
+// An angle is a point on a circle and `raw - neutral` is not the distance
+// between two of them. Held one way up a phone reads near zero and the plain
+// subtraction is right; held the other way it sits on the seam and crosses it
+// every frame. Photographed from the overlay trace on a real phone:
+//
+//   pinned right:  raw  163.9   neutral -173.2   delta  337.1
+//   pinned left:   raw -174.0   neutral  167.6   delta -341.6
+//
+// Twenty-three degrees apart, called 337. Full lock is 22, so every reading
+// saturated and the bike snapped between the lateral limits with nothing in
+// between.
+//
+// EVERY REPRODUCTION MISSED THIS, and the reason is worth keeping: a
+// synthetic neutral sits at or near 0, where the seam is 180 degrees away and
+// can never be reached by a few degrees of lean. The harness was not wrong
+// about what it measured, it was measuring the one pose that cannot fail.
+// So this drives the neutral ONTO the seam on purpose.
+//
+// The assertion is PROPORTIONALITY, not reach. Saturation is the symptom: a
+// lean of a few degrees against a 22 degree range must produce a fraction of
+// full lock, and the broken build produces exactly 1 for any lean at all.
+{
+  const page = await browser.newPage({ viewport: SIZE });
+  page.on('pageerror', (e) => failures.push(`seam: page error ${e.message}`));
+  await page.goto(`${server.url}?stats=0`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.NEON, null, { timeout: 20000 });
+  await page.waitForTimeout(1200);
+
+  const seam = await page.evaluate(async () => {
+    const N = window.NEON;
+    N.controls.enabled = true;
+    N.controls.mode = 'tilt';
+    N.controls.live = true;
+    N.selection.setMode('endless');
+    N.beginRun(1);
+    await new Promise((r) => setTimeout(r, 400));
+
+    // The pose the phone was actually in, straight off the report.
+    const NEUTRAL = -173.2;
+    const out = [];
+    for (const lean of [0, 4, 11, 22, -4, -11, -22]) {
+      N.controls._neutral = NEUTRAL;
+      // Wrapped into the real domain a sensor reports, which is the whole
+      // point: NEUTRAL + 11 is 197.8, and no sensor ever says 197.8.
+      let raw = NEUTRAL + lean;
+      while (raw > 180) raw -= 360;
+      while (raw < -180) raw += 360;
+      N.controls._raw = raw;
+      N.controls._smoothed = 0;
+      // Enough steps that the smoothing has settled on the target.
+      for (let i = 0; i < 60; i++) N.controls.update(1 / 60);
+      out.push({ lean, raw: +raw.toFixed(1), steer: +N.controls.steer.toFixed(3) });
+    }
+    return out;
+  });
+  await page.close();
+
+  console.log('');
+  console.log('  tilt across the +/-180 seam, neutral -173.2, full lock at 22 deg');
+  console.log('  lean deg   raw      steer');
+  for (const row of seam) {
+    console.log('  %s   %s   %s',
+      String(row.lean).padStart(6), String(row.raw).padStart(7),
+      row.steer.toFixed(3).padStart(7));
+  }
+
+  // At rest it must be still, and a part lean must be a part of full lock.
+  const rest = seam.find((r) => r.lean === 0);
+  check('tilt at the seam is still when the phone is at its neutral',
+    Math.abs(rest.steer) < 0.02,
+    `steer ${rest.steer} with the phone held exactly at the neutral`);
+
+  const partial = seam.filter((r) => r.lean === 11 || r.lean === -11);
+  const proportional = partial.every((r) => Math.abs(r.steer) > 0.1 && Math.abs(r.steer) < 0.9);
+  check('tilt at the seam is proportional, not saturated', proportional,
+    partial.map((r) => `${r.lean} deg gave ${r.steer}`).join('; ')
+    + ' - half a lock of lean must give about half lock, and a delta that '
+    + 'is not wrapped gives full lock for everything');
+
+  const signs = seam.filter((r) => r.lean === 22 || r.lean === -22);
+  const bothWays = signs.length === 2 && Math.sign(signs[0].steer) !== Math.sign(signs[1].steer);
+  check('tilt at the seam steers both ways', bothWays,
+    signs.map((r) => `${r.lean} deg gave ${r.steer}`).join('; '));
+}
+
 await browser.close();
 server.child.kill();
 
