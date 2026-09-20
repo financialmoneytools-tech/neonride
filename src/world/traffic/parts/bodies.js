@@ -4,7 +4,7 @@ import { addTruckParts } from '../truckParts.js';
 import { extrudeProfile, profileTop, profileRear } from './profile.js';
 import { solid } from './shading.js';
 import { addWheels } from './wheels.js';
-import { addRoofRails, addRearDoors, addRearBumper, addSideSkirts } from './panels.js';
+import { addRoofRails, addRearDoors, addRearBumper, addFlankPanel, addRoofPods } from './panels.js';
 
 /**
  * bodies - the shell of one vehicle type, merged into a single geometry.
@@ -146,7 +146,9 @@ function addProfileShell(type, builder, matrix) {
   // The dark surround the plate sits in. The plate itself is in the tail mesh,
   // where the vertex colours are absolute; here it would be multiplied by the
   // car's paint and a white plate would come out red on a red car.
-  if (type.skirts) addSideSkirts(builder, matrix, type.skirts, halfWidth);
+  if (type.skirts) addFlankPanel(builder, matrix, type.skirts, halfWidth);
+  if (type.flanks) for (const panel of type.flanks) addFlankPanel(builder, matrix, panel, halfWidth);
+  if (type.roofPods) addRoofPods(builder, matrix, type.roofPods, profileTop(type.profile));
   if (type.rear && type.rear.recess) {
     const recess = type.rear.recess;
     addRearBumper(builder, matrix, {

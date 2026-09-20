@@ -162,7 +162,7 @@ export const redPlanet = {
     // A dead road: the least traffic of the six, and what there is is heavy.
     // Nobody commutes on Mars; things get hauled.
     traffic: {
-      mix: { sedan: 0.45, van: 0.7, ambulance: 0.2, jeep: 1, boxTruck: 0.9, semi: 0.8, motorcycle: 0.3 },
+      mix: { sedan: 0.45, van: 0.7, ambulance: 0.2, jeep: 1, boxTruck: 0.9, semi: 0.8, bus: 0.15, motorcycle: 0.3 },
       look: {
         jeep: { stripColor: 0xffa53d },
         boxTruck: { stripColor: 0xff6a2a },

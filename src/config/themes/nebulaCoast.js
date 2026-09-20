@@ -101,7 +101,7 @@ export const nebulaCoast = {
     // obstacle. The level curve still scales all of it - a theme thins, the
     // level decides how hard.
     traffic: {
-      mix: { sedan: 0.8, van: 0.5, ambulance: 0.25, jeep: 0.7, boxTruck: 0.4, semi: 0.3, motorcycle: 0.85 },
+      mix: { sedan: 0.8, van: 0.5, ambulance: 0.25, jeep: 0.7, boxTruck: 0.4, semi: 0.3, bus: 0.5, motorcycle: 0.85 },
       look: {
         sedan: { stripColor: 0x3df0e0 },
         jeep: { stripColor: 0xff5eb0 },

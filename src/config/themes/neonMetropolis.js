@@ -112,7 +112,7 @@ export const neonMetropolis = {
     // City traffic: everything, and more of the small stuff. Fewer semis -
     // they are banned from most urban motorways at night anyway.
     traffic: {
-      mix: { sedan: 1, van: 1, ambulance: 0.8, jeep: 0.9, boxTruck: 0.7, semi: 0.45, motorcycle: 1 },
+      mix: { sedan: 1, van: 1, ambulance: 0.8, jeep: 0.9, boxTruck: 0.7, semi: 0.45, bus: 1, motorcycle: 1 },
       look: {
         sedan: { stripColor: 0x2de3ff },
         van: { stripColor: 0xb07dff },

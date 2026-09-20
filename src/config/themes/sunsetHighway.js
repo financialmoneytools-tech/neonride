@@ -127,7 +127,7 @@ export const sunsetHighway = {
     // A highway in the middle of nowhere runs freight. More trucks than
     // anywhere else, fewer motorcycles - nobody commutes out here.
     traffic: {
-      mix: { sedan: 0.75, van: 0.9, ambulance: 0.3, jeep: 1, boxTruck: 1, semi: 1, motorcycle: 0.45 },
+      mix: { sedan: 0.75, van: 0.9, ambulance: 0.3, jeep: 1, boxTruck: 1, semi: 1, bus: 0.35, motorcycle: 0.45 },
       look: {
         sedan: { stripColor: 0xff9a3d },
         jeep: { stripColor: 0xffd166 },

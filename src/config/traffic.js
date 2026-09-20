@@ -263,6 +263,32 @@ export const traffic = {
       },
     },
     {
+      name: 'bus',
+      ...vehicles.bus,
+      // SIX. A bus is a rare thing to meet and an expensive one to meet often:
+      // at 11.5 m it occupies as much lane as two cars and a gap, so a count
+      // that reads as "a bus every so often" is the one that keeps the road
+      // passable. Six against the semi's six, and the semi is the only other
+      // vehicle in its length class.
+      count: 6,
+      size: { length: 11.5, width: 2.5, height: 3.05 },
+      // Slower than anything with a car's shape, quicker than a loaded lorry.
+      speed: { min: 0.32, max: 0.5 },
+      // NOT IN THE OUTSIDE LANE, for the same reason the box truck is not:
+      // lane 0 is the fastest one, and a 2.5 m vehicle there can pair with
+      // another across the road and leave no legal line at all. Keeping the
+      // widest vehicles out of it is what guarantees the escape guard always
+      // has somewhere to go.
+      minLane: 1,
+      rideHeight: 0.35,
+      // The rear outline frames the CHASSIS, and on a body this tall that is a
+      // lit rectangle across the bottom third of a face whose whole read is
+      // the window band above it. Same call the two lorries made.
+      outlineGain: 0,
+      rearGlow: 0.16,
+      stripColor: 0x4ad6ff,
+    },
+    {
       name: 'motorcycle',
       count: 14,
       size: { length: 2.0, width: 0.5, height: 1.15 },

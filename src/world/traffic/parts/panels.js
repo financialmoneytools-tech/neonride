@@ -96,20 +96,32 @@ export function addRearBumper(builder, matrix, bumper, halfWidth, rearZ) {
 }
 
 /**
- * Side skirts: a panel down each flank between the axles.
+ * A flat panel down one or both flanks.
  *
- * What a semi trailer has and a box truck does not, and from the lane beside
- * one it is most of the difference - a trailer with its underside open reads
- * as a box on stilts, and with skirts it reads as a trailer.
+ * ONE function for three jobs, because they are one shape: a semi's side
+ * skirt, a bus's window band and a bus's kerbside doors are all a dark
+ * rectangle laid on the side of a body. Giving each its own builder would be
+ * three copies of four lines.
+ *
+ * A skirt is what a semi trailer has and a box truck does not, and from the
+ * lane alongside it is most of the difference between a trailer and a box on
+ * stilts. A window band is the entire read of a bus - a slab that long with
+ * no glass in it is a shipping container.
+ *
+ * `side` is 'both' by default, or 'left' or 'right'. A bus's doors are on one
+ * side only, and which side is not decoration: they face the kerb, which on
+ * this road is the right hand shoulder.
  * @param {import('../../../utils/geometry.js').GeometryBuilder} builder
  * @param {THREE.Matrix4} matrix
- * @param {object} skirts `{ from, to, top, bottom, out, thickness, color }`
+ * @param {object} panel `{ from, to, top, bottom, out, thickness, color, side }`
  * @param {number} halfWidth
  */
-export function addSideSkirts(builder, matrix, skirts, halfWidth) {
+export function addFlankPanel(builder, matrix, panel, halfWidth) {
+  const skirts = panel;
   const length = skirts.to - skirts.from;
   const height = skirts.top - skirts.bottom;
-  for (const sign of [-1, 1]) {
+  const sides = panel.side === 'left' ? [-1] : panel.side === 'right' ? [1] : [-1, 1];
+  for (const sign of sides) {
     builder.add(
       solid(painted(
         new THREE.BoxGeometry(skirts.thickness, height, length), skirts.color), 0.3),
@@ -118,6 +130,27 @@ export function addSideSkirts(builder, matrix, skirts, halfWidth) {
         skirts.bottom + height * 0.5,
         skirts.from + length * 0.5,
       ),
+    );
+  }
+}
+
+/**
+ * Boxes on the roof - the air conditioning pods on a bus.
+ *
+ * A bus roof is the largest flat area in the fleet and an empty one reads as
+ * a lid. Two pods break it, and from behind at road level they are what tells
+ * the eye the roof has a far edge.
+ * @param {import('../../../utils/geometry.js').GeometryBuilder} builder
+ * @param {THREE.Matrix4} matrix
+ * @param {object[]} pods each `{ z, length, width, height, color }`
+ * @param {number} roofY
+ */
+export function addRoofPods(builder, matrix, pods, roofY) {
+  for (const pod of pods) {
+    builder.add(
+      solid(painted(
+        new THREE.BoxGeometry(pod.width, pod.height, pod.length), pod.color), 0.36),
+      matrix.makeTranslation(0, roofY + pod.height * 0.5, pod.z),
     );
   }
 }

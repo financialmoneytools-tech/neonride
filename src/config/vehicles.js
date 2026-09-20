@@ -155,4 +155,51 @@ export const vehicles = {
     skirts: { from: -3.4, to: 6.2, top: -0.85, bottom: -1.45, out: 0.06,
       thickness: 0.05, color: 0x101016 },
   },
+
+  // ================= THE BUS =================
+  //
+  // The eighth type, and the one the fleet had no equivalent of: long, tall,
+  // FLAT SIDED and slow. A semi is longer and a box truck is as tall, but
+  // both are hardware - wheels, flaps, skirts, a notch behind the cab - and a
+  // bus is a single smooth volume with a band of glass down it. That band is
+  // its entire read. A slab this long with no glass in it is a shipping
+  // container, which is what it would be without the flank panels below.
+  //
+  // The doors are on ONE side, the right, because they face the kerb. That is
+  // not decoration: it is the detail that makes a bus passed on the left look
+  // different from the same bus passed on the right, and the rider does both.
+  bus: {
+    profile: [
+      [-5.75, -1.15], [-5.70, -0.55], [-5.58, -0.28], [-5.18, 1.33],
+      [-4.86, 1.52], [5.54, 1.52], [5.75, 1.32], [5.75, -1.15],
+    ],
+    wheels: {
+      radius: 0.46, width: 0.3, inset: 0.1, axles: [-3.9, 3.5],
+      color: 0x0a0a0d,
+      arch: { height: 0.26, spread: 0.22, out: 0.004, thickness: 0.04, color: 0x15151c },
+    },
+    flanks: [
+      // The window band. Dark, because at night a bus's glass is darker than
+      // its paint unless the interior is lit, and a pale band would read as a
+      // white stripe rather than as windows.
+      { from: -4.9, to: 5.3, top: 1.16, bottom: 0.34, out: 0.01,
+        thickness: 0.04, color: 0x12161d },
+      // Two kerbside doors, cut through the band down to the sill.
+      { from: -4.75, to: -3.85, top: 1.16, bottom: -0.62, out: 0.005,
+        thickness: 0.05, color: 0x0d1016, side: 'right' },
+      { from: 1.15, to: 2.05, top: 1.16, bottom: -0.62, out: 0.005,
+        thickness: 0.05, color: 0x0d1016, side: 'right' },
+    ],
+    roofPods: [
+      { z: -2.6, length: 2.2, width: 1.5, height: 0.16, color: 0x16161d },
+      { z: 2.4, length: 1.6, width: 1.3, height: 0.14, color: 0x16161d },
+    ],
+    doors: { seam: 0.05, depth: 0.035, top: 1.1, bottom: 0.0, hinges: 0, inset: 0.2,
+      hingeWidth: 0.26, color: 0x12161d },
+    rear: {
+      bumper: { height: 0.2, depth: 0.15, y: -0.95, widthScale: 0.94, color: 0x15151c },
+      plate: { width: 0.44, height: 0.15, x: 0, y: -0.74, color: 0xdfe6ee },
+      recess: { width: 0.56, height: 0.23, y: -0.74, depth: 0.05, color: 0x101016 },
+    },
+  },
 };
