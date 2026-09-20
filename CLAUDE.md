@@ -99,9 +99,28 @@ src/
   cogu tarayici kilidi reddeder, karti asil uygulayan sey odur.
 - Yol dort seritli bir otoyol. Her yanal konum `world/road/layout.js`'ten
   tureler; hicbir modul kendi metre degerini yazmaz.
-- Dokunmatik kontrol ekranin ALT SERIDINDE: sol alt kose sola, sag alt kose
-  saga, ikisi birden fren. Ust yariya dokunmak gaz verir ama direksiyon
-  cevirmez - telefonu tutan el yanlislikla yon vermesin diye.
+- Dokunmatik kontrol IKI YARIM EKRAN, ve direksiyon bir SURUKLEME. Bu satir
+  uzun sure yanlis yazilmisti: "sol alt kose sola, sag alt kose saga" diyordu,
+  kod ise `c77e08e`'den beri boyle calismiyor. Kodun tarif ettigi sey dogru
+  olan, dokuman ona uyduruldu - tersine degil.
+  - Ekranin SOL yarisi direksiyon. Basparmagin indigi yer "duz ileri"dir;
+    yon, parmagin indigi noktadan SAGA ya da SOLA ne kadar surukledigine gore
+    verilir. Tam kilit `config/controls.js` -> `touch.dragRange` kadar yol,
+    yani ekran genisliginin yuzde 20'si. Parmak kalkinca yon sifirlanir ve
+    bir sonraki dokunus yeni bir sifir noktasi baslatir.
+  - **Basili tutmak hicbir sey yapmaz**, ve bu tasarim geregi. Sol alt koseyi
+    tutmak `_touchSteer` 0 ve gaz 0 verir - yani motosiklet hic hareket etmez.
+    Olculdu: sol kose basili, `steer` 0.000, `lateral` 0.00; sag kose basili,
+    gaz 1 ama yine `steer` 0.000.
+  - Ekranin SAG yarisi gaz. Fren, sag basparmagin USTUNDE ayri bir dikdortgen
+    (`touch.brake`), boylece frene uzanan el gazin uzerinden gecmez.
+  - Surukleme kendini anlatmak zorunda: ekranda gorunur bir direksiyon
+    gostergesi var - parmagin indigi yer ve ne kadar surukledigi. Sadece
+    `touch` modunda; god modunda ve capture modunda cizilmez, cunku ikisi de
+    kayit icindir. Bkz. `ui/SteerIndicator.js`.
+- TILT modu baska bir sey: yon sensorden gelir, iki yarim ekran ise sadece
+  gaz ve fren olur (`controls.halves`). Sensor izni reddedilirse mod `touch`a
+  duser.
 - Adres cubugu acilip kapanirken boyut degisimi `Viewport.js` tarafindan
   `visualViewport` uzerinden okunur, debounce edilir ve kucuk degisimler
   yok sayilir. Cihaz dondurulunce debounce atlanir.
