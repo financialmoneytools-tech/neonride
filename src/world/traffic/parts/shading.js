@@ -32,11 +32,21 @@ import * as THREE from 'three';
  * geometry; a box has to be converted, which is what `faceted` is for.
  */
 
-// High, ahead and a little to the left of the rider, so a vehicle seen from
-// behind has a bright roof, one lit flank and one in shadow. Fixed in the
-// vehicle's own space, which is sound for the same reason it is sound for
-// scenery: traffic is only ever turned about Y, by the road's heading.
-const LIGHT = new THREE.Vector3(-0.38, 0.86, -0.34).normalize();
+// High, a little to the left, and BEHIND the vehicle - which is to say in
+// front of the rider, shining back at the traffic.
+//
+// The direction is not a taste choice. +z is a vehicle's REAR, and the rear
+// is the face the rider looks at for essentially the whole game. Pointing the
+// light forward, as the first version did by copying the scenery light, put
+// the deepest shade on exactly that face: photographed, a car eight metres
+// ahead was a black shape with a boot lid, a bumper and a plate recess on it
+// that could not be told apart. Turning it round costs nothing and lights the
+// one face that has to read.
+//
+// Fixed in the vehicle's own space, which is sound for the same reason it is
+// sound for scenery: traffic is only ever turned about Y, by the road's
+// heading.
+const LIGHT = new THREE.Vector3(-0.34, 0.80, 0.50).normalize();
 
 /**
  * Gives every triangle its own three vertices, so it can hold its own colour.

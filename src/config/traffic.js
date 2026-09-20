@@ -103,6 +103,24 @@ export const traffic = {
       size: { length: 4.7, width: 2.1, height: 0.82 },
       speed: { min: 0.4, max: 0.78 },
       stripColor: 0x2de3ff,
+      // AND THE FRAME READS AS A RIM, not a slab. The rear outline is sized
+      // from `size`, which is the COLLISION box - so on a car whose shell is
+      // now a profile with a greenhouse above it, a full strength frame is a
+      // bright rectangle drawn around a shape it no longer matches. Dimmed
+      // rather than removed: head on it is still what separates a car from
+      // the road behind it at distance, which is the job it was added for.
+      outlineGain: 0.45,
+      // THE HALO COMES DOWN, because there is something behind it now. At a
+      // gain of 1 the rear halo is width * 1.5 by height * 1.55 of additive
+      // colour laid over exactly the face that carries the boot lid, the
+      // bumper, the plate recess and the lamps - and photographed against
+      // Sunset Highway's orange it was a solid glowing block with the car
+      // somewhere behind it. This is the argument the two lorries already
+      // made at 0.1; it only reaches the light vehicles now that their rears
+      // are worth seeing. Not zero: the halo is what makes distant traffic
+      // resolve out of the fog, which is a gameplay job rather than a
+      // decorative one.
+      rearGlow: 0.42,
     },
     {
       name: 'van',
@@ -113,6 +131,8 @@ export const traffic = {
       size: { length: 5.2, width: 2.15, height: 2.55 },
       speed: { min: 0.3, max: 0.52 },
       stripColor: 0xff8a1f,
+      outlineGain: 0.45,
+      rearGlow: 0.42,
     },
     {
       name: 'ambulance',
@@ -124,6 +144,8 @@ export const traffic = {
       bodyColor: 0xc8ccd4, // white, the one type that does not take the palette
       speed: { min: 0.5, max: 0.66 },
       stripColor: 0xff2a3c,
+      outlineGain: 0.45,
+      rearGlow: 0.42,
       beacon: {
         // Left lamp is red and right is blue, baked as vertex colours. The
         // instance colour then alternates between red and blue, which lights
@@ -152,6 +174,8 @@ export const traffic = {
       rideHeight: 0.38,
       speed: { min: 0.36, max: 0.7 },
       stripColor: 0x39ff88,
+      outlineGain: 0.45,
+      rearGlow: 0.42,
     },
     {
       name: 'boxTruck',
@@ -295,6 +319,7 @@ export const traffic = {
       size: { length: 2.0, width: 0.5, height: 1.15 },
       speed: { min: 0.55, max: 0.86 },
       stripColor: 0xff36c8,
+      rearGlow: 0.5,
       // NO REAR FRAME. The outline frames the chassis, and on a 0.5 m wide
       // body that is a lit rectangle 0.4 by 1.05 - which is the whole
       // motorcycle. It read as a magenta slab with a dark smudge on it,
